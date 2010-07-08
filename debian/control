@@ -39,7 +39,7 @@ Depends: ocaml-nox-${F:OCamlABI}, ocaml-findlib,
  libzip-ocaml, libbz2-ocaml,
  ${shlibs:Depends}, ${misc:Depends}
 Description: OCaml libraries for managing packages and their dependencies
-Dose3 is a framework made of several OCaml libraries for managing
+ Dose3 is a framework made of several OCaml libraries for managing
  distribution packages and their dependencies.
  .
  Though not tied to any particular distribution, Dose3 constitutes a
