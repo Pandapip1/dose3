@@ -28,6 +28,7 @@ let f_strongdeps_simple = "tests/strongdep-simple.cudf"
 let f_strongdeps_conflict = "tests/strongdep-conflict.cudf"
 let f_strongdeps_cycle = "tests/strongdep-cycle.cudf"
 let f_strongdeps_conj = "tests/strongdep-conj.cudf"
+let f_selfprovide = "tests/selfprovide.cudf"
 
 let (universe,request) =
   let (_,univ,request) = Cudf_parser.parse_from_file f_legacy in
@@ -73,6 +74,16 @@ let test_distribcheck =
     in
     let i = Depsolver.univcheck universe in
     assert_equal 20 i
+  ) 
+
+let test_selfprovide =
+  "distribcheck" >:: (fun _ -> 
+    let universe =
+      let (_,pl,_) = Cudf_parser.parse_from_file f_selfprovide in
+      Cudf.load_universe pl
+    in
+    let i = Depsolver.univcheck universe in
+    assert_equal 0 i
   ) 
 
 let test_trim =
@@ -160,6 +171,7 @@ let test_depsolver =
     test_coinstall ;
     test_trim ;
     test_distribcheck ;
+    test_selfprovide ;
     test_dependency_closure ;
     (* test_dependency_closure_graph ; *)
     test_reverse_dependencies ;
@@ -170,36 +182,6 @@ let test_depsolver =
 let solution_set =
   let (_,pl,_) = Cudf_parser.parse_from_file f_legacy_sol in
   List.fold_right S.add pl S.empty
-
-let solve_same_legacy =
-  "solve legacy (same solution)" >:: (fun _ ->
-    let solver = Cudfsolver.load universe request in
-    let d = Cudfsolver.solve solver in
-    match d.Diagnostic.result with
-    |Diagnostic.Success f ->
-        let set = List.fold_right S.add (f ()) S.empty in
-        assert_equal true (S.equal solution_set set)
-    |Diagnostic.Failure f -> assert_failure "fail"
-  )
-
-let solve_any_legacy =
-  "solve legacy (any solution)" >:: (fun _ ->
-    let solver = Cudfsolver.load universe request in
-    let d = Cudfsolver.solve solver in
-    match d.Diagnostic.result with
-    |Diagnostic.Success f ->
-        let sol = Cudf.load_universe (f ()) in
-        let cudf = (universe,request) in
-        assert_equal (true,[]) (Cudf_checker.is_solution cudf sol) 
-    |Diagnostic.Failure f -> assert_failure "fail"
-  )
-
-let test_cudfsolver = 
-  "cudf solver" >::: [
-    solve_any_legacy ;
-    solve_same_legacy ;
-  ]
-;;
 
 let test_strong file l =
   let module G = Defaultgraphs.PackageGraph.G in
@@ -314,7 +296,6 @@ let test_clause_dump =
 let all = 
   "all tests" >::: [
     test_depsolver ;
-    test_cudfsolver ;
     test_strongdep ;
     test_defaultgraphs ;
     test_clause_dump ;

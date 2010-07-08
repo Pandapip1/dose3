@@ -19,8 +19,12 @@ type solver = {
   solver : Depsolver_int.solver
 }
 
-let load universe =
-  match Cudf_checker.is_consistent universe with
+let load ?(check=true) universe =
+  let is_consistent check universe =
+    if check then Cudf_checker.is_consistent universe
+    else (true,None)
+  in
+  match is_consistent check universe with
   |true,None ->
       let mdf = Mdf.load_from_universe universe in
       let solver = Depsolver_int.init_solver mdf.Mdf.index in
@@ -35,22 +39,12 @@ let load universe =
 let reason maps =
   let from_sat = maps.map#inttovar in
   List.map (function
-    |Diagnostic_int.Dependency(i,il) ->
-        Diagnostic.Dependency(from_sat i,List.map from_sat il)
+    |Diagnostic_int.Dependency(i,vl,il) ->
+        Diagnostic.Dependency(from_sat i,vl,List.map from_sat il)
     |Diagnostic_int.EmptyDependency(i,vl) ->
         Diagnostic.EmptyDependency(from_sat i,vl)
     |Diagnostic_int.Conflict(i,j) ->
         Diagnostic.Conflict(from_sat i,from_sat j)
-    |Diagnostic_int.Installed_alternatives(il) ->
-        Diagnostic.Installed_alternatives(List.map from_sat il)
-    |Diagnostic_int.To_install(v,il) ->
-        Diagnostic.To_install(v,List.map from_sat il)
-    |Diagnostic_int.To_remove(v,i) ->
-        Diagnostic.To_remove(v,from_sat i) 
-    |Diagnostic_int.To_upgrade(v,il) ->
-        Diagnostic.To_upgrade(v,List.map from_sat il)
-    |Diagnostic_int.To_upgrade_singleton(v,il) ->
-        Diagnostic.To_upgrade_singleton(v,List.map from_sat il)
   )
 
 let result maps result = 
@@ -69,7 +63,6 @@ let request maps result =
   match result with
   |Diagnostic_int.Sng i -> Diagnostic.Package (from_sat i)
   |Diagnostic_int.Lst il -> Diagnostic.PackageList (List.map from_sat il)
-  |Diagnostic_int.Req i -> Diagnostic.Proxy
 
 let diagnosis maps res req =
   let result = result maps res in
@@ -84,6 +77,16 @@ let univcheck ?callback universe =
   |Some f ->
       let callback_int (res,req) = f (diagnosis maps res req) in
       Depsolver_int.univcheck ~callback:callback_int (s.mdf,s.solver)
+
+let listcheck ?callback universe pkglist =
+  let mdf = Mdf.load_from_universe universe in
+  let maps = mdf.Mdf.maps in
+  let idlist = List.map maps.map#vartoint pkglist in
+  match callback with
+  |None -> Depsolver_int.listcheck mdf idlist
+  |Some f ->
+      let callback_int (res,req) = f (diagnosis maps res req) in
+      Depsolver_int.listcheck ~callback:callback_int mdf idlist
 
 let edos_install s pkg =
   let maps = s.mdf.Mdf.maps in
@@ -171,3 +174,38 @@ let output_clauses ?(enc=Cnf) universe =
   if enc = Dimacs then to_dimacs clauses;
   Buffer.contents buff
 ;;
+
+(** check if a cudf request is satisfiable. we do not care about
+ * universe consistency . We try to installa dummy package *)
+let check_request (_,pkglist,request) =
+  let deps = 
+    let k = 
+      List.filter_map (fun pkg ->
+        if pkg.Cudf.installed then
+          match pkg.Cudf.keep with
+          |`Keep_package -> Some(pkg.Cudf.package,None)
+          |`Keep_version -> Some(pkg.Cudf.package,Some(`Eq,pkg.Cudf.version))
+          |_ -> None
+        else None
+      ) pkglist
+    in
+    let l = request.Cudf.install @ request.Cudf.upgrade in
+    Util.print_info
+    "request consistency (keep %d) (install %d) (upgrade %d) (remove %d) (# %d)"
+    (List.length k) (List.length request.Cudf.install) 
+    (List.length request.Cudf.upgrade)
+    (List.length request.Cudf.remove)
+    (List.length pkglist);
+    List.map (fun j -> [j]) (l @ k) 
+  in
+  let dummy = {
+    Cudf.default_package with
+    Cudf.package = "dummy";
+    version = 1;
+    depends = deps;
+    conflicts = request.Cudf.remove}
+  in
+  let universe = Cudf.load_universe (dummy::pkglist) in
+  let solver = load ~check:false universe in
+  edos_install solver dummy
+

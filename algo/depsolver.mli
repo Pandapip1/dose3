@@ -15,8 +15,9 @@
 (** the solver is an abstract data type associated to a universe *)
 type solver
 
-(** initialize the solver *)
-val load : Cudf.universe -> solver
+(** initialize the solver. If [check] is true (default), then check 
+    for universe consistency (cf. Cudf_checker.is_consistent) *)
+val load : ?check : bool -> Cudf.universe -> solver
 
 (** check if the given package can be installed in the universe *)
 val edos_install : solver -> Cudf.package -> Diagnostic.diagnosis
@@ -47,8 +48,8 @@ val univcheck : ?callback:(Diagnostic.diagnosis -> unit) -> Cudf.universe -> int
   @return the number of broken packages
  *)
 
-(* val listcheck :
-  ?callback:(Diagnostic.diagnosis -> unit) -> solver -> Cudf.package list -> int *)
+val listcheck : ?callback:(Diagnostic.diagnosis -> unit) -> 
+  Cudf.universe -> Cudf.package list -> int 
 
 (** [dependency_closure universe l] compute the dependencies closure 
     of the give package list.
@@ -68,3 +69,6 @@ type enc = Cnf | Dimacs
 
 (** [output_clauses enc univ] return a string encoded accordingly to [enc] *)
 val output_clauses : ?enc:enc -> Cudf.universe -> string
+
+(* check if there exists a solution for the give cudf document *)
+val check_request : Cudf.cudf_doc -> Diagnostic.diagnosis
