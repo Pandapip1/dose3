@@ -24,8 +24,9 @@ module Options = struct
   let remove = StdOpt.int_option ~default:0 ()
   let keep = StdOpt.int_option ~default:0 ()
   let rstatus = StdOpt.int_option ~default:0 ()
-  let relop = StdOpt.float_option ~default:0.3 ()
-  let nostatus = StdOpt.store_true ()
+  let status = StdOpt.str_option ()
+  let rem_relop = StdOpt.float_option ~default:0.1 ()
+  let inst_relop = StdOpt.float_option ~default:0.2 ()
   let upgradeAll = StdOpt.store_true ()
 
   let outdir = StdOpt.str_option ()
@@ -41,10 +42,11 @@ module Options = struct
   add options ~short_name:'r' ~long_name:"remove" ~help:"remove n random package" remove;
   add options ~short_name:'u' ~long_name:"upgrade" ~help:"upgrade n random package" upgrade;
   add options ~short_name:'k' ~long_name:"keep" ~help:"add keep version to n random packages" keep;
+  add options                 ~long_name:"status" ~help:"package status" status;
   add options                 ~long_name:"upgradeAll" ~help:"generate one upgrade all cudf document" upgradeAll;
   add options                 ~long_name:"rstatus" ~help:"add installed to n random packages" rstatus;
-  add options                 ~long_name:"nostatus" ~help:"do no consider the first argument as a status file" nostatus;
-  add options                 ~long_name:"relop" ~help:"relop probability" relop;
+  add options                 ~long_name:"instrelop" ~help:"relop probability for install requests" inst_relop;
+  add options                 ~long_name:"remrelop" ~help:"relop probability for remove requests" rem_relop;
   add options                 ~long_name:"outdir" ~help:"specify the output directory" outdir;
   add options                 ~long_name:"seed" ~help:"specify the random generator seed" seed;
 end
@@ -64,10 +66,12 @@ let get_random ?(ver=0.0) pkglist n =
       l := (pkg.package,Some(`Eq, pkg.version))::!l
     else if Random.float(1.0) < ver then begin
       let relop = 
+        (* we set 60% the probability for =, and 20% the probability for < > *) 
         let r = Random.float(1.0) in
-        if r < 0.3 then `Eq else
-        if r > 0.3 && r < 0.6 then `Lt else
-        if r > 0.6 && r < 1.0 then `Gt else `Eq
+        if r < 0.6 then `Eq else
+        if r >= 0.6 && r < 0.8 then `Lt else
+        if r >= 0.8 && r <= 1.0 then `Gt
+        else assert false (* not reachable ? *)
       in
       l := (pkg.package,Some(relop,pkg.version))::!l
     end
@@ -83,12 +87,7 @@ let extras_properties =
 ;;
 let extras = List.map fst extras_properties ;;
 
-let preamble =
-  let l = List.map snd extras_properties in
-  CudfAdd.add_properties Debian.Debcudf.preamble l
-;;
-
-let create_pkglist pkglist status =
+let create_pkglist pkglist =
   let (>>) f g = g f in
   let build_hash n =
     let l = get_random ~ver:1.0 pkglist n in
@@ -98,52 +97,46 @@ let create_pkglist pkglist status =
   in
   let keep_hash = build_hash (OptParse.Opt.get Options.keep) in
   let rstatus_hash = build_hash (OptParse.Opt.get Options.rstatus) in
-  let status_hash =
-    let h = Hashtbl.create (List.length status) in
-    List.iter (fun pkg ->
-      try
-        if (List.assoc "status" pkg.Debian.Packages.extras) = "install ok installed" then
-          Hashtbl.add h (pkg.Debian.Packages.name,pkg.Debian.Packages.version) ()
-      with Not_found -> ()
-    ) status;
-    h
-  in
-  Printf.printf "rstatus %d\n" (Hashtbl.length rstatus_hash);
-  Printf.printf "status %d\n" (List.length status);
   let app h f pkg =
     if Hashtbl.mem h (pkg.package,Some(`Eq, pkg.version)) then f pkg else pkg
   in
+  let installed = ref [] in
   let l =
-      List.map (fun pkg ->
-        pkg >>
-        app rstatus_hash (fun p -> { p with installed = true }) >>
-        app keep_hash (fun p -> {p with keep = `Keep_version}) >>
-        (fun pkg ->
-          try
-            let number = Cudf.lookup_package_property pkg "number" in
-            if Hashtbl.mem status_hash (pkg.package,number) then
-              { pkg with installed = true }
-            else pkg
-          with Not_found -> pkg
-        )
-      ) pkglist 
+    List.map (fun pkg ->
+      pkg >>
+      app rstatus_hash (fun p -> { p with installed = true }) >>
+      app keep_hash (fun p -> {p with keep = `Keep_version}) >>
+      (fun pkg -> if pkg.installed then installed := pkg::!installed ; pkg)
+    ) pkglist 
   in
-  (l, Cudf.load_universe l)
+  (!installed, l, Cudf.load_universe l)
 ;;
 
-let to_install_random p l =
-  get_random ~ver:p l (OptParse.Opt.get Options.install)
+let to_install_random removed p l =
+  let l' = 
+    List.filter(fun p ->
+      try ignore(List.find (fun (q,_) -> p.package = q) removed) ; false
+      with Not_found -> true
+    ) l
+  in
+  get_random ~ver:p l' (OptParse.Opt.get Options.install)
 ;;
 
-let to_upgrade_random l =
-  get_random l (OptParse.Opt.get Options.upgrade)
+let to_upgrade_random removed l =
+  let l' = 
+    List.filter(fun p ->
+      try ignore(List.find (fun (q,_) -> p.package = q) removed) ; false
+      with Not_found -> true
+    ) l
+  in
+  get_random l' (OptParse.Opt.get Options.upgrade)
 ;;
 
 let to_remove_random p l =
   get_random ~ver:p l (OptParse.Opt.get Options.remove)
 ;; 
 
-let create_cudf universe (to_install,to_upgrade,to_remove) =
+let create_cudf (preamble,universe,request)  =
   let oc = 
     if (OptParse.Opt.is_set Options.outdir) then begin
       let tmpfile = Filename.temp_file "rand" ".cudf" in
@@ -154,18 +147,32 @@ let create_cudf universe (to_install,to_upgrade,to_remove) =
       open_out file
     end else stdout
   in
-  let request =
-    (* XXX request_id should be a unique identifier *)
-    { request_id = "RAND-CUDF-GENERATOR" ;
-        install = to_install ;
-        upgrade = to_upgrade ;
-        remove = to_remove ;
-        req_extra = [] ;
-    }
-  in
   Cudf_printer.pp_cudf (Format.formatter_of_out_channel oc) (preamble,universe,request);
   close_out oc
 ;;
+
+let check_request (pkglist,keeplist) (i,r,u) =
+  let deps = List.map (fun j -> [j]) (i @ u @ keeplist) in
+  let dummy = {
+    Cudf.default_package with
+    package = "dummy";
+    version = 1;
+    depends = deps;
+    conflicts = r} 
+  in
+  Printf.printf "checking (hard deps %d) (conflicts %d) (# %d)...\n%!"
+  (List.length deps) (List.length r) (List.length pkglist);
+  let universe = Cudf.load_universe (dummy::pkglist) in
+  let solver = Depsolver.load ~check:false universe in 
+  match Depsolver.edos_install solver dummy with
+  |{Diagnostic.result = Diagnostic.Success _ } -> true
+  |{Diagnostic.result = Diagnostic.Failure _ } -> false
+
+let read_deb ?(extras=[]) s =
+  let ch = IO.input_channel (open_in s) in
+  let l = Debian.Packages.parse_packages_in ~extras (fun x->x) ch in
+  let _ = IO.close_in ch in
+  l
 
 let main () =
   at_exit (fun () -> Util.dump Format.err_formatter);
@@ -174,25 +181,39 @@ let main () =
   if OptParse.Opt.get Options.debug then Boilerplate.enable_debug () ;
   Random.init (OptParse.Opt.get Options.seed);
 
-  let (statusfile, uris) =
-    match posargs with
-    |[] -> (Printf.eprintf "Missing input" ; exit 1 )
-    |[h] when (OptParse.Opt.get Options.nostatus) -> ("",[h])
-    |[h] -> (Printf.eprintf "Missing arguments" ; exit 1)
-    (* |h::t when (OptParse.Opt.get Options.nostatus) -> ("",h::t) *)
-    |h::t -> (h,h::t)
-  in
-
   (* we assume the status file is alwasy in dpkg format ! *)
   let status =
-    if statusfile = "" then []
-    else 
-      match Input.parse_uri statusfile with
-      |("deb",(_,_,_,_,f),_) -> Debian.Packages.input_raw [f]
-      |_ -> assert false
+    if OptParse.Opt.is_set Options.status then 
+      read_deb (OptParse.Opt.get Options.status)
+    else []
   in
+  let uris = posargs in
   (* raw -> cudf *)
-  let (pkglist,_,_) = Boilerplate.load_list ~extras:extras_properties uris in
+  let (preamble,pkglist) = 
+    let default_preamble =
+      let l = List.map snd extras_properties in
+      CudfAdd.add_properties Debian.Debcudf.preamble l
+    in
+    if not(OptParse.Opt.is_set Options.status) then
+      let preamble, pkglist, _ = CudfAdd.parse_cudf (List.hd uris) in
+      match preamble with
+      |None -> (default_preamble,pkglist)
+      |Some preamble -> (preamble,pkglist)
+    else 
+      let l = 
+        let filelist typ = function
+          |(t,(_,_,_,_,file),_) when t = typ -> file
+          |_ -> assert false
+        in
+        match Boilerplate.filter None [] uris with
+        |("deb", l) ->
+            let filelist = List.map (filelist "deb") l in
+            Debian.Packages.input_raw filelist
+        |_ -> assert false
+      in
+      let (pkglist,_,_) = Boilerplate.deb_load_list ( Debian.Packages.merge status l ) in
+      (default_preamble, pkglist)
+  in
 
   Printf.printf "Package %d\n%!" (List.length pkglist);
   Printf.printf "Generating %d random documents with\n%!" (OptParse.Opt.get Options.documents);
@@ -200,33 +221,39 @@ let main () =
   Printf.printf "remove : %d\n%!" (OptParse.Opt.get Options.remove);
   Printf.printf "upgrade : %d\n%!" (OptParse.Opt.get Options.upgrade);
   Printf.printf "and %d upgrade all document\n%!" (if (OptParse.Opt.get Options.upgradeAll) then 1 else 0);
-
+  
+  let rp = OptParse.Opt.get Options.rem_relop in
+  let ip = OptParse.Opt.get Options.inst_relop in
   for j = 0 to (OptParse.Opt.get Options.documents) do
-    let (pkglist,universe) = create_pkglist pkglist status in
-    let installed =
-      Cudf.fold_packages (fun l pkg -> 
-        if pkg.installed then pkg::l else l
-      ) [] universe
-    in
-    Printf.printf "Universe %d\n%!" (Cudf.universe_size universe);
-    Printf.printf "Status %d\n%!" (List.length status);
-    Printf.printf "Installed %d\n%!" (List.length installed);
-    let p = OptParse.Opt.get Options.relop in
-    let i = to_install_random p pkglist in
-    let u = to_upgrade_random installed in
-    let r = to_remove_random p installed in
-    Printf.printf "%d %!" j;
-    create_cudf universe (i,u,r)
+    let rec one () = 
+      (* we install with 20% probability to add a relop to the request
+       * and we remove with 10% probability to add a relop to the request *)
+      let (installed,pkglist,universe) = create_pkglist pkglist in
+      let request =
+        let r = to_remove_random rp installed in
+        { request_id = "RAND-CUDF-GENERATOR" ;
+          install = to_install_random r ip pkglist ;
+          upgrade = to_upgrade_random r installed ;
+          remove =  r ;
+          req_extra = [] ; }
+      in
+      if Diagnostic.is_solution (Depsolver.check_request (None,pkglist,request)) then begin 
+        Printf.printf "#%d (installed %d) %!" j (List.length installed);
+        create_cudf (preamble,universe,request)
+      end else (Printf.printf ".%!" ; one () )
+    in one ()
   done
   ;
   if (OptParse.Opt.get Options.upgradeAll) then begin
-    let (pkglist,universe) = create_pkglist pkglist status in
-    let installed =
-      Cudf.fold_packages (fun l pkg -> 
-        if pkg.installed then pkg::l else l
-      ) [] universe
+    let (installed,pkglist,universe) = create_pkglist pkglist in
+    let request =
+      { request_id = "RAND-CUDF-GENERATOR" ;
+        install = [] ;
+        upgrade = List.map (fun pkg -> (pkg.package,None)) installed ;
+        remove =  [] ;
+        req_extra = [] ; }
     in
-    create_cudf universe ([],List.map (fun pkg -> (pkg.package,None)) installed,[])
+    create_cudf (preamble,universe,request)
   end
 ;;
 

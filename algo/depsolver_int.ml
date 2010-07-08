@@ -84,10 +84,10 @@ let init_solver ?(buffer=false) ?(proxy_size=0) ?closure index =
   let exec_depends map constraints pkg_id pkg =
     let satvar = map#vartoint pkg_id in
     let lit = S.lit_of_var satvar false in
-    List.iter (fun (vpkg,disjunction,_) ->
+    List.iter (fun (vpkgs,disjunction,_) ->
       incr num_dependencies;
       if List.length disjunction = 0 then
-        S.add_un_rule constraints lit [Diagnostic_int.EmptyDependency(pkg_id,vpkg)]
+        S.add_un_rule constraints lit [Diagnostic_int.EmptyDependency(pkg_id,vpkgs)]
       else begin
         let lit_list =
           let a =
@@ -99,7 +99,7 @@ let init_solver ?(buffer=false) ?(proxy_size=0) ?closure index =
           lit::a
         in
         S.add_rule constraints (Array.of_list lit_list)
-        [Diagnostic_int.Dependency(pkg_id,disjunction)]
+        [Diagnostic_int.Dependency(pkg_id,vpkgs,disjunction)]
         ;
         if List.length disjunction > 1 then
           S.associate_vars constraints
@@ -206,9 +206,6 @@ let solve solver request =
   in
 
   match request with
-  |Diagnostic_int.Req i ->
-      let proxy_var = solver.proxy i in
-      result S.solve S.collect_reasons ~proxies:[proxy_var] proxy_var
   |Diagnostic_int.Sng i ->
       result S.solve S.collect_reasons (solver.map#vartoint i)
   |Diagnostic_int.Lst il ->

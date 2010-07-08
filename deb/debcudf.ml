@@ -156,6 +156,8 @@ let loadl tables l =
 
 (* we add a self conflict here, because in debian each package is in conflict
    with all other versions of the same package *)
+let loadlc tables name l = (CudfAdd.encode name, None)::(loadl tables l)
+(*
 let loadlc tables name l =
   let l' = 
     List.flatten (
@@ -171,6 +173,7 @@ let loadlc tables name l =
       ) l
     )
   in (CudfAdd.encode name, None)::l'
+*)
 
 let loadlp tables l =
   List.map (fun (name,sel) ->
@@ -239,6 +242,12 @@ let add_essential = function
   |false -> `Keep_none
   |true -> `Keep_package
 
+let add_inst inst pkg =
+  if inst then true 
+  else
+    try ((List.assoc "status" pkg.extras) = "install ok installed")
+    with Not_found -> false
+
 let tocudf tables ?(extras=[]) ?(inst=false) pkg =
     { Cudf.default_package with
       Cudf.package = CudfAdd.encode pkg.name ;
@@ -247,7 +256,7 @@ let tocudf tables ?(extras=[]) ?(inst=false) pkg =
       Cudf.depends = loadll tables (pkg.pre_depends @ pkg.depends);
       Cudf.conflicts = loadlc tables pkg.name (pkg.breaks @ pkg.conflicts) ;
       Cudf.provides = loadlp tables pkg.provides ;
-      Cudf.installed = inst;
+      Cudf.installed = add_inst inst pkg;
       Cudf.pkg_extra = add_extra extras tables pkg ;
     }
 
