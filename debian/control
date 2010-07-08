@@ -5,7 +5,7 @@ Maintainer: Debian OCaml Maintainers <debian-ocaml-maint@lists.debian.org>
 Uploaders: Stefano Zacchiroli <zack@debian.org>,
  Ralf Treinen <treinen@debian.org>
 Build-Depends: debhelper (>= 7), dh-ocaml,
- ocaml-nox,
+ ocaml-nox,libpcre-ocaml-dev, libextlib-ocaml-dev,
  libcudf-ocaml-dev
 Standards-Version: 3.9.0
 Homepage: http://www.mancoosi.org/software/
