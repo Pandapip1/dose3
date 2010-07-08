@@ -1,0 +1,6 @@
+<common>: include
+<algo>: include
+<db>: include
+<deb>: include
+@INCLUDE_RPM@
+@INCLUDE_CUDF@
