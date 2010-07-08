@@ -1,0 +1,51 @@
+This package was debianized by Ralf Treinen <treinen@debian.org>
+Thu Jul  8 20:58:21 CEST 2010.
+
+It was downloaded from <http://gforge.info.ucl.ac.be/frs/?group_id=35>
+
+File: deb/version.ml
+Copyright: © 2009 Jaap Boender
+License: LGPL-3+
+
+File: deb/format822.ml
+Copyright: © 2005-2009 Jerome Vouillion, Stefano Zacchiroli, Pietro Abate
+License: LGPL-3+
+
+File: algo/statistics.ml
+Copyright: © 2008 Jaap Boender, Stefano Zacchiroli, Pietro Abate
+License: LGPL-3+
+
+Files: common/edosSolver.ml, common/edosSolver.mli 
+Copyright: © 2005-2009 Jerome Vouillion
+License: LGPL-3+
+
+File: common/util.ml
+Copyright: © 2009 Alain Frish, Pietro Abate
+License: LGPL-3+
+
+File: common/url.ml
+Copyright: © 2001,2002 b8_bavard, b8_fee_carabine, INRIA
+License: LGPL-2+
+
+File: *
+Copyright: © 2009-2010 Pietro Abate
+License: LGPL-3+
+
+This library is free software: you can redistribute it and/or modify
+it under the terms of the GNU Lesser General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.  A special linking
+exception to the GNU Lesser General Public License applies to this
+library, see the COPYING file for more information.
+
+On Debian systems, the complete text of the latest GNU Lesser General
+Public License can be found in `/usr/share/common-licenses/LGPL'.
+
+Files: debian/*
+Copyright: © 2010 Ralf Treinen <zack@debian.org>
+License: GPL-3+
+
+The Debian packaging is copyright Ralf Treinen, and licensed under the
+GNU General Public License, see `/usr/share/common-licenses/GPL' for
+the full text.
+
