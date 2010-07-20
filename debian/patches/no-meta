@@ -4,8 +4,8 @@ Description: META files are currently missing in upstream - do not try to
 
 Index: dose3/Makefile
 ===================================================================
---- dose3.orig/Makefile	2010-07-20 22:52:39.000000000 +0200
-+++ dose3/Makefile	2010-07-20 22:53:20.000000000 +0200
+--- dose3.orig/Makefile	2010-07-20 23:00:07.000000000 +0200
++++ dose3/Makefile	2010-07-20 23:01:27.000000000 +0200
 @@ -43,7 +43,7 @@
  
  tags: TAGS
@@ -15,3 +15,16 @@ Index: dose3/Makefile
  INSTALL_STUFF += $(wildcard _build/*.cma _build/*.cmxa _build/cudf.a)
  INSTALL_STUFF += $(wildcard _build/cudf_*.cmi) $(wildcard *.mli)
  INSTALL_STUFF += $(wildcard _build/cudf_*.cmx _build/cudf_*.o _build/cudf_*.a)
+Index: dose3/db/Makefile
+===================================================================
+--- dose3.orig/db/Makefile	2010-07-20 23:02:00.000000000 +0200
++++ dose3/db/Makefile	2010-07-20 23:02:15.000000000 +0200
+@@ -43,7 +43,7 @@
+ headers: header.txt .headache.conf
+ 	headache -h header.txt -c .headache.conf $(SOURCES) $(C_LIB_SOURCES)
+ 
+-INSTALL_STUFF = META
++INSTALL_STUFF = 
+ INSTALL_STUFF += $(wildcard _build/*.cma _build/*.cmxa _build/*.a)
+ INSTALL_STUFF += $(wildcard *.mli)
+ 
