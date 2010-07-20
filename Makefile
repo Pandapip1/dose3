@@ -43,7 +43,7 @@ test:
 
 tags: TAGS
 
-INSTALL_STUFF = META
+INSTALL_STUFF =
 INSTALL_STUFF += $(wildcard _build/*.cma _build/*.cmxa _build/cudf.a)
 INSTALL_STUFF += $(wildcard _build/cudf_*.cmi) $(wildcard *.mli)
 INSTALL_STUFF += $(wildcard _build/cudf_*.cmx _build/cudf_*.o _build/cudf_*.a)
