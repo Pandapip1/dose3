@@ -14,9 +14,7 @@ Vcs-Git: git://git.debian.org/git/pkg-ocaml-maint/packages/dose3.git
 
 Package: libdose3-ocaml-dev
 Architecture: any
-Depends: ocaml-nox-${F:OCamlABI}, ocaml-findlib,
- libdose3-ocaml (= ${binary:Version}),
- ${misc:Depends}
+Depends: ocaml-nox-${F:OCamlABI}, ${ocaml:Depends}, ${misc:Depends}
 Description: OCaml libraries for package dependencies (development files)
  Dose3 is a framework made of several OCaml libraries for managing
  distribution packages and their dependencies.
@@ -30,28 +28,31 @@ Description: OCaml libraries for package dependencies (development files)
  problems (monitoring package evolutions, correct and complete
  dependency resolution, repository-wide uninstallability checks).
  .
- This package contains the development stuff you need to use dose2 in
+ This package contains the development stuff you need to use dose3 in
  the development of your programs.
 
-Package: libdose3-ocaml
+Package: dose3-distcheck
 Architecture: any
-Depends: ocaml-nox-${F:OCamlABI}, ocaml-findlib,
- libpcre-ocaml,
- libzip-ocaml, libbz2-ocaml,
- ${shlibs:Depends}, ${misc:Depends}
-Description: OCaml libraries for managing packages and their dependencies
- Dose3 is a framework made of several OCaml libraries for managing
- distribution packages and their dependencies.
+Depends: ${ocaml:Depends}, ${misc:Depends}
+Description: Checks whether dependencies of packages can be satisfied
+ This software checks for every package of a distribution whether it
+ is possible to satisfy its dependencies and conflicts within this
+ distribution. It comes in several versions:
+  - edos-debcheck for Debian packages
+  - edos-rpmcheck for rpm packages
+ NOTE: This is an experimental package which will eventually replace
+ edos-distcheck. Until then, the name of the package or of the binary,
+ as well as command line options and output format, are subject to change.
+
+Package: dose3-builddebcheck
+Architecture: any
+Depends: ${ocaml:Depends}, ${misc:Depends}
+ This software checks, given a collection of source package stanzas
+ and a collection of binary package stanzas, whether the build-dependencies
+ of each source package can be satisfied by the binay packages.
  .
- Though not tied to any particular distribution, Dose3 constitutes a
- pool of libraries which enable analyzing packages coming from various
- distribution. 
- .
- Besides basic functionalities for querying and setting package
- properties, dose also implements algorithms for solving more complex
- problems (monitoring package evolutions, correct and complete
- dependency resolution, repository-wide uninstallability checks).
- .
- This package contains the runtime stuff you need to run programs using
- dose2.
+ NOTE: This is an experimental package which will eventually replace
+ edos-distcheck. Until then, the name of the package or of the binary,
+  as well as command line options and output format, are subject to change.
+
 
