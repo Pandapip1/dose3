@@ -14,7 +14,7 @@ Vcs-Git: git://git.debian.org/git/pkg-ocaml-maint/packages/dose3.git
 
 Package: libdose3-ocaml-dev
 Architecture: any
-Depends: ocaml-nox-${F:OCamlABI}, ${ocaml:Depends}, ${misc:Depends}
+Depends: ${misc:Depends}
 Description: OCaml libraries for package dependencies (development files)
  Dose3 is a framework made of several OCaml libraries for managing
  distribution packages and their dependencies.
@@ -33,7 +33,9 @@ Description: OCaml libraries for package dependencies (development files)
 
 Package: dose3-distcheck
 Architecture: any
-Depends: ${ocaml:Depends}, ${misc:Depends}
+Depends: ${F:OCamlInterpDepends},
+ ${shlibs:Depends},
+ ${misc:Depends}
 Description: Checks whether dependencies of packages can be satisfied
  This software checks for every package of a distribution whether it
  is possible to satisfy its dependencies and conflicts within this
@@ -46,7 +48,10 @@ Description: Checks whether dependencies of packages can be satisfied
 
 Package: dose3-builddebcheck
 Architecture: any
-Depends: ${ocaml:Depends}, ${misc:Depends}
+Depends: ${F:OCamlInterpDepends},
+ ${shlibs:Depends},
+ ${misc:Depends}
+Description: Checks whether build-dependencies can be satisfied
  This software checks, given a collection of source package stanzas
  and a collection of binary package stanzas, whether the build-dependencies
  of each source package can be satisfied by the binay packages.
@@ -54,5 +59,3 @@ Depends: ${ocaml:Depends}, ${misc:Depends}
  NOTE: This is an experimental package which will eventually replace
  edos-distcheck. Until then, the name of the package or of the binary,
   as well as command line options and output format, are subject to change.
-
-
