@@ -1,7 +1,7 @@
 Index: dose3/Makefile
 ===================================================================
---- dose3.orig/Makefile	2010-07-21 20:30:07.000000000 +0200
-+++ dose3/Makefile	2010-07-21 20:31:13.000000000 +0200
+--- dose3.orig/Makefile	2010-07-21 20:36:24.000000000 +0200
++++ dose3/Makefile	2010-07-21 20:37:31.000000000 +0200
 @@ -12,7 +12,7 @@
  				 $(wildcard common/*.ml common/*.mli))
  
@@ -14,26 +14,29 @@ Index: dose3/Makefile
 Index: dose3/META
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ dose3/META	2010-07-21 20:35:49.000000000 +0200
-@@ -0,0 +1,14 @@
++++ dose3/META	2010-07-21 20:38:38.000000000 +0200
+@@ -0,0 +1,17 @@
 +description = "Dose3 libraries"
 +version = "placeholder"
 +
-+package "common"
++package "common" (
 +archive(byte) = "common.cma"
 +requires = "extlib"
++)
 +
-+package "algo"
++package "algo" (
 +archive(byte) = "algo.cma"
 +requires = "extlib"
++)
 +
-+package "debian"
++package "debian" (
 +archive(byte) = "debian.cma"
 +requires = "extlib"
++)
 Index: dose3/Makefile.config.in
 ===================================================================
---- dose3.orig/Makefile.config.in	2010-07-21 20:30:07.000000000 +0200
-+++ dose3/Makefile.config.in	2010-07-21 20:31:13.000000000 +0200
+--- dose3.orig/Makefile.config.in	2010-07-21 20:36:24.000000000 +0200
++++ dose3/Makefile.config.in	2010-07-21 20:37:31.000000000 +0200
 @@ -27,6 +27,9 @@
    OCAMLLIBBEST=cma
  endif
