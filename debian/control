@@ -34,8 +34,7 @@ Description: OCaml libraries for package dependencies (development files)
 
 Package: dose3-distcheck
 Architecture: any
-Depends: ${F:OCamlInterpDepends},
- ${misc:Depends}
+Depends: ${F:OCamlInterpDepends}, ${misc:Depends}, ${shlibs:Depends}
 Description: Checks whether dependencies of packages can be satisfied
  This software checks for every package of a distribution whether it
  is possible to satisfy its dependencies and conflicts within this
