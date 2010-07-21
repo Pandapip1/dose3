@@ -1,1 +1,2 @@
-*/*.mli	    @OCamlStdlibDir@/dose2/
+*/*.mli	    @OCamlStdlibDir@/dose3/
+*/*.cma	    @OCamlStdlibDir@/dose3/
