@@ -1,0 +1,13 @@
+Index: dose3/Makefile
+===================================================================
+--- dose3.orig/Makefile	2010-07-21 20:55:14.000000000 +0200
++++ dose3/Makefile	2010-07-21 20:56:07.000000000 +0200
+@@ -53,7 +53,7 @@
+ 	test -d $(LIBDIR) || mkdir -p $(LIBDIR)
+ 	$(INSTALL) -patch-version $(VERSION) $(NAME) $(INSTALL_STUFF)
+ 	test -d $(BINDIR) || mkdir -p $(BINDIR)
+-	if [ -f _build/*.native ] ; then \
++	if [ "$(OCAMLBEST)" = "native" ] ; then \
+ 		cp applications/_build/*.native $(BINDIR)/ ; \
+ 	else \
+ 		cp applications/_build/*.byte $(BINDIR)/ ; \
