@@ -47,8 +47,7 @@ Description: Checks whether dependencies of packages can be satisfied
 
 Package: dose3-builddebcheck
 Architecture: any
-Depends: ${F:OCamlInterpDepends},
- ${misc:Depends}
+Depends: ${F:OCamlInterpDepends}, ${misc:Depends}, ${shlibs:Depends}
 Description: Checks whether build-dependencies can be satisfied
  This software checks, given a collection of source package stanzas
  and a collection of binary package stanzas, whether the build-dependencies
