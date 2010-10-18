@@ -11,41 +11,116 @@
 (*  library, see the COPYING file for more information.                      *)
 (*****************************************************************************)
 
-type verbosity = Quiet | Summary | Details
-let verbosity = ref Quiet
-let set_verbosity = (:=) verbosity
+(** return a unique identifier *)
+let uuid () =
+  let rand =
+    let s = Random.State.make_self_init () in
+    fun () -> Random.State.bits s
+  in
+  Digest.to_hex (Digest.string (string_of_int (rand ())))
 
-let print ppf v label fmt =
-  Printf.kprintf (
-    if v <= !verbosity then 
-      (fun s -> Format.fprintf ppf "%s: %s\n%!" label s)
-    else ignore
-  ) fmt
-;;
+(* This algorithm runs in O(n) . Preserves ordering *)
+let list_unique l =
+  let seen = Hashtbl.create (2 * (List.length l)) in
+  let rec add acc = function
+    |hd :: tl when not (Hashtbl.mem seen hd) ->
+        Hashtbl.add seen hd ();
+        add (hd :: acc) tl
+    |_ :: tl -> add acc tl
+    |[] -> acc
+  in
+  List.rev (add [] l)
 
-let print_warning ?(ppf=Format.err_formatter) fmt =
-  print ppf Summary "Warning" fmt
+(* standard memoizazion function *)
+let memo f =
+  let h = Hashtbl.create 1023 in
+  fun i ->
+    try Hashtbl.find h i
+    with Not_found -> begin
+      let r = f i in
+      Hashtbl.add h i r ;
+      r
+    end
 
-let print_info ?(ppf=Format.err_formatter) fmt =
-  print ppf Details "Info" fmt
+type label = string
 
-let gettimeofday = ref (fun _ -> 0.)
-let () = gettimeofday := Unix.gettimeofday
+module type Messages = sig
+  type t
+  val create: ?enabled:bool -> label -> t
+  val eprintf: t -> ('a, unit, string, unit) format4 -> 'a
+  val enable : label -> unit
+  val disable : label -> unit
+  val all_disabled : unit -> unit
+  val all_enabled : unit -> unit
+  val avalaible : unit -> label list
+end
 
-let loggers = ref []
-let register level f = loggers := (level,f) :: !loggers
-
-let dump ppf =
-  List.iter (function
-    |(level,f) when level <= !verbosity -> f ppf
-    |_ -> ()
-  ) !loggers
-
-module Progress = struct
-  type label = string
-
+(** Debug messages are printed immediately on stderr. 
+ * They can enabled or disabled (default) *)
+module MakeMessages(X : sig val label : string end) = struct
   type t = {
-    name : label ;
+    label : string;
+    mutable enabled : bool
+  } 
+  let messages = Hashtbl.create 10
+  let allenabled = ref false
+
+  let create ?(enabled=false) label =
+    if not (Hashtbl.mem messages label) then
+      { label = label ; enabled = enabled }
+    else begin
+      Format.eprintf "The label (%s) %s already exists@." X.label label;
+      exit 1
+    end
+
+  let eprintf t fmt =
+    Printf.kprintf (
+      if (t.enabled || !allenabled) then begin
+        (fun s -> Format.eprintf "(%s)%s: %s@." X.label t.label s)
+      end else ignore
+    ) fmt
+
+  let onoff s b =
+    try let t = Hashtbl.find messages s in t.enabled <- b
+    with Not_found ->
+      Printf.eprintf "Warning: debug label %s not found\n" s
+
+  let all_enabled () = allenabled := true
+  let all_disabled () = allenabled := false
+  let enable s = onoff s true
+  let disable s = onoff s false
+
+  let avalaible () = Hashtbl.fold (fun k _ acc -> k::acc) messages []
+  let all_enabled () = allenabled := true
+  let all_disabled () = allenabled := false
+end
+
+(* this way we can have the same label for different messages *)
+module Info = MakeMessages(struct let label = "I" end)
+module Warning = MakeMessages(struct let label = "W" end)
+module Debug = MakeMessages(struct let label = "D" end)
+
+let make_info label =
+  let t = Info.create label in
+  fun fmt -> Info.eprintf t fmt
+
+let make_warning label =
+  let t = Warning.create label in
+  fun fmt -> Warning.eprintf t fmt
+
+let make_debug label =
+  let t = Debug.create label in
+  fun fmt -> Debug.eprintf t fmt
+
+let make_fatal label =
+  let l = Printf.sprintf "Fatal error in module %s: " label in
+  Printf.kprintf (fun s -> failwith (l^s))
+
+(** Printf bars are printed immediately on stderr.
+ * they can be enabled or disabled (default) *)
+module Progress = struct
+  type t = {
+    name : string ;
     buffer : Buffer.t ;
     mutable total : int ;
     mutable perc : int ;
@@ -56,7 +131,7 @@ module Progress = struct
   let columns = 75 
   let full = " %100.0\n" 
   let rotate = "|/-\\"
-  let bars = ref []
+  let bars = Hashtbl.create 10
 
   let create ?(enabled=false) ?(total=0) s =
     let c = {
@@ -67,14 +142,15 @@ module Progress = struct
       rotation = 0 ;
       enabled = enabled }
     in
-    bars := (s,c)::!bars ;
+    Hashtbl.add bars s c;
     c
 
   let enable s =
-    try
-      let (_,c) = List.find (fun (n,_) -> s = n) !bars in
-      c.enabled <- true
-    with Not_found -> Printf.eprintf "Warning: Progress bar %s not found\n" s
+    try let t = Hashtbl.find bars s in t.enabled <- true
+    with Not_found ->
+      Printf.eprintf "Warning: Progress Bar %s not found\n" s
+
+  let avalaible () = Hashtbl.fold (fun k _ acc -> k::acc) bars []
 
   let set_total c total = c.total <- total
   let reset c =
@@ -95,13 +171,17 @@ module Progress = struct
         c.rotation <- (1 + c.rotation) land 3;
         Printf.bprintf c.buffer "%c %%%4.1f" rotate.[c.rotation] f
       end ;
-      Format.fprintf Format.err_formatter "%s%!" (Buffer.contents c.buffer)
+      Printf.eprintf "%s" (Buffer.contents c.buffer)
     end
-
-  let avalaible () = List.map (fun (n,_) -> n) !bars
 
 end
 
+let loggers = ref []
+let register f = loggers := f :: !loggers
+let dump fmt = List.iter (fun pp -> pp fmt) !loggers
+
+(** Timers are printed all together when the function dump is called.
+ * they can be enabled or disabled (default) *)
 module Timer = struct
   type t = {
     name: string;
@@ -109,18 +189,29 @@ module Timer = struct
     mutable total : float;
     mutable last  : float;
     mutable is_in : bool;
+    mutable enabled : bool;
   }
 
-  let print ppf c =
-    Format.fprintf ppf "Timer %s. Total time: %f. Count: %i@."
-      c.name c.total c.count
+  let gettimeofday = ref (fun _ -> 0.)
+  let () = gettimeofday := Unix.gettimeofday
 
-  let create_verbose verbosity s =
-    let c = { name = s; count = 0; total = 0.; last = 0.; is_in = false } in
-    register verbosity (fun ppf -> print ppf c);
+  let pp fmt c =
+    if c.enabled then
+      Format.fprintf fmt "Timer %s. Total time: %f. Count: %i@."
+        c.name c.total c.count
+
+  let create ?(enabled=false) s =
+    let c = { 
+      name = s;
+      count = 0;
+      total = 0.;
+      last = 0.;
+      is_in = false ;
+      enabled = enabled
+    } 
+    in
+    register (fun fmt -> pp fmt c);
     c
-
-  let create s = create_verbose Summary s
 
   let start c =
     assert(not c.is_in);
@@ -135,19 +226,22 @@ module Timer = struct
     x
 end
 
+(** Counters are printed all together when the function dump is called.
+ * they can be enabled or disabled (default) *)
 module Counter = struct
   type t = {
     name: string;
     mutable count : int;
+    mutable enabled : bool;
   }
 
-  let print ppf c =
-    Format.fprintf ppf "Counter %s: %i@."
-      c.name c.count
+  let pp fmt c =
+    if c.enabled then
+      Format.fprintf fmt "Counter %s: %i@." c.name c.count
 
-  let create s =
-    let c = { name = s; count = 0 } in
-    register Summary (fun ppf -> print ppf c);
+  let create ?(enabled=false) s =
+    let c = { name = s; count = 0; enabled = enabled } in
+    register (fun fmt -> pp fmt c);
     c
 
   let incr c =
@@ -158,12 +252,10 @@ module Counter = struct
 end
 
 (* we always print user / sys timers if the user ask to print Summary info *)
-let print_process_time ppf =
-  let pt = Unix.times() in
-  Format.fprintf ppf "Process time (user):  %5.2f\n" pt.Unix.tms_utime;
-  Format.fprintf ppf "Process time (sys):   %5.2f\n" pt.Unix.tms_stime
+let pp_process_time fmt () =
+  let pt = Unix.times () in
+  Format.fprintf fmt "Process time (user):  %5.2f@." pt.Unix.tms_utime;
+  Format.fprintf fmt "Process time (sys):   %5.2f@." pt.Unix.tms_stime
 ;;
 
-(* XXX this does not work for some reason ... *)
-register Summary (fun ppf -> print_process_time ppf) ;;
-
+register (fun fmt -> if false then pp_process_time fmt ());;

@@ -25,7 +25,7 @@ type reason =
 
 (** Results are given as functions and computed only if needed *)
 type result =
-  |Success of (unit -> Cudf.package list)
+  |Success of (?all:bool -> unit -> Cudf.package list)
   (** List of installed packages. We build a new package and set [Installed] =
       True . These packages cannot be used to query the old cudf universe.*)
   |Failure of (unit -> reason list)
@@ -43,10 +43,21 @@ type diagnosis = { result : result ; request : request }
 (** True is the result is Success, False otherwise *)
 val is_solution : diagnosis -> bool
 
+(* val print : ?pp:(?short:bool -> Cudf.package -> string) -> ?explain:bool -> out_channel -> diagnosis -> unit
+*)
+
 (** Print the result of the solver.
  
     @param explain : add a more verbose explanation of the failure or
     print the list of installed packages. 
-    @param pp : print a cudf package
+    @param pp : provide details about the cudf package :
+      (package name, package version, extra property list)
 *)
-val print : ?pp:(?short:bool -> Cudf.package -> string) -> ?explain:bool -> out_channel -> diagnosis -> unit
+val printf :
+  ?pp:(Cudf.package -> (string * string * (string * string) list)) -> 
+    ?failure:bool -> ?success:bool -> ?explain:bool -> diagnosis -> unit
+
+val fprintf :
+  ?pp:(Cudf.package -> (string * string * (string * string) list)) -> 
+    ?failure:bool -> ?success:bool -> ?explain:bool -> 
+      Format.formatter -> diagnosis -> unit

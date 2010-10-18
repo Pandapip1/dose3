@@ -12,7 +12,11 @@
 
 open ExtLib
 open Common
-open Debian
+
+let debug fmt = Util.make_debug "Deb-dudfcudf" fmt
+let info fmt = Util.make_info "Deb-dudfcudf" fmt
+let warning fmt = Util.make_warning "Deb-dudfcudf" fmt
+let fatal fmt = Util.make_fatal "Deb-dudfcudf" fmt
 
 module Deb = Debian.Packages
 
@@ -21,16 +25,18 @@ module L = Xml.LazyList
 module Options = struct
   open OptParse
 
-  let debug = StdOpt.store_true ()
+  let verbose = StdOpt.incr_option ()
   let outdir = StdOpt.str_option ()
   let problemid = StdOpt.str_option ()
+  let archdefault = StdOpt.str_option ~default:"" ()
 
   let description = "Convert Debian Dudf files to Cudf format"
   let options = OptParser.make ~description:description ()
 
   open OptParser ;;
-  add options ~short_name:'d' ~long_name:"debug" ~help:"Print debug information" debug;
+  add options ~short_name:'v' ~long_name:"verbose" ~help:"Print additional information" verbose;
   add options ~short_name:'o' ~long_name:"outdir" ~help:"Output directory" outdir;
+  add options ~short_name:'a' ~long_name:"arch" ~help:"Default architecture" archdefault;
   add options                 ~long_name:"id" ~help:"Problem id" problemid;
 end
 
@@ -77,7 +83,7 @@ module AptPref = struct
     |"o",v -> {criteria with origin = Some v}
     |"l",v -> {criteria with label = Some v}
     |"a",v -> {criteria with archive = Some v}
-    |_,_ -> assert false
+    |s,v -> fatal "Unknon Criteria %s %s" s v
 
   let dummypref = { target_release = None ; specific = [] ; generic = [] }
   let dummycriteria = {
@@ -92,9 +98,9 @@ module AptPref = struct
       match pkg with
       |Debian.Apt.Pref.Star ->
           begin match pin with
-          |Debian.Apt.Pref.Version _ -> assert false
+          |Debian.Apt.Pref.Version s -> fatal "Uhmmm pin with Verions %s" s
           |Debian.Apt.Pref.Origin origin -> begin
-              Printf.eprintf "Warning : origin is not currectly supported\n" ;
+              warning "origin is not currectly supported" ;
               let c = { dummycriteria with origin = Some origin } in
               {preferences with generic = (c, priority) :: preferences.generic}
           end
@@ -108,7 +114,7 @@ module AptPref = struct
               let s = { dummyspec with name = name ; version = Some version } in
               {preferences with specific = (s, priority) :: preferences.specific }
           |Debian.Apt.Pref.Origin origin -> begin
-              Printf.eprintf "Warning : origin is not currectly supported\n" ;
+              warning "Warning : origin is not currectly supported" ;
               let c = { dummycriteria with origin = Some origin } in
               let s = { dummyspec with name = name ; criteria = c} in
               {preferences with specific = (s, priority) :: preferences.specific}
@@ -186,14 +192,14 @@ module AptPref = struct
     |Some p -> p
 
   let max_priority = function
-    |[] -> failwith ("max_priority")
+    |[] -> fatal "Empty max_priority"
     |l ->
         let (i,p) =
           List.fold_left (fun (a,p) pkg ->
             let b = int_of_string (Cudf.lookup_package_property pkg "priority") in
             if a >= b then (a,p) else (b,pkg)
           ) (min_int,Cudf.default_package) l
-        in if i = min_int then failwith ("max_priority") else p
+        in if i = min_int then fatal "Cannot find a max_priority" else p
 
 end
 
@@ -205,7 +211,7 @@ let make_universe pl =
     List.partition (function 
       |("apt",_,_,_) -> true
       |("apt-release",_,_,_) -> false
-      |_ -> assert false
+      |(s,_,_,_) -> fatal "Unknown file type %s" s
     ) pl
   in
   let universe = 
@@ -262,8 +268,8 @@ let parsepackagelist = function
   |(Some t,Some fname,url,_,[cdata]) -> (t,fname,url,Xml.cdata cdata)
   |(Some t,Some fname,url,_,[]) -> (t,fname,url,"")
   |(Some t,Some fname,url,_,_) ->
-      (Printf.eprintf "Warning : Unknown format for package-list element %s %s\n" t fname; exit 1)
-  |_ -> assert false
+      fatal "Unknown format for package-list element %s %s" t fname
+  |_ -> fatal "Completly unknown format for package-list element"
 ;;
 
 (* ========================================= *)
@@ -279,8 +285,8 @@ let main () =
     |[h] -> h
     |_ -> (Printf.eprintf "too many arguments" ; exit 1)
   in
-  if OptParse.Opt.get Options.debug then Boilerplate.enable_debug ~bars:["debdudf"] () ;
-  Util.print_info "parse xml";
+  Boilerplate.enable_debug (OptParse.Opt.get Options.verbose) ;
+  info "parse xml";
 
   let id x = x in
 
@@ -292,7 +298,7 @@ let main () =
     exit 1
   end;
 
-  Util.print_info "convert to dom ... ";
+  info "convert to dom ... ";
 
   let uid = dudfdoc.uid in
   let status =
@@ -318,13 +324,14 @@ let main () =
   in
   let extras = List.map fst extras_property in
 
-  Util.print_info "parse all packages";
+  info "parse all packages";
   Util.Progress.set_total progressbar (List.length packagelist);
+  let default_arch = (OptParse.Opt.opt Options.archdefault) in
   let all_packages =
     List.fold_left (fun acc (release,contents) ->
       Util.Progress.progress progressbar ;
       let ch = IO.input_string contents in
-      let l = Deb.parse_packages_in ~extras:extras id ch in
+      let l = Deb.parse_packages_in  ~default_arch:default_arch ~extras:extras id ch in
       let _ = IO.close_in ch in
       List.fold_left (fun s pkg -> 
         Hashtbl.add infoH (pkg.Deb.name,pkg.Deb.version) release ;
@@ -334,7 +341,7 @@ let main () =
   in
   Util.Progress.reset progressbar;
 
-  Util.print_info "installed packages";
+  info "installed packages";
   let installed_packages =
     let ch = IO.input_string status in
     let l = Deb.parse_packages_in ~extras:extras id ch in
@@ -342,30 +349,19 @@ let main () =
     l
   in
 
-  Util.print_info "union";
+  info "union";
   let l = Deb.merge installed_packages (Deb.Set.elements all_packages) in
   let tables = Debian.Debcudf.init_tables l in
-
-  let installed =
-    let h = Hashtbl.create 1031 in
-    List.iter (fun pkg ->
-      Hashtbl.add h (pkg.Deb.name,pkg.Deb.version) ()
-    ) installed_packages
-    ;
-    h
-  in
-  
   let add_extra (k,v) pkg =
     { pkg with Cudf.pkg_extra = (k,v) :: pkg.Cudf.pkg_extra } in
 
-  Util.print_info "convert";
+  info "convert";
   Util.Progress.set_total progressbar (List.length l); 
   let pl =
     List.map (fun pkg ->
       Util.Progress.progress progressbar ;
-      let inst = Hashtbl.mem installed (pkg.Deb.name,pkg.Deb.version) in
       let info = try Some(Hashtbl.find infoH (pkg.Deb.name,pkg.Deb.version)) with Not_found -> None in
-      let cudfpkg = Debcudf.tocudf tables ~extras:extras_property ~inst:inst pkg in
+      let cudfpkg = Debian.Debcudf.tocudf tables ~extras:extras_property pkg in
       let priority = AptPref.assign_priority preferences info cudfpkg in
       let cudfpkg = add_extra ("priority", `Int priority) cudfpkg in
       cudfpkg
@@ -375,13 +371,14 @@ let main () =
 
   let universe = Cudf.load_universe pl in
 
-  Util.print_info "request";
+  info "request";
   let request =
     let mapver = function
       |`Pkg p -> (p,None)
       |`PkgVer (p,v) -> begin
-          try (p,Some(`Eq,Debcudf.get_cudf_version tables (p,v)))
-          with Not_found -> failwith (Printf.sprintf "There is no version %s of package %s" p v)
+          try (p,Some(`Eq,Debian.Debcudf.get_cudf_version tables (p,v)))
+          with Not_found ->
+            fatal "There is no version %s of package %s" p v
       end
       |`PkgDst (p,d) ->
           let l = Cudf.lookup_packages universe p in
@@ -393,12 +390,12 @@ let main () =
                 info.Debian.Release.suite = d
               ) l
             with Not_found -> begin
-              Util.print_warning "There is no package %s in release %s " p d;
+              warning "There is no package %s in release %s" p d;
               AptPref.max_priority l
             end
           in
           let number = Cudf.lookup_package_property pkg "number" in
-          (pkg.Cudf.package,Some(`Eq,Debcudf.get_cudf_version tables (pkg.Cudf.package,number)))
+          (pkg.Cudf.package,Some(`Eq,Debian.Debcudf.get_cudf_version tables (pkg.Cudf.package,number)))
     in
     let request_id =
       if OptParse.Opt.is_set Options.problemid then OptParse.Opt.get Options.problemid
@@ -409,7 +406,7 @@ let main () =
       match dudfdoc.metaInstaller.name with
       |"apt-get" -> Debian.Apt.parse_request_apt action
       |"aptitude" -> Debian.Apt.parse_request_aptitude action
-      |s -> failwith("Unsupported meta installer "^s)
+      |s -> fatal "Unsupported meta installer %s" s
     in
     match parsed_action with
     |Debian.Apt.Upgrade (Some (suite))
@@ -429,7 +426,6 @@ let main () =
         { Cudf.request_id = request_id ; install = [] ; remove = [] ; upgrade = [] ; req_extra = [] ; }
   in
 
-  Util.print_info "dump";
   let oc =
     if OptParse.Opt.is_set Options.outdir then begin
       let dirname = OptParse.Opt.get Options.outdir in
@@ -444,7 +440,7 @@ let main () =
   let preamble =
     let p = ("priority",(`Int (Some 500))) in
     let l = List.map snd extras_property in
-    CudfAdd.add_properties Debcudf.preamble (p::l)
+    CudfAdd.add_properties Debian.Debcudf.preamble (p::l)
   in
   Cudf_printer.pp_cudf (Format.formatter_of_out_channel oc) (preamble, universe, request)
 ;;

@@ -1,4 +1,7 @@
 
+Dose3 needs ocaml >= 3.11.2
+On debian, dose3 **does not compile** on debian lenny.
+
 required libraries ( DEBIAN / RPM ) :
  - libextlib-ocaml-dev / ocaml-extlib-devel
  - libpcre-ocaml-dev / ??
@@ -7,11 +10,16 @@ additional libraries (enable compilation with --with-<library>) :
  - libpostgresql-ocaml-dev / ocaml-postgresql-devel
  - libsqlite3-ocaml-dev / ocaml-sqlite-devel
  - libzip-ocaml-dev / ?
- - libbz2-ocaml-dev / ?
+ - libbz2-ocaml-dev and libbz2-dev / ?
  - libjson-static-camlp4-dev / ?
  - libocamlgraph-ocaml-dev / ?
  - libounit-ocaml-dev / ocaml-ounit-devel
  - librpm-dev / librpm-devel
+ - libexpat-ocaml-dev (for --with-xml)
+ - libbenchmark-ocaml-dev (for --with-benchmark)
+
+To use rpm support, dose3 needs librpm > 4.6
+To use ocamlgraph support, dose3 needs libocamlgraph-ocaml-dev >= 1.5.1
 
 To compile from git :
 aclocal -I m4
@@ -37,5 +45,6 @@ Ex :
 ./configure --without-libcudf --with-xml --with-ocamlgraph --with-zip --with-oUnit --with-bz2 --with-rpm
 
 In order to compile the a selection of applications do "make". To compile specific application
-cd applications/
-ocamlbuild $app.native
+
+$cd applications/
+$ocamlbuild $app.native

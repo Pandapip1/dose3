@@ -10,35 +10,44 @@
 (*  library, see the COPYING file for more information.                               *)
 (**************************************************************************************)
 
+open ExtLib
 open Debian
 open Common
 open Diagnostic
 
 module Options = struct
   open OptParse
+  let description = "Report the broken packages in a package list"
+  let options = OptParser.make ~description
+  include Boilerplate.MakeOptions(struct let options = options end)
 
-  let debug = StdOpt.store_true ()
   let successes = StdOpt.store_true ()
   let failures = StdOpt.store_true ()
   let explain = StdOpt.store_true ()
-  let xml = StdOpt.str_option ()
+  let uuid = StdOpt.store_true ()
   let checkonly = StdOpt.str_option ()
-
-  let showall () = (Opt.get successes) && (Opt.get failures)
-  let onlyfail () = (Opt.get failures) && not (Opt.get successes)
-  let onlysucc () = (Opt.get successes) && not (Opt.get failures)
-
-  let description = "Report the broken packages in a package list"
-  let options = OptParser.make ~description ()
+  let architecture = StdOpt.str_option ()
+  let distribution = StdOpt.str_option ()
+  let release = StdOpt.str_option ()
+  let suite = StdOpt.str_option ()
 
   open OptParser
-  add options ~short_name:'d' ~long_name:"debug" ~help:"Print debug information" debug;
   add options ~short_name:'e' ~long_name:"explain" ~help:"Explain the results" explain;
   add options ~short_name:'f' ~long_name:"failures" ~help:"Only show failures" failures;
   add options ~short_name:'s' ~long_name:"successes" ~help:"Only show successes" successes;
+
   add options ~long_name:"checkonly" ~help:"Check only these package" checkonly;
-  add options ~long_name:"xml" ~help:"Output results in XML format" xml;
+
+  add options ~long_name:"distrib" ~help:"Set the distribution" distribution;
+  add options ~long_name:"release" ~help:"Set the release name" release;
+  add options ~long_name:"suite" ~help:"Set the release name" suite;
+  add options ~long_name:"arch" ~help:"Set the default architecture" architecture;
+  add options ~short_name:'u' ~long_name:"uid" ~help:"Generate a unique identifier for the output document" uuid;
 end
+
+let debug fmt = Util.make_debug "Distcheck" fmt
+let info fmt = Util.make_info "Distcheck" fmt
+let warning fmt = Util.make_warning "Distcheck" fmt
 
 let main () =
   at_exit (fun () -> Util.dump Format.err_formatter);
@@ -47,44 +56,31 @@ let main () =
     match Filename.basename(Sys.argv.(0)),args with
     |"debcheck",[] -> ["deb://-"]
     |"debcheck",l -> List.map ((^) "deb://") l
+    |"eclipsecheck",l -> List.map ((^) "eclipse://") l
+    |"rpmcheck",l -> List.map ((^) "synthesis://") l
     |_,_ -> args
   in
-  if OptParse.Opt.get Options.debug then Boilerplate.enable_debug () ;
-  let (universe,from_cudf,_) = Boilerplate.load_universe posargs in
-
-  let print_package ?(short=false) pkg =
-    let (p,v) = from_cudf pkg in
-    Printf.sprintf "%s (= %s)" p v
+  Boilerplate.enable_debug (OptParse.Opt.get Options.verbose);
+  let default_arch = OptParse.Opt.opt Options.architecture in
+  let (universe,from_cudf,_) = Boilerplate.load_universe ~default_arch posargs in
+  let pp pkg =
+    let (p,v) = from_cudf (pkg.Cudf.package,pkg.Cudf.version) in 
+    let l = 
+      List.filter_map (fun k ->
+        try Some(k,Cudf.lookup_package_property pkg k)
+        with Not_found -> None
+      ) ["architecture";"source";"sourceversion"]
+    in (p,v,l)
   in
-
-  let result_printer pp (printer : Distchecklib.print_t) = function
-    (* print all *)
-    |{result = Success (_) } as r when Options.showall () ->
-        printer ~pp stdout r
-    |{result = Failure (_) } as r when Options.showall () ->
-        printer ~pp ~explain:(OptParse.Opt.get Options.explain) stdout r
-
-    (* print only success - nothing to explain *)
-    |{result = Success (_) } as r when Options.onlysucc () ->
-        printer ~pp stdout r
-    |{result = Failure (_) } when Options.onlysucc () -> ()
-
-    (* print only failures *)
-    |{result = Success (_) } when Options.onlyfail () -> ()
-    |{result = Failure (_) } as r when Options.onlyfail () ->
-        printer ~pp ~explain:(OptParse.Opt.get Options.explain) stdout r
-
-    (* nothing *)
-    | _ -> ()
-  in
-
-  Util.print_info "Solving..." ;
+  info "Solving..." ;
   let timer = Util.Timer.create "Solver" in
   Util.Timer.start timer;
-  let callback =
-    result_printer print_package
-    (if OptParse.Opt.is_set Options.xml then Distchecklib.xml_print else Diagnostic.print)
-  in
+  let failure = OptParse.Opt.get Options.failures in
+  let success = OptParse.Opt.get Options.successes in
+  let explain = OptParse.Opt.get Options.explain in
+  let fmt = Format.std_formatter in
+  if failure || success then Format.fprintf fmt "@[<v 1>report:@,";
+  let callback = Diagnostic.fprintf ~pp ~failure ~success ~explain fmt in
   let i =
     if OptParse.Opt.is_set Options.checkonly then 
       let pkglist = 
@@ -98,7 +94,19 @@ let main () =
       Depsolver.univcheck ~callback universe 
   in
   ignore(Util.Timer.stop timer ());
-  Printf.eprintf "Broken Packages: %d\n%!" i
+  if failure || success then Format.fprintf fmt "@]@.";
+  Format.fprintf fmt "total-packages: %d\n" (Cudf.universe_size universe);
+  Format.fprintf fmt "broken-packages: %d\n" i;
+  if OptParse.Opt.get Options.uuid then
+    Format.fprintf fmt "uid: %s\n" (Util.uuid ());
+  if OptParse.Opt.is_set Options.distribution then
+    Format.fprintf fmt "distribution: %s\n" (OptParse.Opt.get Options.distribution);
+  if OptParse.Opt.is_set Options.release then
+    Format.fprintf fmt "release: %s\n" (OptParse.Opt.get Options.release);
+  if OptParse.Opt.is_set Options.suite then
+    Format.fprintf fmt "suite: %s\n" (OptParse.Opt.get Options.suite);
+  if OptParse.Opt.is_set Options.architecture then
+    Format.fprintf fmt "architecture: %s\n" (OptParse.Opt.get Options.architecture)
 ;;
 
 main () ;;

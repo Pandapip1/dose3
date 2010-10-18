@@ -1,0 +1,34 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{hevea}
+\newcommand{\debcheck}{edos-debcheck}
+\newenvironment{example}%
+  {\par\begin{divstyle}{example}\par\textbf{Example:}}%
+  {\end{divstyle}\par}
+\newstyle{.example}{border:solid black;background:\#eeddbb;padding:lex}
+
+\title{The EDOS-Debcheck Primer}
+\author{Pietro Abate and Ralf Treinen and ...}
+
+\begin{document}
+
+\maketitle
+
+The \debcheck{} tool determines, for a set of package control stanzas,
+called \emph{the repository}, whether packages of the repository can
+be installed relative to the repository. Typically, the repository is
+a \texttt{Packages} file of a debian suite. The installability check
+is by default performed for all package stanzas in the repository, but
+may be also be restricted to a subset of these.
+
+\tableofcontents
+
+\input{data}
+\input{installability}
+\input{invocation}
+\input{output}
+\input{tricks}
+\input{credits}
+\input{reading}
+
+\end{document}

@@ -16,15 +16,15 @@ open Common
 module Options = struct
   open OptParse
 
-  let debug = StdOpt.store_true ()
+  let verbose = StdOpt.incr_option ()
   let cudf = StdOpt.store_true ()
   let out = StdOpt.str_option ()
 
-  let description = "Check if there exists a solution for a cudf problem"
+  let description = "Check if there exists a (non optimal) solution for a cudf problem"
   let options = OptParser.make ~description ()
 
   open OptParser
-  add options ~short_name:'d' ~long_name:"debug" ~help:"Print debug information" debug;
+  add options ~short_name:'v' ~help:"Print information (can be repeated)" verbose;
   add options                 ~long_name:"out"   ~help:"Output file" out;
   add options ~short_name:'c' ~long_name:"cudf"  ~help:"print the cudf solution (if any)" cudf;
 end
@@ -32,23 +32,24 @@ end
 let main () =
   at_exit (fun () -> Util.dump Format.err_formatter);
   let posargs = OptParse.OptParser.parse_argv Options.options in
-  if OptParse.Opt.get Options.debug then Boilerplate.enable_debug () ;
+  Boilerplate.enable_debug (OptParse.Opt.get Options.verbose);
+
   match posargs with
   |[f] ->
       let (p,l,r) = 
-        match CudfAdd.parse_cudf f with
+        match Boilerplate.parse_cudf f with
         |(p,l,Some r) -> (p,l,r)
         |_ ->  (Printf.eprintf "Not a void cudf document (missing request)\n" ; exit 1)
       in 
       let r = Depsolver.check_request (p,l,r) in
       if Diagnostic.is_solution r then begin
         if OptParse.Opt.get Options.cudf then
-          Diagnostic.print stdout ~explain:true r
+          Diagnostic.printf ~success:true ~explain:true r
         end
       ;
       if not(Diagnostic.is_solution r && OptParse.Opt.get Options.cudf) then begin
         Printf.printf "Check %s\n" f;
-        Diagnostic.print stdout ~explain:true r
+        Diagnostic.printf ~failure:true ~explain:true r
       end
   |_ -> (Printf.eprintf "Too many arguments\n" ; exit 1)
 ;;

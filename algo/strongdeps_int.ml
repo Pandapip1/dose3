@@ -18,22 +18,24 @@ open Common
 open CudfAdd
 open Defaultgraphs
 
-let mainbar = Util.Progress.create "Algo.Strongdep.main"
-let conjbar = Util.Progress.create "Algo.Strongdep.conj"
+let mainbar = Util.Progress.create "Strongdeps_int.main"
+let conjbar = Util.Progress.create "Strongdeps_int.conj"
+
+let debug fmt = Util.make_debug "Strongdeps_int" fmt
+let info fmt = Util.make_info "Strongdeps_int" fmt
+let warning fmt = Util.make_warning "Strongdeps_int" fmt
 
 module G = IntPkgGraph.G
 module SO = IntPkgGraph.SO
-open Depsolver_int
-open G
 
 (** check if p strongly depends on q.
     We check if it is possible to install p without q.  *)
 (* ATT: this function makes a copy of the solver to add a clause to it *)
 let strong_depends solver p q =
-  Depsolver_int.S.reset solver.constraints; 
+  Depsolver_int.S.reset solver.Depsolver_int.constraints; 
   let solver = Depsolver_int.copy_solver solver in 
-  let lit = Depsolver_int.S.lit_of_var (solver.map#vartoint q) false in
-  Depsolver_int.S.add_un_rule solver.constraints lit [];
+  let lit = Depsolver_int.S.lit_of_var (solver.Depsolver_int.map#vartoint q) false in
+  Depsolver_int.S.add_rule solver.Depsolver_int.constraints [|lit|] [];
   match Depsolver_int.solve solver (Diagnostic_int.Sng p) with
   |Diagnostic_int.Failure _ -> true
   |Diagnostic_int.Success _ -> false
@@ -64,7 +66,7 @@ let strongdeps_int ?(transitive=true) graph mdf l =
   let size = List.length available in
 
   Util.Progress.set_total mainbar size;
-  let strongtimer = Util.Timer.create "Algo.Strongdep.strong" in
+  let strongtimer = Util.Timer.create "Strongdeps_int.strong" in
 
   Util.Timer.start strongtimer;
   List.iter (fun (pkg,_,closure) ->
@@ -79,11 +81,14 @@ let strongdeps_int ?(transitive=true) graph mdf l =
         if transitive then
           check_strong true graph solver id (f ())
         else
-        begin
-          let deps = List.filter (fun x -> 
-            List.exists (fun (_,alt,_) -> List.exists (fun y -> y = x) alt) pkg.Mdf.depends) (f ()) in
+          let deps =
+            List.filter (fun x ->
+              List.exists (fun (_,alt,_) ->
+                List.exists (fun y -> y = x) alt
+              ) pkg.Mdf.depends
+            ) (f ()) 
+          in
           check_strong false graph solver id deps
-        end
     end
   ) available ;
   Util.Progress.reset mainbar;
@@ -95,7 +100,7 @@ let strongdeps mdf idlist =
   let graph = G.create () in
   let size = List.length idlist in
   Util.Progress.set_total conjbar size;
-  let conjtimer = Util.Timer.create "Algo.Strongdep.conjdep" in
+  let conjtimer = Util.Timer.create "Strongdeps_int.conjdep" in
 
   Util.Timer.start conjtimer;
   let l = 
@@ -116,7 +121,7 @@ let strongdeps_univ ?(transitive=true) mdf =
   let graph = G.create () in
   let size = Array.length mdf.Mdf.index in
   Util.Progress.set_total conjbar size;
-  let conjtimer = Util.Timer.create "Algo.Strongdep.conjdep" in
+  let conjtimer = Util.Timer.create "Strongdeps_int.conjdep" in
 
   Util.Timer.start conjtimer;
   let l = 

@@ -10,38 +10,12 @@
 (*  library, see the COPYING file for more information.                               *)
 (**************************************************************************************)
 
-(** additional functions on Cudf data type.  *)
+module OCAMLHashtbl = Hashtbl
+module OCAMLSet = Set
+open ExtLib
 
-open Cudf
-open Cudf_types
-
-let add_properties preamble l =
-  List.fold_left (fun pre prop ->
-    {pre with Cudf.property = prop :: pre.Cudf.property}
-  ) preamble l
-
-(** print a cudf package.
-    @param short : only name and version are printed (default true). If the
-    cudf package has an extra attribute "Number" then, this is used instead of
-    Cudf.version
-    *)
-let print_package ?(short=true) pkg =
-  if short then
-    let (sp,sv) =
-      try (pkg.package,Cudf.lookup_package_property pkg "number")
-      with Not_found -> (pkg.package,string_of_int pkg.version)
-    in Printf.sprintf "%s (= %s)" sp sv
-  else
-    Cudf_printer.string_of_package pkg
-
-(* I want to hash packages by name/version without considering
-   other fields like Installed / keep / etc.
-*)
 (** compare two cudf packages only using name and version *)
-let compare x y =
-  Pervasives.compare
-  (x.Cudf.package,x.Cudf.version)
-  (y.Cudf.package,y.Cudf.version)
+let compare = Cudf.(<%)
 
 (** has a cudf package only using name and version *)
 let hash p = Hashtbl.hash (p.Cudf.package,p.Cudf.version)
@@ -51,7 +25,7 @@ let equal = Cudf.(=%)
 
 (** specialized Hash table for cudf packages *)
 module Cudf_hashtbl =
-  Hashtbl.Make(struct
+  OCAMLHashtbl.Make(struct
     type t = Cudf.package
     let equal = equal
     let hash = hash
@@ -59,42 +33,66 @@ module Cudf_hashtbl =
 
 (** specialized Set for cudf packages *)
 module Cudf_set =
-  Set.Make(struct
+  OCAMLSet.Make(struct
     type t = Cudf.package
     let compare = compare
   end)
 
-open ExtLib
+let to_set l = List.fold_right Cudf_set.add l Cudf_set.empty
 
-(** parse a cudf file and return a triple (preamble,package list,request
-    option). If the package is not valid fails and exit *)
-let parse_cudf doc =
-  try
-    let p = Cudf_parser.from_in_channel (open_in doc) in
-    Cudf_parser.parse p
-  with
-  |Cudf_parser.Parse_error _
-  | Cudf.Constraint_violation _ as exn -> begin
-    Printf.eprintf "Error while loading CUDF from %s: %s\n%!"
-    doc (Printexc.to_string exn);
-    exit (-1)
-  end
+(** additional functions on Cudf data type.  *)
 
-let load_cudf_ch ch =
-  try
-    let p = Cudf_parser.from_in_channel ch in
-    Cudf_parser.load p
-  with
-  |Cudf_parser.Parse_error _
-  | Cudf.Constraint_violation _ as exn -> begin
-    Printf.eprintf "Error while loading CUDF: %s\n%!"
-    (Printexc.to_string exn);
-    exit (-1)
-  end
+let add_properties preamble l =
+  List.fold_left (fun pre prop ->
+    {pre with Cudf.property = prop :: pre.Cudf.property}
+  ) preamble l
 
-(** parse a cudf file and return a triple (preamble,universe,request option).
-    If the package is not valid fails and exit *)
-let load_cudf doc = load_cudf_ch (open_in doc)
+let buf = Buffer.create 1024
+let buf_formatter =
+  let fmt = Format.formatter_of_buffer buf in
+    Format.pp_set_margin fmt max_int;
+    fmt
+
+let string_of pp arg =
+  Buffer.clear buf;
+  ignore(pp buf_formatter arg);
+  Format.pp_print_flush buf_formatter ();
+  Buffer.contents buf
+
+let pp_version fmt pkg =
+  try Format.fprintf fmt "%s" (Cudf.lookup_package_property pkg "number")
+  with Not_found -> Format.fprintf fmt "%d" pkg.Cudf.version
+
+let pp_package fmt pkg =
+  Format.fprintf fmt "%s (= %a)" pkg.Cudf.package pp_version pkg
+
+let string_of_version = string_of pp_version
+let string_of_package = string_of pp_package
+
+let is_essential pkg =
+  try (Cudf.lookup_package_property pkg "essential") = "yes"
+  with Not_found -> false
+
+(**/*)
+(* XXX legacy function to be removed *)
+let print_package pkg = string_of_package pkg
+(**/*)
+
+(** [pkgnames universe] returns a list of unique package names *)
+let pkgnames universe =
+  let h = Hashtbl.create (Cudf.universe_size universe) in
+  Cudf.fold_packages (fun acc pkg ->
+    if not (Hashtbl.mem h pkg.Cudf.package) then begin
+      Hashtbl.add h pkg.Cudf.package () ;
+      pkg.Cudf.package::acc
+    end else acc
+  ) [] universe
+
+(** [mem_package univ (p,v)] returns true if the universe contains
+    a package with name [p] and version [v], false otherwise *)
+let mem_package univ (p,v) =
+  try ignore(Cudf.lookup_package univ (p,v)); true
+  with Not_found -> false
 
 (** maps one to one cudf packages to integers *)
 class projection = object(self)
@@ -115,12 +113,21 @@ class projection = object(self)
   (** var -> int *)
   method vartoint (v : Cudf.package) : int =
     try Cudf_hashtbl.find vartoint v
-    with Not_found -> assert false
+    with Not_found ->
+      failwith (
+        Printf.sprintf
+        "cudfAdd - vartoint package %s does not exist"
+        (string_of_package v)
+      )
       
   (** int -> var *)
   method inttovar (i : int) : Cudf.package =
     try Hashtbl.find inttovar i 
-    with Not_found -> assert false
+    with Not_found ->
+      failwith (
+        Printf.sprintf
+        "cudfAdd - inttovar var does not exist %d" i
+      )
 end 
 
 (** build an hash table that associates (package name, String version) to
@@ -128,11 +135,7 @@ end
 let realversionmap pkglist =
   let h = Hashtbl.create (2 * (List.length pkglist)) in
   List.iter (fun pkg ->
-    let version =
-      try Cudf.lookup_package_property pkg "Number" 
-      with Not_found -> string_of_int pkg.version
-    in
-    Hashtbl.add h (pkg.package,version) pkg
+    Hashtbl.add h (pkg.Cudf.package,string_of_version pkg) pkg
   ) pkglist ;
   h
 
@@ -171,7 +174,7 @@ let build_maps universe =
     List.iter (function
       |name, None -> Hashtbl.add provides name (pkg, None)
       |name, Some (_, ver) -> Hashtbl.add provides name (pkg, (Some ver))
-    ) pkg.provides
+    ) pkg.Cudf.provides
   ) universe
   ;
 
@@ -199,7 +202,7 @@ let build_maps universe =
           Cudf_hashtbl.add conflicts p pkg
         end
       ) (who_provides (name,constr))
-    ) pkg.conflicts
+    ) pkg.Cudf.conflicts
   ) universe
   ;
 
@@ -233,9 +236,9 @@ let encode s =
     Buffer.contents b
   end else s
 
-let rec decode s =
+let decode s =
   let hex_re = Str.regexp "%[0-9a-f][0-9a-f]" in
-  if Str.string_match hex_re s 0 then begin
+  (* if Str.string_match hex_re s 0 then begin *)
     let un s =
       let s = Str.matched_string s in
       let hex = String.sub s 1 2 in
@@ -243,7 +246,7 @@ let rec decode s =
       String.make 1 (Char.chr n)
     in
     Str.global_substitute hex_re un s
-  end else s
+  (* end else s *)
 
 let cudfop = function
   |Some(("<<" | "<"),v) -> Some(`Lt,v)
@@ -254,3 +257,20 @@ let cudfop = function
   |Some("ALL",v) -> None
   |None -> None
   |Some(c,v) -> (Printf.eprintf "%s %s" c v ; assert false)
+
+(** return a map package name -> list of all packages with this name ordered by
+    version *)
+(*  XXX uhmmmm maybe re-write it to work in O(n) ? *)
+let group_by_name universe = 
+  let th = Hashtbl.create (2 * (Cudf.universe_size universe)) in
+  let add h k v =
+    try 
+      let s = Hashtbl.find h k in
+      s := Cudf_set.add v !s
+    with Not_found -> Hashtbl.add h k (ref (Cudf_set.singleton v))
+  in
+  Cudf.iter_packages (fun pkg -> add th pkg.Cudf.package pkg) universe;
+  let h = Hashtbl.create (2 * (Cudf.universe_size universe)) in
+  Hashtbl.iter (fun k v -> Hashtbl.add h k (Cudf_set.elements !v)) th;
+  th
+

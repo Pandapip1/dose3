@@ -32,10 +32,11 @@ struct
     let error _ s = Printf.sprintf "%s format not supported" s in
     Opt.value_option metavar default corce error
 
-  let debug = StdOpt.store_true ()
+  let verbose = StdOpt.incr_option ()
   let src = StdOpt.str_option ()
   let dst = StdOpt.str_option ()
   let cone = StdOpt.str_option ()
+  let extract = StdOpt.str_option ()
   let reverse_cone = StdOpt.str_option ()
   let cone_maxdepth = StdOpt.int_option ()
   let output_ty = out_option ~default:"cnf" ()
@@ -50,10 +51,11 @@ struct
   let options = OptParser.make ~description:description ()
 
   open OptParser
-  add options                 ~long_name:"debug" ~help:"Print debug information" debug;
-  add options ~short_name:'s' ~long_name:"src" ~help:"root packages" src;
-  add options ~short_name:'d' ~long_name:"dst" ~help:"pivot packages" dst;
-  add options ~short_name:'c' ~long_name:"cone" ~help:"cone" cone;
+  add options ~short_name:'v' ~help:"Print information (can be repeated)" verbose;
+(*   add options ~short_name:'s' ~long_name:"src" ~help:"root packages" src; *)
+(*  add options ~short_name:'d' ~long_name:"dst" ~help:"pivot packages" dst; *)
+  add options ~short_name:'e' ~long_name:"extract" ~help:"dependency/conflict cone" extract;
+  add options ~short_name:'c' ~long_name:"cone" ~help:"dependency cone" cone;
   add options ~short_name:'r' ~long_name:"rcone" ~help:"reverse dependency cone" reverse_cone;
   add options                 ~long_name:"depth" ~help:"max depth - in conjunction with cone" cone_maxdepth;
   add options ~short_name:'t' ~long_name:"outtype" ~help:"Output type" output_ty;
@@ -96,7 +98,8 @@ END
 let main () =
   at_exit (fun () -> Util.dump Format.err_formatter);
   let posargs = OptParse.OptParser.parse_argv Options.options in
-  if OptParse.Opt.get Options.debug then Boilerplate.enable_debug () ;
+  Boilerplate.enable_debug(OptParse.Opt.get Options.verbose);
+
   if OptParse.Opt.get Options.output_ty = "sqlite" then
     output_to_sqlite posargs
   else
