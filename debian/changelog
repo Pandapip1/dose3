@@ -1,5 +1,5 @@
-dose3 (0.7.1-1) UNRELEASED; urgency=low
+dose3 (0.7.3-1) UNRELEASED; urgency=low
 
   * Initial release (Closes: #587521)
 
- -- Ralf Treinen <treinen@debian.org>  Wed, 21 Jul 2010 20:42:11 +0200
+ -- Ralf Treinen <treinen@debian.org>  Mon, 18 Oct 2010 08:42:46 +0200
