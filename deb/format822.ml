@@ -16,6 +16,10 @@
 open ExtLib
 open Common
 
+let debug fmt = Util.make_debug "Debian.Format822" fmt
+let info fmt = Util.make_info "Debian.Format822" fmt
+let warning fmt = Util.make_warning "Debian.Format822" fmt
+
 type name = string
 type version = string
 type vpkg = (string * (string * string) option)
@@ -80,10 +84,12 @@ let parse_paragraph i =
     let fields = ref [] in
     while
       let l = cur i in
-      if not (Str.string_match field_re l 0) then
-        parse_error i;
-      let name = Str.matched_group 1 l in
-      let data1 = remove_ws (Str.matched_group 2 l) in
+      let p = try String.index l ':' with Not_found -> parse_error i in
+      let name = String.sub l 0 p in
+      let n = String.length l in
+      let p = ref (p + 1) in
+      while !p < n && let c = l.[!p] in c = ' ' || c = '\t' do incr p done;
+      let data1 = remove_ws (String.sub l !p (n - !p)) in
       let data = ref [data1] in
       next i;
       while
@@ -121,10 +127,7 @@ let rec next_token s p =
   if !p = String.length s then raise End_of_file else
   if Str.string_match token_re s !p then begin
     p := Str.match_end ();
-    try
-      Str.matched_group 1 s
-    with Not_found ->
-      next_token s p
+    try Str.matched_group 1 s with Not_found -> next_token s p
   end else
     parse_error ~s:(Printf.sprintf "Bad token in '%s' at %d" s !p) dummy_t
 
@@ -165,9 +168,8 @@ let version_re_2 =
 
 let check_version i s =
   if not (Str.string_match strict_version_re_1 s 0 || Str.string_match strict_version_re_2 s 0) then begin
-    (Util.print_warning "bad version '%s'" s);
+    (warning "Bad version '%s'" s);
     if not (Str.string_match version_re_1 s 0 || Str.string_match version_re_2 s 0) then 
-      (* parse_error ~s:(Printf.sprintf "Bad version '%s'" s) i *)
       raise (ParseError ((Printf.sprintf "Bad version '%s'" s), i.line))
   end
 
@@ -184,10 +186,9 @@ let package_re = Str.regexp "^[A-Za-z0-9][A-Za-z0-9._+-]+$"
 
 let check_package_name i s =
   if not (Str.string_match strict_package_re s 0) then begin
-    (Util.print_warning "bad package name '%s'" s);
+    (warning "Bad package name '%s'" s);
     if not (Str.string_match package_re s 0) then
-      (* parse_error ~s:(Printf.sprintf "Bad package name '%s'" s) i *)
-      raise (ParseError ((Printf.sprintf "Bad version '%s'" s), i.line))
+      raise (ParseError ((Printf.sprintf "Bad package name '%s'" s), i.line))
   end
 
 let parse_package s =
@@ -198,9 +199,9 @@ let parse_package s =
 
 (*****************************************************)
 
-let parse_constr_aux vers s =
+let parse_constr_aux ?(check=true) vers s =
   let name = cur s in
-  check_package_name s name;
+  if check then check_package_name s name;
   next s;
   if not (eof s) && cur s = "(" then begin
     try 
@@ -210,22 +211,22 @@ let parse_constr_aux vers s =
       let comp = (cur s) in
       next s;
       let version = cur s in
-      check_version s version;
+      if check then check_version s version;
       next s;
       expect s ")";
       (name, Some (comp, version))
-    with ParseError (s,_) -> begin
-      (Printf.eprintf "WARNING !!! '%s'\n" s);
+    with ParseError (msg,_) -> begin
+      (warning "line %d : %s" s.line msg);
       (name, None)
     end
   end else begin
-    (* XXX if the constraint if malformed I should print a warning !!! *)
+    (* XXX we do not reall check if a contraint syntactically correct *)
     (name, None)
   end
 
 let parse_constr s =
   let s = start_token_stream s in
-  parse_constr_aux true s
+  parse_constr_aux ~check:true true s
 
 let parse_builddeps s =
   let s = start_token_stream s in
@@ -260,7 +261,7 @@ let parse_source s =
       if Str.string_match re s' 0 then 
         (n,Some (Str.matched_group 1 s'))
       else begin
-        Util.print_warning "bad source name '%s'\n" s;
+        warning "Bad source name '%s'\n" s;
         (n,None)
       end
   |_ -> parse_error ~s:(Printf.sprintf "Malformed source field : '%s'" s) dummy_t
@@ -304,32 +305,35 @@ let parse_822_iter parse f ch =
     !l
   with Eof -> !l
 
+(* XXX this merge can be done much more efficiently with an hashtbl
+ * with a equality function on (name,version,arch) and the functor
+ * can be removed... *)
 module RawInput ( Set : Set.S ) = struct
   let input_raw f files =
     let timer = Util.Timer.create "Debian.Format822.input_raw" in
     Util.Timer.start timer;
-    if List.length files > 1 then Util.print_info "Merging input lists" ;
+    if List.length files > 1 then info "Merging debian packages lists" ;
     let s =
       List.fold_left (fun acc file ->
-        Util.print_info "Parsing %s..." file;
+        info "Parsing debian file %s..." file;
         let ch = (Input.open_file file) in
         let l = f (fun x -> x) ch in
         let _ = Input.close_ch ch in
         List.fold_left (fun s x -> Set.add x s) acc l
       ) Set.empty files
     in
-    Util.print_info "total Packages %n" (Set.cardinal s);
+    info "total Debian packages %n" (Set.cardinal s);
     Util.Timer.stop timer (Set.elements s)
 
   let input_raw_ch f ch =
     let timer = Util.Timer.create "Debian.Format822.input_raw_ch" in
     Util.Timer.start timer;
     let s =
-      Util.print_info "Parsing...";
+      info "Parsing debian packages...";
       let l = f (fun x -> x) ch in
       let _ = Input.close_ch ch in
       List.fold_left (fun s x -> Set.add x s) Set.empty l
     in
-    Util.print_info "total Packages %n" (Set.cardinal s);
+    info "total debian packages %n" (Set.cardinal s);
     Util.Timer.stop timer (Set.elements s)
 end

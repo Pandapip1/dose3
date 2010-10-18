@@ -19,7 +19,7 @@ module Deb = Debian.Packages
 module Options = struct
   open OptParse
 
-  let debug = StdOpt.store_true ()
+  let verbose = StdOpt.incr_option ()
   let successes = StdOpt.store_true ()
   let failures = StdOpt.store_true ()
   let explain = StdOpt.store_true ()
@@ -34,7 +34,7 @@ module Options = struct
   let options = OptParser.make ~description ()
 
   open OptParser
-  add options ~short_name:'d' ~long_name:"debug" ~help:"Print debug information" debug;
+  add options ~short_name:'v' ~help:"Print information (can be repeated)" verbose;
   add options ~short_name:'e' ~long_name:"explain" ~help:"Explain the results" explain;
   add options ~short_name:'f' ~long_name:"failures" ~help:"Only show failures" failures;
   add options ~short_name:'s' ~long_name:"successes" ~help:"Only show successes" successes;
@@ -42,12 +42,17 @@ module Options = struct
   add options ~long_name:"xml" ~help:"Output results in XML format" xml;
 end
 
+let debug fmt = Util.make_debug "Buildcheck" fmt
+let info fmt = Util.make_info "Buildcheck" fmt
+let warning fmt = Util.make_warning "Buildcheck" fmt
+
 open Diagnostic
 
 let main () =
   at_exit (fun () -> Util.dump Format.err_formatter);
   let posargs = OptParse.OptParser.parse_argv Options.options in
-  if OptParse.Opt.get Options.debug then Boilerplate.enable_debug () ;
+  Boilerplate.enable_debug (OptParse.Opt.get Options.verbose);
+
   if not(OptParse.Opt.is_set Options.architecture) then begin
     Printf.eprintf "--architecture must be specified\n";
     exit 1;
@@ -63,45 +68,21 @@ let main () =
   let sl = List.map (fun pkg -> Debcudf.tocudf tables pkg) srclist in
   let l = List.fold_left (fun acc pkg -> (Debcudf.tocudf tables pkg)::acc) sl pkglist in
   let universe = Cudf.load_universe l in
-
-  let from_cudf pkg =
+  let pp pkg =
     let (p,i) = (pkg.Cudf.package,pkg.Cudf.version) in
     let v = Debian.Debcudf.get_real_version tables (p,i) in
-    (p,v)
+    let l =
+      List.filter_map (fun k ->
+        try Some(k,Cudf.lookup_package_property pkg k)
+        with Not_found -> None
+      ) ["architecture";"source";"sourceversion"]
+    in (p,v,l)
   in
-
-  let print_package ?(short=false) pkg =
-    let (p,v) = from_cudf pkg in
-    let (_,psource) = String.replace ~str:p ~sub:"source---" ~by:"" in
-    Printf.sprintf "%s (= %s)" psource v
-  in
-
-  let result_printer pp (printer : Distchecklib.print_t) = function
-    (* print all *)
-    |{result = Success (_) } as r when Options.showall () ->
-        printer ~pp stdout r
-    |{result = Failure (_) } as r when Options.showall () ->
-        printer ~pp ~explain:(OptParse.Opt.get Options.explain) stdout r
-
-    (* print only success - nothing to explain *)
-    |{result = Success (_) } as r when Options.onlysucc () ->
-        printer ~pp stdout r
-    |{result = Failure (_) } when Options.onlysucc () -> ()
-
-    (* print only failures *)
-    |{result = Success (_) } when Options.onlyfail () -> ()
-    |{result = Failure (_) } as r when Options.onlyfail () ->
-        printer ~pp ~explain:(OptParse.Opt.get Options.explain) stdout r
-
-    (* nothing *)
-    | _ -> ()
-  in
-
-  Util.print_info "Solving..." ;
-  let callback =
-    result_printer print_package 
-    (if OptParse.Opt.is_set Options.xml then Distchecklib.xml_print else Diagnostic.print)
-  in
+  info "Solving..." ;
+  let failure = OptParse.Opt.get Options.failures in
+  let success = OptParse.Opt.get Options.successes in
+  let explain = OptParse.Opt.get Options.explain in
+  let callback = Diagnostic.printf ~pp ~failure ~success ~explain in
   let i = Depsolver.listcheck ~callback universe sl in
   Printf.eprintf "Broken Packages: %d\n" i
 ;;

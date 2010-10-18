@@ -21,6 +21,11 @@ open Common
 let progressbar_init = Util.Progress.create "Depsolver_int.init_solver"
 let progressbar_univcheck = Util.Progress.create "Depsolver_int.univcheck"
 
+(** Message printers *)
+let debug fmt = Util.make_debug "Depsolver_int" fmt
+let info fmt = Util.make_info "Depsolver_int" fmt
+let warning fmt = Util.make_warning "Depsolver_int" fmt
+
 module R = struct type reason = Diagnostic_int.reason end
 module S = EdosSolver.M(R)
 
@@ -36,12 +41,13 @@ class intprojection size = object
   method add v =
     if (size = 0) then assert false ;
     if (counter > size - 1) then assert false;
-    (* Printf.eprintf "var %d -> int %d\n%!" v counter; *)
+    debug "intprojection : var %d -> int %d" v counter;
     Hashtbl.add vartoint v counter;
     inttovar.(counter) <- v;
     counter <- counter + 1
 
-  (** given a package id return a sat solver variable *)
+  (** given a package id return a sat solver variable 
+      raise Not_found if the package id is not known *)
   method vartoint v =
     if size = 0 then v
     else Hashtbl.find vartoint v
@@ -87,7 +93,7 @@ let init_solver ?(buffer=false) ?(proxy_size=0) ?closure index =
     List.iter (fun (vpkgs,disjunction,_) ->
       incr num_dependencies;
       if List.length disjunction = 0 then
-        S.add_un_rule constraints lit [Diagnostic_int.EmptyDependency(pkg_id,vpkgs)]
+        S.add_rule constraints [|lit|] [Diagnostic_int.EmptyDependency(pkg_id,vpkgs)]
       else begin
         let lit_list =
           let a =
@@ -118,16 +124,17 @@ let init_solver ?(buffer=false) ?(proxy_size=0) ?closure index =
         if pkg_id1 <> pkg_id2 then begin
             let y = S.lit_of_var (map#vartoint pkg_id2) false in
             incr num_conflicts;
-            S.add_bin_rule constraints x y [Diagnostic_int.Conflict(pkg_id1, pkg_id2)]
+            S.add_rule constraints [|x; y|] [Diagnostic_int.Conflict(pkg_id1, pkg_id2)]
         end
       ) conjunction
-    with Not_found ->
+    with Not_found -> begin
       (* ignore conflicts that are not in the closure.
        * if nobody depends on a conflict package, then it is irrelevant.
        * This requires a leap of faith in the user ability to build an
        * appropriate closure. If the closure is wrong, you are on your own *)
-      (* Util.print_warning "Conflict for package %s not in the universe!\n" pkg.Mdf.pkg.Cudf.package *)
+      debug "init_solver : Conflict for package %s not in the universe" pkg.Mdf.pkg.Cudf.package;
       ()
+    end
   in
 
   let nvars = 
@@ -189,7 +196,7 @@ let solve solver request =
 
   let result solve collect ?(proxies=[]) var =
     if solve solver.constraints var then begin
-      let get_assignent () =
+      let get_assignent ?(all=false) () =
         let l = ref [] in
         Array.iteri (fun i v ->
           if v = S.True then
@@ -246,6 +253,7 @@ let reverse_dependencies mdf =
     This function has in a memoization strategy.
 *)
 let dependency_closure ?(maxdepth=max_int) ?(conjuntive=false) mdf =
+  let cmp (x : int) (y : int) = x = y in
   let h = Hashtbl.create (Array.length mdf.Mdf.index) in
   fun idlist ->
     try Hashtbl.find h (idlist,conjuntive,maxdepth)
@@ -253,7 +261,7 @@ let dependency_closure ?(maxdepth=max_int) ?(conjuntive=false) mdf =
       let index = mdf.Mdf.index in
       let queue = Queue.create () in
       let visited = Hashtbl.create (2 * (List.length idlist)) in
-      List.iter (fun e -> Queue.add (e,0) queue) (List.unique idlist);
+      List.iter (fun e -> Queue.add (e,0) queue) (List.unique ~cmp idlist);
       while (Queue.length queue > 0) do
         let (id,level) = Queue.take queue in
         if not(Hashtbl.mem visited id) && level < maxdepth then begin
@@ -288,13 +296,14 @@ let dependency_closure ?(maxdepth=max_int) ?(conjuntive=false) mdf =
     This function has in a memoization strategy.
 *)
 let reverse_dependency_closure ?(maxdepth=max_int) reverse =
+  let cmp (x : int) (y : int) = x = y in
   let h = Hashtbl.create (Array.length reverse) in
   fun idlist ->
     try Hashtbl.find h (idlist,maxdepth)
     with Not_found -> begin
       let queue = Queue.create () in
       let visited = Hashtbl.create (List.length idlist) in
-      List.iter (fun e -> Queue.add (e,0) queue) (List.unique idlist);
+      List.iter (fun e -> Queue.add (e,0) queue) (List.unique ~cmp idlist);
       while (Queue.length queue > 0) do
         let (id,level) = Queue.take queue in
         if not(Hashtbl.mem visited id) && level < maxdepth then begin
@@ -313,27 +322,33 @@ let reverse_dependency_closure ?(maxdepth=max_int) reverse =
 (***********************************************************)
 
 let pkgcheck callback solver failed tested id =
+  let memo (tested,failed) res = 
+    begin
+      match res with
+      |Diagnostic_int.Success(f_int) -> 
+          List.iter (fun i -> tested.(i) <- true) (f_int ())
+      |Diagnostic_int.Failure _  -> incr failed
+    end ; res
+  in
   try
     let req = Diagnostic_int.Sng id in
     let res =
-      if not(tested.(id)) then begin
-        let res = solve solver req in
-        begin match res with
-        |Diagnostic_int.Success(f) -> 
-            (try
-              List.iter (fun i ->
-                Util.Progress.progress progressbar_univcheck;
-                tested.(i) <- true
-              ) (f ())
-            with Not_found -> assert false)
-        |_ -> incr failed
-        end
-        ;
-        res
-      end
-      else begin (* we know this package is not broken *)
-        let f () = Printf.eprintf
-        "Warning: this installation set is empty.\n" ; []
+      Util.Progress.progress progressbar_univcheck;
+      if not(tested.(id)) then
+        memo (tested,failed) (solve solver req)
+      else begin
+        (* this branch is true only if the package was previously
+         * added to the tested packages and therefore it is installable *)
+        (* if all = true then the solver is called again to provide the list
+         * of installed packages despite the fact the the package was already
+         * tested. This is done to provide one installation set for each package
+         * in the universe *)
+        let f ?(all=false) () =
+          if all then
+            match solve solver req with
+            |Diagnostic_int.Success(f_int) -> f_int ()
+            |Diagnostic_int.Failure _ -> assert false (* impossible *)
+          else []
         in Diagnostic_int.Success(f) 
       end
     in
@@ -370,9 +385,10 @@ let listcheck ?callback mdf idlist =
     @param solver dependency solver
     @return the number of packages that cannot be installed
 *)
-let univcheck ?callback (mdf,solver) =
+let univcheck ?callback mdf =
   let timer = Util.Timer.create "Algo.Depsolver.univcheck" in
   Util.Timer.start timer;
+  let solver = init_solver mdf.Mdf.index in
   let failed = ref 0 in
   let size = Array.length mdf.Mdf.index in
   let tested = Array.make size false in

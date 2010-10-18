@@ -16,12 +16,17 @@ open ExtLib
 open Common
 open Packages
 
+let debug fmt = Util.make_debug "Debian.Debcudf" fmt
+let info fmt = Util.make_info "Debian.Debcudf" fmt
+let warning fmt = Util.make_warning "Debian.Debcudf" fmt
+let fatal fmt = Util.make_fatal "Debian.Debcudf" fmt
+
 type tables = {
   virtual_table : (string, unit) Hashtbl.t;
   unit_table : (string, unit) Hashtbl.t ;
-  versions_table : (string, string list) Hashtbl.t;
+  versions_table : (string, int) Hashtbl.t;
   versioned_table : (string, unit) Hashtbl.t;
-  reverse_table : ((string * int), string) Hashtbl.t
+  reverse_table : (int, string list ref) Hashtbl.t
 }
 
 let create n = {
@@ -45,67 +50,54 @@ let clear tables =
   Hashtbl.clear tables.reverse_table
 ;;
 
-let init_versions_table table =
-  let add name version =
-    try
-      let l = Hashtbl.find table name in
-      Hashtbl.replace table name (version::l)
-    with Not_found -> Hashtbl.add table name [version]
-  in
-  let conj_iter =
+let add table k v =
+  if not(Hashtbl.mem table k) then
+    Hashtbl.add table k v
+
+(* collect names of virtual packages *)
+let init_virtual_table table pkg =
+  List.iter (fun (name,_) -> add table name ()) pkg.provides
+
+(* collect names of real packages *)
+let init_unit_table table pkg = add table pkg.name ()
+
+(* collect all versions mentioned of depends, pre_depends, conflict and breaks *)
+let init_versioned_table table pkg =
+  let conj_iter l = List.iter (fun (name,_)-> add table name ()) l in
+  let cnf_iter ll = List.iter conj_iter ll in
+  conj_iter pkg.conflicts ;
+  conj_iter pkg.breaks ;
+  cnf_iter pkg.pre_depends ;
+  cnf_iter pkg.depends
+;;
+
+(* collect all versions mentioned anywhere in the universe, including source
+   fields *)
+let init_versions_table table pkg =
+  let conj_iter l =
     List.iter (fun (name,sel) ->
       match CudfAdd.cudfop sel with
       |None -> ()
-      |Some(_,version) -> add name version
-    ) 
+      |Some(_,version) -> add table version ()
+    ) l
   in
-  let cnf_iter = 
-    List.iter (fun disjunction ->
-      List.iter (fun (name,sel) ->
-        match CudfAdd.cudfop sel with
-        |None -> ()
-        |Some(_,version) -> add name version
-      ) disjunction
-    )
-  in
-  fun pkg ->
-    add pkg.name pkg.version;
-    conj_iter pkg.breaks;
-    conj_iter pkg.provides;
-    conj_iter pkg.conflicts ;
-    conj_iter pkg.replaces;
-    cnf_iter pkg.depends;
-    cnf_iter pkg.pre_depends;
-    cnf_iter pkg.recommends
+  let cnf_iter ll = List.iter conj_iter ll in
+  let add_source pv = function
+    |(_,None) -> add table pv ()
+    |(p,Some(v)) -> add table v ()
+  in 
+  add table pkg.version ();
+  conj_iter pkg.breaks;
+  conj_iter pkg.provides;
+  conj_iter pkg.conflicts ;
+  conj_iter pkg.replaces;
+  cnf_iter pkg.depends;
+  cnf_iter pkg.pre_depends;
+  cnf_iter pkg.recommends;
+  add_source pkg.version pkg.source
 ;;
 
-let init_virtual_table table pkg =
-  let add name =
-    if not(Hashtbl.mem table name) then
-      Hashtbl.add table name ()
-  in
-  List.iter (fun (name,_) -> add name) pkg.provides
-
-let init_unit_table table pkg =
-  if not(Hashtbl.mem table pkg.name) then
-    Hashtbl.add table pkg.name ()
-
-let init_versioned_table table pkg =
-  let add name =
-    if not(Hashtbl.mem table name) then
-      Hashtbl.add table name ()
-  in
-  let add_iter_cnf =
-    List.iter (fun disjunction ->
-      List.iter (fun (name,_)-> add name) disjunction
-    ) 
-  in
-  List.iter (fun (name,_) -> add name) pkg.conflicts ;
-  add_iter_cnf pkg.pre_depends ;
-  add_iter_cnf pkg.depends
-;;
-
-let init_tables ?(compare=Version.compare) pkglist =
+let init_tables pkglist =
   let n = 2 * List.length pkglist in
   let tables = create n in 
   let temp_versions_table = Hashtbl.create n in
@@ -115,28 +107,45 @@ let init_tables ?(compare=Version.compare) pkglist =
   let iut = init_unit_table tables.unit_table in
 
   List.iter (fun pkg -> ivt pkg ; ivrt pkg ; ivdt pkg ; iut pkg) pkglist ;
-
-  (* XXX I guess this could be a bit faster if implemented with Sets *)
-  Hashtbl.iter (fun k l ->
-    Hashtbl.add tables.versions_table k
-    (List.unique (List.sort ~cmp:compare l))
-  ) temp_versions_table
-  ;
-  Hashtbl.clear temp_versions_table ;
+  let l = Hashtbl.fold (fun v _ acc -> v::acc) temp_versions_table [] in
+  let add_reverse i v =
+     try let l = Hashtbl.find tables.reverse_table i in l := v::!l
+     with Not_found -> Hashtbl.add tables.reverse_table i (ref [v])
+  in
+  let sl = List.sort ~cmp:Version.compare l in
+  let rec numbers (prec,i) = function
+    |[] -> ()
+    |v::t ->
+      if Version.equal v prec then begin
+        Hashtbl.add tables.versions_table v i;
+        add_reverse i v;
+        numbers (prec,i) t
+      end else begin
+        Hashtbl.add tables.versions_table v (i+1);
+        add_reverse (i+1) v;
+        numbers (v,(i+1)) t
+      end
+  in
+  (* versions start from 1 *)
+  numbers ("",1) sl;
   tables
+;;
 
-(* versions start from 1 *)
 let get_cudf_version tables (package,version) =
-  try
-    let l = Hashtbl.find tables.versions_table package in
-    let i = fst(List.findi (fun i a -> a = version) l) in
-    Hashtbl.replace tables.reverse_table (package,i+1) version;
-    i+1
-  with Not_found -> assert false
+  try Hashtbl.find tables.versions_table version
+  with Not_found -> begin
+    warning "This should never happen : (%s,%s) is not known" package version;
+    raise Not_found
+  end
 
-let get_real_version tables (p,i) =
-  try Hashtbl.find tables.reverse_table (p,i)
-  with Not_found -> assert false
+let get_real_version tables (package,cudfversion) =
+  try
+    match !(Hashtbl.find tables.reverse_table cudfversion) with
+    |[] -> fatal "This should never happen : at lease one version for (%s,%d) must exist" package cudfversion
+    |[h] -> h
+    |l -> List.fold_left min "999999:999999" l
+  with Not_found ->
+    fatal "This should never happen : (%s,%d) is not known" package cudfversion
 
 let loadl tables l =
   List.flatten (
@@ -157,23 +166,6 @@ let loadl tables l =
 (* we add a self conflict here, because in debian each package is in conflict
    with all other versions of the same package *)
 let loadlc tables name l = (CudfAdd.encode name, None)::(loadl tables l)
-(*
-let loadlc tables name l =
-  let l' = 
-    List.flatten (
-      List.map (fun (name',sel) ->
-        match CudfAdd.cudfop sel with
-        |None ->
-            if (Hashtbl.mem tables.virtual_table name') then
-              [(CudfAdd.encode (name'^"--virtual"), None)]
-            else
-              [CudfAdd.encode name', None]
-        |Some(op,v) ->
-            [(CudfAdd.encode name',Some(op,get_cudf_version tables (name',v)))]
-      ) l
-    )
-  in (CudfAdd.encode name, None)::l'
-*)
 
 let loadlp tables l =
   List.map (fun (name,sel) ->
@@ -186,7 +178,7 @@ let loadlp tables l =
         if (Hashtbl.mem tables.unit_table name) || (Hashtbl.mem tables.versioned_table name)
         then (CudfAdd.encode (name^"--virtual"),Some(`Eq,get_cudf_version tables (name,v)))
         else (CudfAdd.encode name,Some(`Eq,get_cudf_version tables (name,v)))
-    |_ -> assert false
+    |_ -> fatal "This should never happen : a provide can be either = or unversioned"
   ) l
 
 let loadll tables ll = List.map (loadl tables) ll
@@ -201,6 +193,7 @@ let preamble =
     ("replaces",(`Vpkglist (Some [])));
     ("recommends",(`Vpkgformula (Some [])));
     ("number",(`String None));
+    ("architecture",(`String None));
     ("source",(`String (Some ""))) ;
     ("sourceversion",(`String (Some ""))) ]
   in
@@ -208,12 +201,13 @@ let preamble =
 
 let add_extra extras tables pkg =
   let number = ("number",`String pkg.version) in
+  let architecture = ("architecture",`String pkg.architecture) in
   let (source,sourceversion) =
-    let n,v =
+    let (n,v) =
       match pkg.source with
-      |"",_ -> (pkg.name,pkg.version)
-      |n,None -> (n,pkg.version)
-      |n,Some v -> (n,v)
+      |("",_) -> (pkg.name,pkg.version)
+      |(n,None) -> (n,pkg.version)
+      |(n,Some v) -> (n,v)
     in
     ("source",`String n), ("sourceversion", `String v)
   in
@@ -235,7 +229,7 @@ let add_extra extras tables pkg =
     |(_,`Vpkgformula []) -> None
     |e -> Some e
   )
-  [number; source; sourceversion; recommends; replaces] @ l
+  [architecture; number; source; sourceversion; recommends; replaces] @ l
 ;;
 
 let add_essential = function
@@ -245,7 +239,10 @@ let add_essential = function
 let add_inst inst pkg =
   if inst then true 
   else
-    try ((List.assoc "status" pkg.extras) = "install ok installed")
+    try
+      match String.nsplit (List.assoc "status" pkg.extras) " " with
+      |[_;_;"installed"] -> true
+      | _ -> false
     with Not_found -> false
 
 let tocudf tables ?(extras=[]) ?(inst=false) pkg =
@@ -266,7 +263,7 @@ let ltocudf = loadl
 let load_list l =
   let timer = Util.Timer.create "Debian.Debcudf.load_list" in
   Util.Timer.start timer;
-  let tables =  init_tables l in
+  let tables = init_tables l in
   let pkglist = List.map (tocudf tables) l in
   clear tables;
   Util.Timer.stop timer pkglist

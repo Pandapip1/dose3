@@ -34,6 +34,10 @@ module Options =
 
 (* ========================================= *)
 
+let debug fmt = Util.make_debug "Aptsoltuions" fmt
+let info fmt = Util.make_info "Aptsolutions" fmt
+let warning fmt = Util.make_warning "Aptsolutions" fmt
+
 let main () =
   at_exit (fun () -> Util.dump Format.err_formatter);
   let (doc,apt) =
@@ -48,12 +52,11 @@ let main () =
   let (preamble,universe) =
     match Input.parse_uri doc with
     |("cudf",(_,_,_,_,file),_) -> begin
-      let p, u, _ = CudfAdd.parse_cudf file in (p,u)
+      let p, u, _ = Boilerplate.parse_cudf file in (p,u)
     end
     |(s,_,_) -> failwith (s^" Not supported")
   in
 
-  Util.print_info "aaA0";
   let (install,remove) =
     let ch = Input.open_file apt in
     let (install,remove) = (ref [] , ref []) in
@@ -67,20 +70,20 @@ let main () =
       if Str.string_match re_rem line 0 then begin
           let n = Str.matched_group 1 line in
           let v = Str.matched_group 2 line in
-          Util.print_info "remove %s %s" n v;
+          info "remove %s %s" n v;
           remove := (n,v) :: !remove
       end
       else if Str.string_match re_inst line 0 then begin
           let n = Str.matched_group 1 line in
           let v = Str.matched_group 2 line in
-          Util.print_info "install %s %s" n v;
+          info "install %s %s" n v;
           install := (n,v) :: !install
       end
       else if Str.string_match re_up line 0 then begin
           let n = Str.matched_group 1 line in
           let vold = Str.matched_group 2 line in
           let vnew = Str.matched_group 3 line in
-          Util.print_info "upgrade %s %s -> %s" n vold vnew;
+          info "upgrade %s %s -> %s" n vold vnew;
           install := (n,vnew) :: !install ;
           remove := (n,vold) :: !remove
       end
@@ -88,7 +91,11 @@ let main () =
     (!install,!remove)
   in
 
-  Util.print_info "aaA1";
+  if (List.length install) = 0 && (List.length remove) = 0 then begin
+    Printf.eprintf "Empty solution or not a solution\n";
+    exit 0
+  end;
+
   let t = Hashtbl.create (List.length universe) in
   List.iter (fun pkg ->
     let n = pkg.Cudf.package in
@@ -101,23 +108,31 @@ let main () =
     Hashtbl.add t (n,v) pkg
   ) universe;
 
-  Util.print_info "aaA2";
   List.iter (fun (n,v) ->
-    let pkg = try Hashtbl.find t (n,v) with Not_found -> (Printf.eprintf "%s
-    %s\n%!" n v ; assert false ) in
+    try let pkg = Hashtbl.find t (n,v) in
     Hashtbl.replace t (n,v) {pkg with Cudf.installed = false }
+    with Not_found -> begin
+      Printf.eprintf 
+"Something wrong in the remove request.
+Package in the solution is not present in the universe (%s,%s)" n v;
+      exit 1
+    end
   ) remove ;
 
-  Util.print_info "aaA3";
   List.iter (fun (n,v) ->
-    Util.print_info "aaA4";
-    let pkg = try Hashtbl.find t (n,v) with Not_found -> (Printf.eprintf "%s
-    %s\n%!" n v ; assert false )in
-    Util.print_info "aaA4";
+    try let pkg = Hashtbl.find t (n,v) in
     Hashtbl.replace t (n,v) {pkg with Cudf.installed = true }
+    with Not_found -> begin
+      if String.starts_with n "dummy_" then ()
+      else begin
+        Printf.eprintf
+"Something wrong in the remove request. Package in the
+solution is not present in the universe (%s,%s)" n v;
+        exit 1
+      end
+    end
   ) install ;
 
-  Util.print_info "aaA4";
   let l = Hashtbl.fold (fun k v acc -> if v.Cudf.installed then v::acc else acc) t [] in
   if not (Option.is_none preamble) then
       print_endline (Cudf_printer.string_of_preamble (Option.get preamble));

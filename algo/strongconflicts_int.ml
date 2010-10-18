@@ -17,15 +17,27 @@ open ExtLib
 open Common
 open CudfAdd
 
+let debug fmt = Util.make_debug "Strongconflicts_int" fmt
+let info fmt = Util.make_info "Strongconflicts_int" fmt
+let warning fmt = Util.make_warning "Strongconflicts_int" fmt
+
 module SG = Strongdeps_int.G
 module PkgV = struct
-    type t = int
-    let compare = Pervasives.compare
-    let hash i = i
-    let equal = (=)
+  type t = int
+  let compare = Pervasives.compare
+  let hash i = i
+  let equal = (=)
 end
-(* unlabelled indirected graph *)
+type cfl_type = Explicit | Conjunctive | Other of Diagnostic_int.reason list;;
+module CflE = struct
+  type t = int * int * cfl_type
+  let compare = Pervasives.compare
+  let default = (0, 0, Other []) 
+end
+
+(* unlabelled indirected graph, for the cache *)
 module IG = Graph.Imperative.Graph.Concrete(PkgV)
+module CG = Graph.Imperative.Graph.ConcreteLabeled(PkgV)(CflE)
 
 (** progress bar *)
 let seedingbar = Util.Progress.create "Algo.Strongconflicts.seeding" ;;
@@ -39,81 +51,86 @@ type cl = { rdc : S.t ; rd : S.t }
 let swap (p,q) = if p < q then (p,q) else (q,p) ;;
 let to_set l = List.fold_right S.add l S.empty ;;
 
-let coinst_partial solver (p,q) =
-  let req = Diagnostic_int.Lst [p;q] in
-  match Depsolver_int.solve solver req with
-  |Diagnostic_int.Success _ -> true
-  |Diagnostic_int.Failure _ -> false
-;;
-
 let explicit mdf =
+  let cmp (x : int * int) (y : int * int) = x = y in
   let index = mdf.Mdf.index in
   let l = ref [] in
   for i=0 to (Array.length index - 1) do
     let pkg = index.(i) in
-    let conflicts = Array.map snd pkg.Mdf.conflicts in
-    for j=0 to ((Array.length conflicts) - 1) do
-      l := swap(i,conflicts.(j)):: !l
-    done
+    let conflicts = List.map snd pkg.Mdf.conflicts in
+    List.iter (fun j ->
+      l := swap(i,j):: !l
+    ) conflicts
   done;
-  (List.unique !l)
+  (List.unique ~cmp !l)
 ;;
 
-(* [strongconflicts mdf idlist] return the list of strong conflicts
+(* [strongconflicts mdf] return the list of strong conflicts
    @param mdf
-   @param a subset of the universe
 *)
-let strongconflicts mdf idlist =
+let strongconflicts mdf =
   let index = mdf.Mdf.index in
-  let clousure = Depsolver_int.dependency_closure mdf idlist in
-  let solver = Depsolver_int.init_solver ~closure index in
-  let coinst = coinst_partial solver in
+  let solver = Depsolver_int.init_solver index in
   let reverse = reverse_dependencies mdf in
-  let size = (List.length idlist) in
+  let size = (Array.length index) in
   let cache = IG.create ~size:size () in
   let cl_dummy = {rdc = S.empty ; rd = S.empty} in
   let closures = Array.create size cl_dummy in
 
-  let triangles x y =
-    let s1 = closures.(x).rd in
-    let s2 = closures.(y).rd in
-    (S.is_empty s1 && S.is_empty s2) || (
-    (S.equal s1 s2) &&
-    (List.for_all (fun e ->
-      (List.exists (fun (_,a,_) ->
-        Array.mem x a && Array.mem y a
-      ) (Array.to_list index.(e).Mdf.depends)) &&
-      (coinst (e,x) && coinst (e,y))
-    ) (S.elements s1))
-    )
-  in
+  debug "Pre-seeding ...";
 
-  Util.print_info "Pre-seeding ...";
+  Util.Progress.set_total seedingbar (Array.length mdf.Mdf.index);
 
-  Util.Progress.set_total seedingbar (List.length idlist);
-
-  let cg = SG.create ~size:(List.length idlist) () in
+  let cg = SG.create ~size () in
   for i=0 to (size - 1) do
     Util.Progress.progress seedingbar;
     let rdc = to_set (reverse_dependency_closure reverse [i]) in
     let rd = to_set reverse.(i) in
     closures.(i) <- {rdc = rdc; rd = rd};
-    Strongdeps_int.conjdepgraph_int cg index i ; 
+    Defaultgraphs.IntPkgGraph.conjdepgraph_int cg index i ; 
     IG.add_vertex cache i
   done;
   let cg = Strongdeps_int.SO.O.add_transitive_closure cg in
 
-  Util.print_info "dependency graph : nodes %d , edges %d" 
+  debug "dependency graph : nodes %d , edges %d" 
   (SG.nb_vertex cg) (SG.nb_edges cg);
 
   SG.iter_edges (IG.add_edge cache) cg;
 
-  Util.print_info " done";
+  debug " done";
 
   let i = ref 0 in
   let ex = explicit mdf in
   let total = ref 0 in
   let conflict_size = List.length ex in
+
+  let try_add_edge donei stronglist p q x y =
+  begin
+    incr donei;
+    if not (IG.mem_edge cache p q) then begin
+      IG.add_edge cache p q;
+      let req = Diagnostic_int.Lst [p;q] in
+      match Depsolver_int.solve solver req with
+      |Diagnostic_int.Success _ -> ()
+      |Diagnostic_int.Failure f ->
+        CG.add_edge_e stronglist (p, (x, y, Other (f ())), q)
+    end ;
+  end in
+
+  let debconf_triangle xpred ypred common =
+  begin
+    if not (S.is_empty common) then
+    begin
+      let xrest = S.diff xpred ypred
+      and yrest = S.diff ypred xpred 
+      and pred_pred = S.fold (fun z acc ->
+        S.union closures.(z).rd acc
+      ) common S.empty in
+      S.subset xrest pred_pred && S.subset yrest pred_pred
+    end
+    else
+      false
+  end in
 
   (* The simplest algorithm. We iterate over all explicit conflicts, 
    * filtering out all couples that cannot possiby be in conflict
@@ -121,7 +138,7 @@ let strongconflicts mdf idlist =
    * Then we iter over the reverse dependency closures of the selected 
    * conflict and we check all pairs that have not been considered before.
    * *)
-  let stronglist = IG.create () in
+  let stronglist = CG.create () in
   List.iter (fun (x,y) -> 
     incr i;
     if not(IG.mem_edge cache x y) then begin
@@ -131,35 +148,48 @@ let strongconflicts mdf idlist =
       let donei = ref 0 in
 
       IG.add_edge cache x y;
-      IG.add_edge stronglist x y;
+      CG.add_edge_e stronglist (x, (x, y, Explicit), y);
 
-      Util.print_info "(%d of %d) %s # %s ; Strong conflicts %d Tuples %d"
+      debug "(%d of %d) %s # %s ; Strong conflicts %d Tuples %d"
       !i conflict_size
-      (CudfAdd.print_package pkg_x.Mdf.pkg) 
-      (CudfAdd.print_package pkg_y.Mdf.pkg)
-      (IG.nb_edges stronglist)
+      (pkg_x.Mdf.pkg.Cudf.package) 
+      (pkg_y.Mdf.pkg.Cudf.package)
+      (CG.nb_edges stronglist)
       ((S.cardinal a) * (S.cardinal b));
 
       Util.Progress.set_total localbar (S.cardinal a);
+      List.iter (fun p ->
+        List.iter (fun q ->
+          if p <> q && not (IG.mem_edge cache p q) then
+          begin
+            IG.add_edge cache p q;
+            CG.add_edge_e stronglist (p, (x, y, Conjunctive), q);
+          end
+        ) (y::(SG.pred cg y))
+      ) (x::(SG.pred cg x));
 
       (* unless :
-       * 1- x and y are in triangle, that is all direct reverse dependencies have a
-       * disjunction containing x and y and it is always possible to install
-       * either x or y. or the direct reverse dependencies of x and y are empty.
-       * 2- the reverse dependency clousure of x and y are equal
-       * 
-       * -> check the product A x B
-       * *)
-      if (triangles x y) || (S.equal a b) then ()
-      else begin
+       * 1- x and y are in triangle, that is: there is ONE reverse dependency
+       * of both x and y that has a disjunction "x | y". *)
+      let xpred = closures.(x).rd
+      and ypred = closures.(y).rd in 
+      let common = S.inter xpred ypred in
+      if (S.cardinal xpred = 1) && (S.cardinal ypred = 1) && (S.choose xpred = S.choose ypred) then
+      begin
+        let p = S.choose xpred in
+        begin
+          debug "triangle %s - %s (%s)" (CudfAdd.print_package pkg_x.Mdf.pkg) (CudfAdd.print_package pkg_y.Mdf.pkg) (CudfAdd.print_package index.(p).Mdf.pkg);
+          try_add_edge donei stronglist p x x y;
+          try_add_edge donei stronglist p y x y;
+        end
+      end
+      else if debconf_triangle xpred ypred common then
+        debug "debconf triangle %s - %s" (CudfAdd.print_package pkg_x.Mdf.pkg) (CudfAdd.print_package pkg_y.Mdf.pkg)
+      else
+      begin
         S.iter (fun p ->
           S.iter (fun q ->
-            incr donei;
-            if not (IG.mem_edge cache p q) then begin
-              if not (coinst (p,q)) then 
-                IG.add_edge stronglist p q;
-            end ;
-            IG.add_edge cache p q;
+            try_add_edge donei stronglist p q x y 
           ) (S.diff b (to_set (IG.succ cache p))) ;
           Util.Progress.progress localbar;
         ) a
@@ -167,10 +197,10 @@ let strongconflicts mdf idlist =
 
       Util.Progress.reset localbar;
 
-      Util.print_info " | tuple examined %d" !donei;
+      debug " | tuple examined %d" !donei;
       total := !total + !donei
     end
   ) ex ;
-  Util.print_info " total tuple examined %d" !total;
-  IG.fold_edges (fun p q l -> swap(p,q) :: l) stronglist []
+  debug " total tuple examined %d" !total;
+  stronglist
 ;;

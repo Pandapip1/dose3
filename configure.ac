@@ -1,5 +1,5 @@
 
-AC_INIT(dose3, 0.7, pietro.abate@pps.jussieu.fr)
+AC_INIT(dose3, 0.7.3, pietro.abate@pps.jussieu.fr)
 
 AC_PROG_OCAML
 if test "$OCAMLC" = "no"; then
@@ -72,7 +72,7 @@ AC_ARG_WITH(bz2,
 AC_SUBST(HAS_BZ2)
 if test "$HAS_BZ2" = "yes" ; then
   AC_CHECK_OCAML_PKG([bz2])
-  if test "$OCAML_PKG_BZ2" = "no"; then
+  if test "$OCAML_PKG_bz2" = "no"; then
    AC_MSG_ERROR([Please install OCaml findlib module 'bz2'.])
   fi
   CONFIG_BZ2="-DHASBZ2"
@@ -89,7 +89,8 @@ AC_SUBST(HAS_RPM)
 if test "$HAS_RPM" = "yes" ; then
   AC_MSG_NOTICE([RPM support enabled])
   AC_CHECK_HEADERS([rpm/rpmlib.h],,AC_MSG_ERROR([missing rpmlib.h]))
-  AC_CHECK_HEADERS([rpm/rpmio.h],,AC_MSG_ERROR([missing rpmlib.h]))
+  AC_CHECK_HEADERS([rpm/rpmio.h],,AC_MSG_ERROR([missing rpmio.h]))
+  AC_CHECK_HEADERS([rpm/rpmtypes.h],,AC_MSG_ERROR([missing rpmtypes.h]))
   INCLUDE_RPM="<rpm>: include"
   CONFIG_RPM="-DHASRPM"
   LINK_RPM="<*.native>: c_use_rpm"
@@ -149,8 +150,12 @@ if test "$HAS_OCAMLGRAPH" = "yes" ; then
   if test "$OCAML_PKG_ocamlgraph" = "no"; then
    AC_MSG_ERROR([Please install OCaml findlib module 'ocamlgraph'.])
   fi
+  TMPVERSION=`$OCAMLFIND query -format %v ocamlgraph`
+  if test $(echo "$TMPVERSION < 1.5" | bc) -eq 1; then
+      AC_MSG_ERROR([found ocamlgraph with version $TMPVERSION (<= 1.5 is required )])
+  fi
   PKG_OCAMLGRAPH=pkg_ocamlgraph
-  MLPACK_OCAMLGRAPH="Defaultgraphs Statistics Dominators Strongdeps Strongdeps_int"
+  MLPACK_OCAMLGRAPH="Defaultgraphs Statistics Dominators Strongdeps Strongdeps_int Strongconflicts Strongconflicts_int"
   CONFIG_OCAMLGRAPH="-DHASOCAMLGRAPH"
 else
   PKG_OCAMLGRAPH=pkg_
@@ -205,6 +210,21 @@ else
   PKG_OUNIT=pkg_
 fi
 
+AC_ARG_WITH(benchmark,
+        [ --with-benchmark ],
+        HAS_BENCHMARK=yes,
+        HAS_BENCHMARK=no)
+AC_SUBST(HAS_BENCHMARK)
+if test "$HAS_BENCHMARK" = "yes" ; then
+  AC_CHECK_OCAML_PKG([benchmark])
+  if test "$OCAML_PKG_benchmark" = "no"; then
+   AC_MSG_ERROR([Please install OCaml findlib module 'benchmark'.])
+  fi
+  PKG_BENCHMARK="pkg_benchmark"
+else
+  PKG_BENCHMARK=pkg_
+fi
+
 AC_SUBST(TAGS_PGSQL)
 AC_SUBST(PKG_PGSQL)
 AC_SUBST(MLPACK_PGSQL)
@@ -251,11 +271,13 @@ AC_SUBST(LDFLAGS)
 
 AC_CONFIG_FILES([
   Makefile.config
+  META
   db/db.mlpack
   db/_tags
   algo/_tags
   rpm/_tags
   deb/_tags
+  eclipse/_tags
   algo/algo.mlpack
   common/_tags
   applications/_tags

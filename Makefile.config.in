@@ -33,12 +33,18 @@ TARGETS= \
 		 applications/cudf-solver.$(OCAMLBEST) \
 		 applications/distcheck.$(OCAMLBEST) \
 		 applications/buildcheck.$(OCAMLBEST) \
+		 applications/ceve.$(OCAMLBEST) \
 		 applications/cudf-diff.$(OCAMLBEST)
 
 LIBS= \
 	  common/common.$(OCAMLLIBBEST) \
 	  deb/debian.$(OCAMLLIBBEST) \
 	  algo/algo.$(OCAMLLIBBEST)
+
+#we always compile bytecode libraries
+ifeq ("@OCAMLBEST@","opt")
+	LIBS += common/common.cma deb/debian.cma algo/algo.cma
+endif
 
 #external libcudf, then we build the check tool in-house
 ifeq ("@HAS_LIBCUDF@","no")
