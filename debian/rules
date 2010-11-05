@@ -22,6 +22,6 @@ override_dh_gencontrol:
          done;\
 	 for pkg in $(EPOCHED); do\
 		if [[ $${these/*$$pkg*/@yes@} = "@yes@" ]];\
-		then dh_gencontrol -p$$pkg -- -v1:$(SRCV); fi\;\
+		then dh_gencontrol -p$$pkg -- -v1:$(SRCV); fi;\
          done)
 
