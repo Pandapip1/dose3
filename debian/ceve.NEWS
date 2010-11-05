@@ -1,0 +1,7 @@
+ceve (1:0.7.3-1-1) experimental; urgency=low
+
+    The format EGraph, which was one of the possible input and output
+    formats of earlier versions of ceve based on the dose and dose2
+    libraries, is no longer supported.
+
+ -- Ralf Treinen <treinen@debian.org>  Fri, 05 Nov 2010 14:56:17 +0100
