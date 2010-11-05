@@ -6,7 +6,7 @@ Uploaders: Stefano Zacchiroli <zack@debian.org>,
  Ralf Treinen <treinen@debian.org>
 Build-Depends: debhelper (>= 7.0.50~), dh-ocaml (>= 0.9~),
  ocaml-nox (>= 3.11.1-3~), libpcre-ocaml-dev, libextlib-ocaml-dev,
- libocamlgraph-ocaml-dev, libcudf-ocaml-dev, libexpat-ocaml-dev
+ libocamlgraph-ocaml-dev, libcudf-ocaml-dev (>= 0.5.99-1), libexpat-ocaml-dev
 Standards-Version: 3.9.0
 Homepage: http://www.mancoosi.org/software/
 Vcs-Browser: http://git.debian.org/?p=pkg-ocaml-maint/packages/dose3.git
@@ -14,7 +14,7 @@ Vcs-Git: git://git.debian.org/git/pkg-ocaml-maint/packages/dose3.git
 
 Package: libdose3-ocaml-dev
 Architecture: any
-Depends: ${misc:Depends}
+Depends: ${misc:Depends}, ${ocaml:Depends}
 Provides: ${ocaml:Provides}
 Description: OCaml libraries for package dependencies (development files)
  Dose3 is a framework made of several OCaml libraries for managing
@@ -34,7 +34,7 @@ Description: OCaml libraries for package dependencies (development files)
 
 Package: dose3-distcheck
 Architecture: any
-Depends: ${F:OCamlInterpDepends}, ${misc:Depends}, ${shlibs:Depends}
+Depends: ${ocaml:Depends}, ${misc:Depends}, ${shlibs:Depends}
 Description: Checks whether dependencies of packages can be satisfied
  This software checks for every package of a distribution whether it
  is possible to satisfy its dependencies and conflicts within this
@@ -47,7 +47,7 @@ Description: Checks whether dependencies of packages can be satisfied
 
 Package: dose3-builddebcheck
 Architecture: any
-Depends: ${F:OCamlInterpDepends}, ${misc:Depends}, ${shlibs:Depends}
+Depends: ${ocaml:Depends}, ${misc:Depends}, ${shlibs:Depends}
 Description: Checks whether build-dependencies can be satisfied
  This software checks, given a collection of source package stanzas
  and a collection of binary package stanzas, whether the build-dependencies
