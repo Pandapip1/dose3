@@ -15,10 +15,13 @@ override_dh_auto_configure:
 	./configure --with-xml --with-ocamlgraph -- with-zip --with-bz2
 
 override_dh_gencontrol:
-	for pkg in $(NOEPOCH); do\
-		dh_gencontrol -p$$pkg;\
-        done
-	for pkg in $(EPOCHED); do\
-		dh_gencontrol -p$$pkg -- -v1:$(SRCV);\
-        done
+	(these=`dh_listpackages`;\
+	 for pkg in $(NOEPOCH); do\
+		if [[ $${these/*$$pkg*/@yes@} = "@yes@" ]];\
+		then dh_gencontrol -p$$pkg; fi;\
+         done;\
+	 for pkg in $(EPOCHED); do\
+		if [[ $${these/*$$pkg*/@yes@} = "@yes@" ]];\
+		then dh_gencontrol -p$$pkg -- -v1:$(SRCV); fi\;\
+         done)
 
