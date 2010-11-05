@@ -36,7 +36,7 @@ Description: OCaml libraries for package dependencies (development files)
  This package contains the development stuff you need to use dose3 in
  the development of your programs.
 
-Package: dose3-distcheck
+Package: edos-distcheck
 Architecture: any
 Depends: ${ocaml:Depends}, ${misc:Depends}, ${shlibs:Depends}
 Description: Checks whether dependencies of packages can be satisfied
@@ -49,7 +49,7 @@ Description: Checks whether dependencies of packages can be satisfied
  edos-distcheck. Until then, the name of the package or of the binary,
  as well as command line options and output format, are subject to change.
 
-Package: dose3-builddebcheck
+Package: edos-builddebcheck
 Architecture: any
 Depends: ${ocaml:Depends}, ${misc:Depends}, ${shlibs:Depends}
 Description: Checks whether build-dependencies can be satisfied
@@ -60,3 +60,25 @@ Description: Checks whether build-dependencies can be satisfied
  NOTE: This is an experimental package which will eventually replace
  edos-distcheck. Until then, the name of the package or of the binary,
   as well as command line options and output format, are subject to change.
+
+Package: ceve
+Architecture: any
+Depends: ${ocaml:Depends}, ${misc:Depends}, ${shlibs:Depends}
+Description: Parses package dependencies as set of constraints
+ Ceve is a command line utility used to parse package metadata
+ information (in particular package interrelationships such as
+ dependencies) and convert them into a set of constraints that need to
+ be satisfied by a proper package installation.
+ .
+ Supported input formats for package metadata are:
+  * .deb packages
+  * Debian package lists (i.e. as in Packages.gz)
+  * .rpm packages
+  * RPM package lists
+ .
+ Supported output formats for set of constraints are:
+  * pretty printed format for human consumption
+  * Dose base, suitable as input for the Pkglab tool
+  * Oz (a programming language supporting constraint programming)
+  * Graphviz
+  * Tart, suitable as input for the Tart media partitioner
