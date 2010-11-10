@@ -67,18 +67,21 @@ Depends: ${ocaml:Depends}, ${misc:Depends}, ${shlibs:Depends}
 Description: Parses package dependencies as set of constraints
  Ceve is a command line utility used to parse package metadata
  information (in particular package interrelationships such as
- dependencies) and convert them into a set of constraints that need to
- be satisfied by a proper package installation.
+ dependencies) and convert them into several other data formats
+ that can be used for further analysis.
  .
  Supported input formats for package metadata are:
   * .deb packages
   * Debian package lists (i.e. as in Packages.gz)
   * .rpm packages
   * RPM package lists
+  * CUDF
  .
- Supported output formats for set of constraints are:
+ Supported output formats for sets of constraints are:
   * pretty printed format for human consumption
   * Dose base, suitable as input for the Pkglab tool
   * Oz (a programming language supporting constraint programming)
-  * Graphviz
+  * dot/Graphviz
   * Tart, suitable as input for the Tart media partitioner
+  * CNF (formula in conjunctive normal form)
+  * DIMACS format of propositional formula
