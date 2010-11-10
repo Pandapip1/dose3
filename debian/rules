@@ -3,10 +3,10 @@ SHELL=/bin/bash
 
 SRCV := $(shell dpkg-parsechangelog | sed -n '/^Version:/{s|Version: *||p;q}')
 
-# bin packages that get the same version as the source
+# binary packages that get the same version as the source
 NOEPOCH = libdose3-ocaml-dev
 
-# bin packages that have their version with epoch 1
+# binary packages that have their version with epoch 1
 EPOCHED  = edos-distcheck edos-builddebcheck ceve
 
 %:
@@ -18,11 +18,11 @@ override_dh_auto_configure:
 override_dh_gencontrol:
 	(these=`dh_listpackages`;\
 	 for pkg in $(NOEPOCH); do\
-		if [[ $${these/*$$pkg*/@yes@} = "@yes@" ]];\
+		if [[ $$these =~ .*^$$pkg$$.* ]];\
 		then dh_gencontrol -p$$pkg; fi;\
          done;\
 	 for pkg in $(EPOCHED); do\
-		if [[ $${these/*$$pkg*/@yes@} = "@yes@" ]];\
+		if [[ $$these =~ .*^$$pkg$$.* ]];\
 		then dh_gencontrol -p$$pkg -- -v1:$(SRCV); fi;\
          done)
 
