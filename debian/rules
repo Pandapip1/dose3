@@ -3,11 +3,8 @@ SHELL=/bin/bash
 
 SRCV := $(shell dpkg-parsechangelog | sed -n '/^Version:/{s|Version: *||p;q}')
 
-# binary packages that get the same version as the source
-NOEPOCH = libdose3-ocaml-dev
-
 # binary packages that have their version with epoch 1
-EPOCHED  = edos-distcheck edos-builddebcheck ceve
+EPOCHED  = "|edos-distcheck|edos-builddebcheck|ceve|"
 
 %:
 	dh $@ --with ocaml
@@ -16,13 +13,10 @@ override_dh_auto_configure:
 	./configure --with-xml --with-ocamlgraph -- with-zip --with-bz2
 
 override_dh_gencontrol:
-	(these=`dh_listpackages`;\
-	 for pkg in $(NOEPOCH); do\
-		if [[ $$these =~ .*^$$pkg$$.* ]];\
-		then dh_gencontrol -p$$pkg; fi;\
-         done;\
-	 for pkg in $(EPOCHED); do\
-		if [[ $$these =~ .*^$$pkg$$.* ]];\
-		then dh_gencontrol -p$$pkg -- -v1:$(SRCV); fi;\
-         done)
+	 for pkg in `dh_listpackages`; do\
+		if [[ $(EPOCHED) =~ .*|$$pkg|.* ]];\
+		then dh_gencontrol -p$$pkg -- -v1:$(SRCV);\
+		else dh_gencontrol -p$$pkg;\
+		fi;\
+         done
 
