@@ -4,7 +4,7 @@ SHELL=/bin/bash
 SRCV := $(shell dpkg-parsechangelog | sed -n '/^Version:/{s|Version: *||p;q}')
 
 # binary packages that have their version with epoch 1
-EPOCHED  = "|edos-distcheck|edos-builddebcheck|ceve|"
+EPOCHED  = ":edos-distcheck:edos-builddebcheck:ceve:"
 
 %:
 	dh $@ --with ocaml
@@ -14,7 +14,7 @@ override_dh_auto_configure:
 
 override_dh_gencontrol:
 	 for pkg in `dh_listpackages`; do\
-		if [[ $(EPOCHED) =~ .*|$$pkg|.* ]];\
+		if [[ $(EPOCHED) =~ .*:$$pkg:.* ]];\
 		then dh_gencontrol -p$$pkg -- -v1:$(SRCV);\
 		else dh_gencontrol -p$$pkg;\
 		fi;\
