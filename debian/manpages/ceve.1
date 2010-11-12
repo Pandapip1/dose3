@@ -1,168 +1,81 @@
-.TH ceve 1 "October 28, 2008" "Version 1.2" "USER COMMANDS"
+.TH ceve 1 "November 11, 2010" "Version 3.0" "USER COMMANDS"
 .SH NAME
 ceve \- parse package metadata
 .SH SYNOPSIS
 .B ceve
-[\-output-type
-.IR output-type ]
-[\-output-file
-.IR output-file ]
-[\-input-type
-.IR input-type ]
-[\-extract-cone
-.IR package=version ]
-[\-cone-dep-types
-.IR code-dependency-types ]
-[\-stop-extraction
-.IR package=version ]
-[\-dose-date
-.IR yyyy-mm-dd ]
-[\-dose-archive
-.IR archive-name ]
-[\-resolve-dependencies] [\-rpm-versions] [\-debian-versions] [\-verbose] [\-help]
-.I files
-[\-ignore-file-deps
-.IR file ]
+[\-h] [\-v] [\-e
+.IR pkgspec ]
+[\-c
+.IR pkgspec ]
+[\-r
+.IR pkgspec ]
+.RI [\-\-depth= n ]
+[\-t
+.IR format ]
+[\-o
+.IR filename ]
 .SH DESCRIPTION
 Ceve is a generalized metadata parser. It reads package specifications,
 extracts package metadata from them, performs some manipulations, and outputs
 the package metadata in one of several formats.
 .SH OPTIONS
 .TP
-.BI "\-cone-dep-types " list
-A comma-separated list of dependency types to use for dependency closure
-generation. By default, all dependency types are used. Possible values are:
-.RS
-.IP \(bu 4
-conflicts
-.IP \(bu 4
-depends
-.IP \(bu 4
-enhances
-.IP \(bu 4
-predepends
-.IP \(bu 4
-recommends
-.IP \(bu 4
-replaces
-.IP \(bu 4
-suggests
-.RE
+.B \-h
+This option displays the help message. Can also be specified as
+.BR \-\-help .
 .TP
-.B \-debian-versions
-Force usage of the Debian version numbering scheme, as well as the Debian
-syntax for virtual packages (dependencies with a version specification cannot
-be satisfied by a virtual package).
+.B \-v
+Be verbose. This option can be repeated for more verbosity.
 .TP
-.BI "\-dose-architecture " architecture
-Use
-.I architecture
-as the default Dose architecture.
+.BI "\-e " pkgspec
+Extract the transitive closure of packages connected (by conflict or
+dependency) to any of the packages that satisfy
+.IR pkgspec .
+Such a package specification is a list of packages (separated by a semicolon),
+where each package is specified as follows:
+.RI ( name , version ).
+This option can also be specified as
+.RI "\-\-extract=" pkgspec .
 .TP
-.BI "\-dose-archive " archive
-Use
-.I archive
-as the default Dose archive name.
+.BI "\-c " pkgspec
+Similar to the
+.B \-c
+option, but only uses the dependency relation to make the transitive closure.
+This option can also be specified as
+.RI "\-\-cone=" pkgspec .
 .TP
-.BI "\-dose-date " date
-Set
-.I date
-as the lifetime for the packages to add to a Dose database.
+.BI "\-r " pkgspec
+Similar to the
+.B \-e
+and
+.B \-c
+options, but uses the reverse dependency relation to make the transitive
+closure. This option can also be specified as
+.RI "\-\-rcone=" pkgspec .
 .TP
-.BI "\-extract-cone " package
-Only output the package
-.I package
-and its dependency closure. The package specification can be either a package
-name, or a package name and version in the form
-.IR name = version .
-This option can be abbreviated as
-.BR \-x .
-.TP
-.B \-help
-Not particularly useful, given that you're already reading this manpage.
-.TP
-.BI "\-input-type " input-type
-The input type. Possible values are:
-.RS
-.IP \(bu 4
-.B debian
-One Debian package (.deb)
-.IP \(bu 4
-.B debian-pool
-A Debian pool or cache file
-.IP \(bu 4
-.B rpm
-One RPM package
-.IP \(bu 4
-.B hdlist
-An uncompressed RPM hdlist file
-.IP \(bu 4
-.B pkgsrc
-A pkgsrc pkg_summary file
-.IP \(bu 4
-.B synthesis-hdlist
-An RPM synthesis hdlist (uncompressed)
-.RE
-This option can be abbreviated as
-.BR \-p .
-.TP
-.BI "\-output-dir " directory
-Set the directory to output to. This is only useful when using the
-.B dose
-output type.
-.TP
-.BI "\-output-file " file 
-Set the file to output to. This option can be abbreviated as
-.BR \-o .
-.TP
-.BI "\-output-type " output-type
-Set the type of output to produce. Possible values are:
-.RS
-.IP \(bu 4
-.B prettyprint
-Pretty printer.
-.IP \(bu 4
-.B dose
-Dose database format (use the \-output-dir option to specify which directory to write to)
-.IP \(bu 4
-.B oz
-Oz data structure
-.IP \(bu 4
-.B graphviz
-GraphVIZ graph
-.IP \(bu 4
-.BR tart " or " cnf
-CNF formula, readable by Tart
-.RE
-This option can be abbreviated as
-.BR \-t .
-.TP
-.B \-resolve-dependencies
-If specified, resolve dependencies so that a dependency on a virtual package is
-replaced by the disjunction of all packages that provide the virtual package.
-.TP
-.B \-rpm-versions
-Force usage of the RPM version numbering scheme, as well as the RPM semantics
-for virtual packages (all provides have versions). This is default when using
-the
-.B rpm
+.BI "\-\-depth=" n
+In combination with the
+.BR -e ,
+.B -c
 or
-.B hdlist
-input types.
+.B -r
+options, this specifies the maximum depth for the transitive closure.
 .TP
-.BI "\-stop-extraction " package
-When computing the dependency closure, stop at package
-.I package
-(i.e. do not take its dependencies into account). Specification is the same as
-for the
-.B \-extract-cone
-option.
+.BI "\-t " format
+Specifies the output format to use. Possible values are
+.B dot
+for a graph output in Dot/GraphViz format,
+.B cnf
+for an output in CNF format,
+.B dimacs
+for an output in the DIMACS format for CNF formulae, and
+.B pp
+for a pretty-print output in an RFC 822-like format. This option can also be
+specified as
+.RI "\-\-outtype=" format .
 .TP
-.B \-verbose
-Be verbose (mostly useful for debugging).
-.TP
-.BI "\-ignore-file-deps " file
-.I file
-should countain a list of file dependencies that are assumed to be available,
-and thus will not generate a warning during dependency resolution if not
-provided by any package.
+.BI "\-o " filename
+Instead of stdout, send output to the file
+.IR filename .
+This option can also be specified as
+.RI "\-\-outfile=" filename .
