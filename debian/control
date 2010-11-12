@@ -79,9 +79,6 @@ Description: Parses package dependencies as set of constraints
  .
  Supported output formats for sets of constraints are:
   * pretty printed format for human consumption
-  * Dose base, suitable as input for the Pkglab tool
-  * Oz (a programming language supporting constraint programming)
   * dot/Graphviz
-  * Tart, suitable as input for the Tart media partitioner
   * CNF (formula in conjunctive normal form)
   * DIMACS format of propositional formula
