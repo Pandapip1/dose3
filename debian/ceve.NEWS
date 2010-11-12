@@ -1,7 +1,8 @@
-ceve (1:0.7.3-1-1) experimental; urgency=low
+ceve (0.7.3-1-1) experimental; urgency=low
 
-    The format EGraph, which was one of the possible input and output
-    formats of earlier versions of ceve based on the dose and dose2
-    libraries, is no longer supported.
+    Several of the input and output formats of earlier versions of
+    ceve versions 1.x and 2.x are no longer supported: EGraph, Oz,
+    and tart (which has been replaced by CNF). The new output format
+    DIMACS has been added.
 
  -- Ralf Treinen <treinen@debian.org>  Fri, 05 Nov 2010 14:56:17 +0100

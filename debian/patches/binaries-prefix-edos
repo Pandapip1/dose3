@@ -1,0 +1,22 @@
+Author: Ralf Treinen <treinen@debian.org>
+Description: In debian, the symlinks to distcheck for specific distribution
+  formats are named edos-*.
+
+
+--- dose3.orig/applications/distcheck.ml	2010-11-12 14:49:38.000000000 +0100
++++ dose3/applications/distcheck.ml	2010-11-12 14:50:45.000000000 +0100
+@@ -54,10 +54,10 @@
+   let posargs =
+     let args = OptParse.OptParser.parse_argv Options.options in
+     match Filename.basename(Sys.argv.(0)),args with
+-    |"debcheck",[] -> ["deb://-"]
+-    |"debcheck",l -> List.map ((^) "deb://") l
+-    |"eclipsecheck",l -> List.map ((^) "eclipse://") l
+-    |"rpmcheck",l -> List.map ((^) "synthesis://") l
++    |"edos-debcheck",[] -> ["deb://-"]
++    |"edos-debcheck",l -> List.map ((^) "deb://") l
++    |"edos-eclipsecheck",l -> List.map ((^) "eclipse://") l
++    |"edos-rpmcheck",l -> List.map ((^) "synthesis://") l
+     |_,_ -> args
+   in
+   Boilerplate.enable_debug (OptParse.Opt.get Options.verbose);
