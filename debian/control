@@ -36,7 +36,7 @@ Description: OCaml libraries for package dependencies (development files)
  This package contains the development stuff you need to use dose3 in
  the development of your programs.
 
-Package: edos-distcheck
+Package: dose3-distcheck
 Architecture: any
 Depends: ${ocaml:Depends}, ${misc:Depends}, ${shlibs:Depends}
 Description: Checks whether dependencies of packages can be satisfied
@@ -49,7 +49,7 @@ Description: Checks whether dependencies of packages can be satisfied
  edos-distcheck. Until then, the name of the package or of the binary,
  as well as command line options and output format, are subject to change.
 
-Package: edos-builddebcheck
+Package: dose3-builddebcheck
 Architecture: any
 Depends: ${ocaml:Depends}, ${misc:Depends}, ${shlibs:Depends}
 Description: Checks whether build-dependencies can be satisfied

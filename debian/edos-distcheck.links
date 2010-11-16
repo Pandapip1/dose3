@@ -1,3 +1,0 @@
-bin/distcheck bin/edos-debcheck
-bin/distcheck bin/edos-rpmcheck
-bin/distcheck bin/edos-eclipsecheck

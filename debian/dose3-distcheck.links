@@ -1,0 +1,3 @@
+bin/distcheck bin/dose3-debcheck
+bin/distcheck bin/dose3-rpmcheck
+bin/distcheck bin/dose3-eclipsecheck
