@@ -60,7 +60,6 @@ let constraints universe =
   let id x = x in
   let constraints_table = Hashtbl.create (Cudf.universe_size universe) in
   Cudf.iter_packages (fun pkg ->
-    (* add_unique constraints_table pkg.Cudf.package (`Eq,pkg.Cudf.version); *)
     conj_iter id constraints_table pkg.Cudf.conflicts ;
     conj_iter id constraints_table (pkg.Cudf.provides :> Cudf_types.vpkglist) ;
     cnf_iter id constraints_table pkg.Cudf.depends
@@ -136,13 +135,13 @@ let renumber (universe,from_cudf,to_cudf) =
   let new_universe = Cudf.load_universe pkglist in
   let constr = constraints new_universe in
   let new_from_cudf (p,i) =
-    (* XXX this sucks ! *)
     let constr = try List.map snd (Hashtbl.find constr p) with Not_found -> [] in
     let realver = List.map (fun pkg -> pkg.Cudf.version) (Cudf.lookup_packages new_universe p) in
     (* actually I don't care if it is unique ... *)
-    let vl = Util.list_unique (constr@realver) in
+    let vl = (* Util.list_unique *) (constr@realver) in
     debug "All versions for package %s : %s" p (String.concat "," (List.map string_of_int vl));
     try
+      (* Note:  we do this way to run the algo in liner time and not with a sort in log(n) *)
       let (minx,maxx,(before,after)) =
         List.fold_left (fun (x,y,(b,a)) v ->
           if v = i then raise Not_found ;
@@ -151,20 +150,20 @@ let renumber (universe,from_cudf,to_cudf) =
           ((min x v),(max y v),(b',a'))
         ) (max_int,1,(1,max_int)) vl
       in
-      debug "i = %d, min %d, max = %d , before = %d , after = %d" i minx maxx before after ;
+      (* debug "i = %d, min %d, max = %d , before = %d , after = %d" i minx maxx before after ; *)
       match (before,after) with
       |(w,v) when w < minx -> begin
-        debug "< %s <<%d>>" (snd (from_cudf (p,(minx/2)))) (minx);
+        (* debug "< %s <<%d>>" (snd (from_cudf (p,(minx/2)))) (minx); *)
         (p, Printf.sprintf "< %s" (snd (from_cudf (p,(minx/2)))))
       end
       |(w,v) when v > maxx -> begin
-        debug "> %s <<%d>>" (snd (from_cudf (p,(maxx/2)))) (maxx);
+        (* debug "> %s <<%d>>" (snd (from_cudf (p,(maxx/2)))) (maxx); *)
         (p, Printf.sprintf "> %s" (snd (from_cudf (p,(maxx/2)))))
       end
       |(w,v) -> begin
         let bv = (snd (from_cudf (p,(w/2)))) in
         let av = (snd (from_cudf (p,(v/2)))) in
-        debug "%s <<%d>> < . < %s <<%d>>" bv (w) av (v);
+        (* debug "%s <<%d>> < . < %s <<%d>>" bv (w) av (v); *)
         (p,Printf.sprintf "%s < . < %s" bv av)
       end
     with Not_found -> begin
@@ -216,10 +215,12 @@ let range constraints =
   aux_downto (maxv+1) (if minv = 1 then 1 else minv-1)
 ;;
 
-(* discriminants takes a list of version selectors and provide a minimal list 
-   of versions v1,...,vn s.t. all possible combinations of the valuse of the
-   version selectors are exhibited. Each evaluation has only one representative *)
-let discriminants ?vl constraints =
+(* discriminants takes a list of version selectors and provides a minimal list 
+   of versions v1,...,vn s.t. all possible combinations of the values of the
+   version selectors are exhibited. Each evaluation has only one representative. 
+   Optional arguments are provided to allow to limit the analysis to a specific
+   set of versions [vl] , or to add extra versions to analyse [vcl]*)
+let discriminants ?vl ?vcl constraints =
   let evalsel v = function
     |(`Eq,v') -> v = v'
     |(`Geq,v') -> v >= v'
@@ -230,12 +231,22 @@ let discriminants ?vl constraints =
   in
   let eval_constr = Hashtbl.create 17 in
   let constr_eval = Hashtbl.create 17 in
-  let vl = match vl with None -> range constraints | Some vl -> List.enum vl in
-  Enum.iter (fun constr ->
-    let eval = List.map (evalsel constr) constraints in
-    if not (Hashtbl.mem eval_constr eval) then begin
-      Hashtbl.add eval_constr eval constr;
-      Hashtbl.add constr_eval constr eval
+  let vl =
+    match (vl, vcl) with
+    | (None,None) -> range constraints
+    | (None,Some el) -> range ((List.map (fun v -> (`Eq,v)) el) @ constraints)
+    | (Some vl,_) -> List.enum (List.sort ~cmp:compare vl)
+  in
+(* XXX refactor this. I've the feeling it's very slow to use replace *)
+  Enum.iter (fun v ->
+    let eval = List.map (evalsel v) constraints in
+    try
+      let v_rep = Hashtbl.find eval_constr eval in
+      let l = Hashtbl.find constr_eval v_rep in
+      Hashtbl.replace constr_eval v_rep (v::l)
+    with Not_found -> begin
+      Hashtbl.add eval_constr eval v;
+      Hashtbl.add constr_eval v []
     end
   ) vl ;
   constr_eval
@@ -244,7 +255,7 @@ let discriminants ?vl constraints =
 (** [migrate table v l] migrates all packages in [l] to version [v] *)
 let migrate table v l =
   List.map (fun p ->
-    if CudfAdd.mem_package table.universe (p.Cudf.package,v) then p
+    if Cudf.mem_package table.universe (p.Cudf.package,v) then p
     else create_dummy table (p.Cudf.package,v)
   ) l
 ;;

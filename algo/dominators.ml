@@ -58,8 +58,8 @@ module Make (G: Sig.I with type V.t = Cudf.package) = struct
    * with transitive archs *)
   let dominators ?relative graph = 
   begin
-    debug "N. of vertex graph %d\n" (G.nb_vertex graph);
-    debug "N. of edges graph %d\n" (G.nb_edges graph);
+    info "N. of vertex graph %d\n" (G.nb_vertex graph);
+    info "N. of edges graph %d\n" (G.nb_edges graph);
     
     let domtimer = Util.Timer.create "Algo.Dominators.dominators" in
 

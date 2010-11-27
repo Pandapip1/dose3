@@ -1,6 +1,8 @@
 open ExtLib
 open Common
 
+(*************************************************************)
+(* Options *)
 module type Ot = sig
   val options :
     ?usage:string ->
@@ -10,6 +12,21 @@ module type Ot = sig
     ?prog:string ->
     ?formatter:OptParse.Formatter.t -> unit -> OptParse.OptParser.t
 end
+
+let and_sep_re = Pcre.regexp "\\s*;\\s*"
+let pkg_re = Pcre.regexp "\\(([0-9a-z][a-z0-9.+-]*)\\s*,\\s*([a-zA-Z0-9.+:~-]+)\\)"
+let parse_pkg s =
+  let parse_aux str =
+    try
+      let s = Pcre.exec ~rex:pkg_re str  in
+      (Pcre.get_substring s 1, Pcre.get_substring s 2)
+    with
+      Not_found -> (Printf.eprintf "Parse error %s\n" str ; exit 1)
+  in List.map parse_aux (Pcre.split ~rex:and_sep_re s);;
+
+let pkglist_option ?default ?(metavar = "PKGLST") () =
+  OptParse.Opt.value_option metavar default
+  parse_pkg (fun _ s -> Printf.sprintf "invalid package list '%s'" s)
 
 module MakeOptions(O : Ot) = struct
   open OptParse ;;
@@ -22,30 +39,39 @@ module MakeOptions(O : Ot) = struct
   open OptParser ;;
   add options ~short_name:'v' ~long_name:"verbose" ~help:"print additional information" verbose;
   add options ~long_name:"progress" ~help:"print progress bars" progress;
-  add options ~long_name:"timers" ~help:"print timing information" progress;
+  add options ~long_name:"timers" ~help:"print timing information" timers;
 
 end
 
 let enable_debug = function
   |0 -> () (* quite : default *)
-  |1 ->
-      Util.Info.all_enabled ()
+  |1 -> Util.Info.all_enabled ()
   |2 ->
-      Util.Info.all_enabled () ;
-      Util.Warning.all_enabled ()
+      begin
+        Util.Info.all_enabled () ;
+        Util.Warning.all_enabled ()
+      end
   |_ ->
-      Util.Info.all_enabled () ;
-      Util.Warning.all_enabled () ;
-      Util.Debug.all_enabled ()
+      begin
+        Util.Info.all_enabled () ;
+        Util.Warning.all_enabled () ;
+        Util.Debug.all_enabled ()
+      end
 ;;
 
 let enable_bars verbose l =
   if verbose then List.iter Util.Progress.enable l
-(* let enable_time = List.iter Util.Timer. *)
+
+let enable_timers verbose l = 
+  at_exit (Util.Timer.dump Format.err_formatter);
+  if verbose then List.iter Util.Timer.enable l
+;;
 
 let debug fmt = Util.make_debug "Boilerplate" fmt
 let info fmt = Util.make_info "Boilerplate" fmt
 let warning fmt = Util.make_warning "Boilerplate" fmt
+
+(*************************************************************)
 
 let argv_ f l =
   let a = Array.of_list l in
@@ -69,29 +95,22 @@ let deb_load_list ?(extras=[]) ?(status=[]) l =
   let l = Debian.Packages.merge status l in
   let tables = Debian.Debcudf.init_tables l in
   let pkglist = List.map (Debian.Debcudf.tocudf ~extras tables) l in
-  let from_cudf (p,i) =
-    (* let (p,i) = (pkg.Cudf.package,pkg.Cudf.version) in *)
-    let v = Debian.Debcudf.get_real_version tables (p,i) in
-    (p,v)
-  in
-  let to_cudf (p,v) =
-    let i = Debian.Debcudf.get_cudf_version tables (p,v) in
-    (p,i)
-  in
+  let from_cudf (p,i) = (p,Debian.Debcudf.get_real_version tables (p,i)) in
+  let to_cudf (p,v) = (p,Debian.Debcudf.get_cudf_version tables (p,v)) in
   (pkglist,from_cudf,to_cudf)
+
+let pp_versions_table fmt (from_cudf, pkglist) =
+  List.iter (fun pkg ->
+    let (p,v) = from_cudf (pkg.Cudf.package,pkg.Cudf.version) in
+    Format.fprintf fmt "%s=%d=%s@." p pkg.Cudf.version v
+  ) pkglist
 
 (** transform a list of debian control stanza into a cudf packages list *)
 let eclipse_load_list ?(extras=[]) ?(status=[]) l =
   let tables = Eclipse.Eclipsecudf.init_tables l in
   let pkglist = List.map (Eclipse.Eclipsecudf.tocudf ~extras tables) l in
-  let from_cudf (p,i) =
-    (* let (p,i) = (pkg.Cudf.package,pkg.Cudf.version) in *)
-    let v = Eclipse.Eclipsecudf.get_real_version tables (p,i) in
-    (p,v)
-  in
-  let to_cudf (p,v) =
-    (p,Eclipse.Eclipsecudf.get_cudf_version tables (p,v))
-  in
+  let from_cudf (p,i) = (p,Eclipse.Eclipsecudf.get_real_version tables (p,i)) in
+  let to_cudf (p,v) = (p,Eclipse.Eclipsecudf.get_cudf_version tables (p,v)) in
   (pkglist,from_cudf,to_cudf)
 
 (** transform a list of debian control stanza into a cudf universe *)
@@ -277,3 +296,5 @@ let parse uri =
   pkglist
 ;;
 *)
+
+
