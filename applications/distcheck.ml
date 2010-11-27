@@ -30,6 +30,7 @@ module Options = struct
   let distribution = StdOpt.str_option ()
   let release = StdOpt.str_option ()
   let suite = StdOpt.str_option ()
+  let outfile = StdOpt.str_option ()
 
   open OptParser
   add options ~short_name:'e' ~long_name:"explain" ~help:"Explain the results" explain;
@@ -43,14 +44,17 @@ module Options = struct
   add options ~long_name:"suite" ~help:"Set the release name" suite;
   add options ~long_name:"arch" ~help:"Set the default architecture" architecture;
   add options ~short_name:'u' ~long_name:"uid" ~help:"Generate a unique identifier for the output document" uuid;
+
+  add options ~short_name:'o' ~long_name:"outfile" ~help:"output file" outfile;
 end
 
 let debug fmt = Util.make_debug "Distcheck" fmt
 let info fmt = Util.make_info "Distcheck" fmt
 let warning fmt = Util.make_warning "Distcheck" fmt
 
+let timer = Util.Timer.create "Solver" 
+
 let main () =
-  at_exit (fun () -> Util.dump Format.err_formatter);
   let posargs =
     let args = OptParse.OptParser.parse_argv Options.options in
     match Filename.basename(Sys.argv.(0)),args with
@@ -61,6 +65,7 @@ let main () =
     |_,_ -> args
   in
   Boilerplate.enable_debug (OptParse.Opt.get Options.verbose);
+  Boilerplate.enable_timers (OptParse.Opt.get Options.timers) ["Solver"];
   let default_arch = OptParse.Opt.opt Options.architecture in
   let (universe,from_cudf,_) = Boilerplate.load_universe ~default_arch posargs in
   let pp pkg =
@@ -73,12 +78,17 @@ let main () =
     in (p,v,l)
   in
   info "Solving..." ;
-  let timer = Util.Timer.create "Solver" in
   Util.Timer.start timer;
   let failure = OptParse.Opt.get Options.failures in
   let success = OptParse.Opt.get Options.successes in
   let explain = OptParse.Opt.get Options.explain in
-  let fmt = Format.std_formatter in
+  let fmt =
+    if OptParse.Opt.is_set Options.outfile then
+      let oc = open_out (OptParse.Opt.get Options.outfile) in
+      Format.formatter_of_out_channel oc
+    else
+      Format.std_formatter
+  in
   if failure || success then Format.fprintf fmt "@[<v 1>report:@,";
   let callback = Diagnostic.fprintf ~pp ~failure ~success ~explain fmt in
   let i =
@@ -94,19 +104,20 @@ let main () =
       Depsolver.univcheck ~callback universe 
   in
   ignore(Util.Timer.stop timer ());
+
   if failure || success then Format.fprintf fmt "@]@.";
-  Format.fprintf fmt "total-packages: %d\n" (Cudf.universe_size universe);
-  Format.fprintf fmt "broken-packages: %d\n" i;
+  Format.fprintf fmt "total-packages: %d@." (Cudf.universe_size universe);
+  Format.fprintf fmt "broken-packages: %d@." i;
   if OptParse.Opt.get Options.uuid then
-    Format.fprintf fmt "uid: %s\n" (Util.uuid ());
+    Format.fprintf fmt "uid: %s@." (Util.uuid ());
   if OptParse.Opt.is_set Options.distribution then
-    Format.fprintf fmt "distribution: %s\n" (OptParse.Opt.get Options.distribution);
+    Format.fprintf fmt "distribution: %s@." (OptParse.Opt.get Options.distribution);
   if OptParse.Opt.is_set Options.release then
-    Format.fprintf fmt "release: %s\n" (OptParse.Opt.get Options.release);
+    Format.fprintf fmt "release: %s@." (OptParse.Opt.get Options.release);
   if OptParse.Opt.is_set Options.suite then
-    Format.fprintf fmt "suite: %s\n" (OptParse.Opt.get Options.suite);
+    Format.fprintf fmt "suite: %s@." (OptParse.Opt.get Options.suite);
   if OptParse.Opt.is_set Options.architecture then
-    Format.fprintf fmt "architecture: %s\n" (OptParse.Opt.get Options.architecture)
+    Format.fprintf fmt "architecture: %s@." (OptParse.Opt.get Options.architecture);
 ;;
 
 main () ;;

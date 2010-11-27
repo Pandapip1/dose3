@@ -15,43 +15,48 @@ open Common
 
 module Options = struct
   open OptParse
+  let description = "Compute the strong dependency graph"
+  let options = OptParser.make ~description
+  include Boilerplate.MakeOptions(struct let options = options end)
 
-  let verbose = StdOpt.incr_option ()
   let dot = StdOpt.store_true ()
   let dump = StdOpt.store_true ()
   let table =  StdOpt.store_true ()
   let detrans = StdOpt.store_true ()
+  let trans_closure = StdOpt.store_true ()
   let restrain = StdOpt.str_option ()
   let prefix = StdOpt.str_option ~default:"" ()
   let conj_only = StdOpt.store_true ()
 
-  let description = "Compute the strong dependency graph"
-  let options = OptParser.make ~description:description ()
-
   open OptParser
-  add options ~short_name:'v' ~help:"Print information (can be repeated)" verbose;
   add options ~long_name:"prefix" ~help:"Prefix output fils with <prefix>" prefix;
   add options ~long_name:"dot" ~help:"Save the strong dependency graph in dot format" dot;
   add options ~long_name:"dump" ~help:"Save the strong dependency graph" dump;
   add options ~long_name:"table" ~help:"Print the table (package,strong,direct,difference)" table;
-  add options ~long_name:"detrans" ~help:"Perform the transitive reduction of the graph" detrans;
+  add options ~long_name:"detrans" ~help:"Perform the transitive reduction of the strong dependency graph" detrans;
+  add options ~long_name:"transitive-closure" ~help:"Perform the transitive closure of the direct dependency graph" trans_closure;
   add options ~long_name:"restrain" ~help:"Restrain only to the given packages (;-separated)" restrain;
   add options ~long_name:"conj-only" ~help:"Use the conjunctive graph only" conj_only;
-end
+end;;
+
+module G = Defaultgraphs.PackageGraph.G;;
+module O = Defaultgraphs.GraphOper(G);;
 
 (* ----------------------------------- *)
 
 let impactlist graph q =
   Defaultgraphs.PackageGraph.G.fold_pred (fun p acc -> p :: acc ) graph q []
 
+let rev_impactlist graph q =
+  Defaultgraphs.PackageGraph.G.fold_succ (fun p acc -> p :: acc ) graph q []
+
 let mk_filename prefix suffix s = if prefix = "" then s^suffix else prefix^suffix
 
 let main () =
-  at_exit (fun () -> Util.dump Format.err_formatter);
   let posargs = OptParse.OptParser.parse_argv Options.options in
+  let bars = ["Strongdeps_int.main";"Strongdeps_int.conj"] in
   Boilerplate.enable_debug (OptParse.Opt.get Options.verbose);
-  Boilerplate.enable_bars true ["Algo.Strongdep.main";"Algo.Strongdep.conj"];
-
+  Boilerplate.enable_bars (OptParse.Opt.get Options.progress) bars;
   let (universe,_,_) = Boilerplate.load_universe posargs in
   let prefix = OptParse.Opt.get Options.prefix in
   let sdgraph = 
@@ -62,45 +67,45 @@ let main () =
         List.flatten (List.map (Cudf.lookup_packages universe) l)
       in
       (if OptParse.Opt.get Options.conj_only
-      then Strongdeps.conjdeps ~transitive:true universe pkglist
+      then Strongdeps.conjdeps universe pkglist
       else Strongdeps.strongdeps universe pkglist)
     else
     (if OptParse.Opt.get Options.conj_only
-    then Strongdeps.conjdeps_univ ~transitive:true universe
+    then Strongdeps.conjdeps_univ universe
     else Strongdeps.strongdeps_univ universe)
   in
+  if OptParse.Opt.get Options.detrans then
+    O.transitive_reduction sdgraph;
   if OptParse.Opt.get Options.table then begin
     let outch = open_out (mk_filename prefix ".table" "data") in
-    let depgraph = Defaultgraphs.PackageGraph.dependency_graph universe in
+    let depgraph = 
+      if OptParse.Opt.get Options.trans_closure then
+        O.O.transitive_closure (Defaultgraphs.PackageGraph.dependency_graph universe)
+      else
+        Defaultgraphs.PackageGraph.dependency_graph universe in
     let l = 
+    begin
       Defaultgraphs.PackageGraph.G.fold_vertex (fun p l ->
         let strongimpact = List.length (impactlist sdgraph p) in 
+        let rev_strongimpact = List.length (rev_impactlist sdgraph p) in
         let directimpact = List.length (impactlist depgraph p) in
-        (p,strongimpact - directimpact, strongimpact, directimpact) :: l
+        let rev_directimpact = List.length (rev_impactlist depgraph p) in
+        (p,strongimpact - directimpact, rev_strongimpact, strongimpact, rev_directimpact, directimpact) :: l
       ) depgraph []
+      end
     in
-    List.iter (fun (p,diff,s,d) ->
+    Printf.fprintf outch "name, str, rev, dir, diff\n";
+    List.iter (fun (p,diff,rs,s,rd,d) ->
       let pkg = CudfAdd.print_package p in
-      Printf.fprintf outch "%s , %d, %d, %d\n" pkg s d diff
-    ) (List.sort ~cmp:(fun (_,x,_,_) (_,y,_,_) -> y - x) l);
+      Printf.fprintf outch "%s , %d, %d, %d, %d, %d\n" pkg s rs d rd diff
+    ) (List.sort ~cmp:(fun (_,x,_,_,_,_) (_,y,_,_,_,_) -> y - x) l);
     close_out outch
   end
   ;
   let dump = if OptParse.Opt.get Options.dump then Some (mk_filename prefix ".dump" "data") else None in
   let dot = if OptParse.Opt.get Options.dot then Some (mk_filename prefix ".dot" "graph") else None in
   Defaultgraphs.StrongDepGraph.out 
-  ~dump ~dot ~detrans:(OptParse.Opt.get Options.detrans)
-  sdgraph
+    ~dump ~dot ~detrans:(OptParse.Opt.get Options.detrans) sdgraph
 ;;
-
-(*  |[newl;oldl;oldg] when !Options.incr = true ->
-      begin
-        let oldgraph = Defaultgraphs.StrongDepGraph.load oldg in
-        let g = strong_incr (oldgraph,parse oldl) (parse newl) in
-        Defaultgraphs.StrongDepGraph.out
-        ~dump:!Options.dump ~dot:!Options.dot ~detrans:!Options.detrans
-        g
-      end
-*)
 
 main ();;

@@ -1,5 +1,5 @@
 
-AC_INIT(dose3, 0.7.3-1, pietro.abate@pps.jussieu.fr)
+AC_INIT(dose3, 2.9.0, pietro.abate@pps.jussieu.fr)
 
 AC_PROG_OCAML
 if test "$OCAMLC" = "no"; then
@@ -286,6 +286,7 @@ AC_CONFIG_FILES([
   common/_tags
   applications/_tags
   applications/boilerplates/_tags
+  common/versionInfo.ml
   _tags
 ])
 AC_OUTPUT

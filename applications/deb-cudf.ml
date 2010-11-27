@@ -17,38 +17,36 @@ open Common
 
 module Options = struct
   open OptParse
+  let description = "Generate a cudf universe from debian Packages"
+  let options = OptParser.make ~description
+  include Boilerplate.MakeOptions(struct let options = options end)
 
-  let verbose = StdOpt.incr_option ()
   let status = StdOpt.str_option ()
   let outfile = StdOpt.str_option ()
-
-  let description = "Generate a cudf document from debian Packages"
-  let options = OptParser.make ~description:description ()
+  let vmap = StdOpt.store_true ()
 
   open OptParser
-  add options ~short_name:'v' ~help:"Print debug information (can be repeated)" verbose;
-  add options                 ~long_name:"status" ~help:"package status (822)" status;
-  add options                 ~long_name:"outfile" ~help:"specify the output file" outfile;
+  add options ~short_name:'s' ~long_name:"status" ~help:"package status (822)" status;
+  add options ~short_name:'o' ~long_name:"outfile" ~help:"specify the output file" outfile;
+  add options ~short_name:'m' ~long_name:"map" ~help:"dump cudf <-> deb versions map" vmap;
 end
 
 (* ========================================= *)
 
 let main () =
-  at_exit (fun () -> Util.dump Format.err_formatter);
-
   let posargs = OptParse.OptParser.parse_argv Options.options in
-  Boilerplate.enable_debug (OptParse.Opt.get Options.verbose) ;
+  Boilerplate.enable_debug (OptParse.Opt.get Options.verbose);
 
   (* raw -> cudf *)
-  let (preamble,universe) =
+  let (preamble, pkglist, from_cudf) =
     let status =
       if OptParse.Opt.is_set Options.status then
         Boilerplate.read_deb (OptParse.Opt.get Options.status)
       else []
     in
     let l = Debian.Packages.input_raw posargs in
-    let (pkglist,_,_) = Boilerplate.deb_load_list ~status l in
-    (Debian.Debcudf.preamble, Cudf.load_universe pkglist)
+    let (pkglist,from_cudf,_) = Boilerplate.deb_load_list ~status l in
+    (Debian.Debcudf.preamble, pkglist, from_cudf)
   in
   let oc =
     if OptParse.Opt.is_set Options.outfile then
@@ -57,8 +55,26 @@ let main () =
     else
       stdout
   in
-  Cudf_printer.pp_cudf (Format.formatter_of_out_channel oc) (preamble,universe,Cudf.default_request);
-  if oc <> stdout then close_out oc
+
+  let fmt = Format.formatter_of_out_channel oc in
+  Format.fprintf fmt "%a@." Cudf_printer.pp_preamble preamble;
+  List.iter (fun pkg ->
+    Format.fprintf fmt "%a@." Cudf_printer.pp_package pkg
+  ) pkglist ;
+  if oc <> stdout then close_out oc ;
+
+  if OptParse.Opt.get Options.vmap then begin
+    let oc = 
+      if OptParse.Opt.is_set Options.outfile then
+        let file = (OptParse.Opt.get Options.outfile) ^ ".map" in
+        open_out file
+      else
+        stdout
+    in
+    let fmt = Format.formatter_of_out_channel oc in
+    Format.fprintf fmt "%a@." Boilerplate.pp_versions_table (from_cudf,pkglist);
+    if oc <> stdout then close_out oc
+  end
 ;;
 
 main ();;
