@@ -1,4 +1,4 @@
-ceve (0.7.3-1-1) experimental; urgency=low
+ceve (2.9.0-1) experimental; urgency=low
 
     Several of the input and output formats of earlier versions of
     ceve versions 1.x and 2.x are no longer supported: EGraph, Oz,
