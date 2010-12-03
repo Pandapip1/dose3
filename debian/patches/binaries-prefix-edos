@@ -3,9 +3,11 @@ Description: In debian, the symlinks to distcheck for specific distribution
   formats are named dose3-*.
 
 
---- dose3.orig/applications/distcheck.ml	2010-11-12 14:49:38.000000000 +0100
-+++ dose3/applications/distcheck.ml	2010-11-12 14:50:45.000000000 +0100
-@@ -54,10 +54,10 @@
+Index: dose3/applications/distcheck.ml
+===================================================================
+--- dose3.orig/applications/distcheck.ml	2010-12-03 17:16:49.000000000 +0100
++++ dose3/applications/distcheck.ml	2010-12-03 17:18:46.000000000 +0100
+@@ -58,10 +58,10 @@
    let posargs =
      let args = OptParse.OptParser.parse_argv Options.options in
      match Filename.basename(Sys.argv.(0)),args with
@@ -20,3 +22,53 @@ Description: In debian, the symlinks to distcheck for specific distribution
      |_,_ -> args
    in
    Boilerplate.enable_debug (OptParse.Opt.get Options.verbose);
+Index: dose3/doc/manpages/distcheck.1
+===================================================================
+--- dose3.orig/doc/manpages/distcheck.1	2010-12-03 17:19:00.000000000 +0100
++++ dose3/doc/manpages/distcheck.1	2010-12-03 17:19:10.000000000 +0100
+@@ -5,11 +5,11 @@
+ .SH SYNOPSIS
+ \fBdistcheck\fR [option] ... \fIuri\fR
+ .br
+-\fBdebcheck\fR [option] ... \fIfile\fR
++\fBdose3-debcheck\fR [option] ... \fIfile\fR
+ .br
+-\fBrpmcheck\fR [option] ... \fIfile\fR
++\fBdose3-rpmcheck\fR [option] ... \fIfile\fR
+ .br
+-\fBeclipsecheck\fR [option] ... \fIfile\fR
++\fBdose3-eclipsecheck\fR [option] ... \fIfile\fR
+ 
+ .SH DESCRIPTION
+ .B distcheck
+@@ -41,10 +41,10 @@
+ .I type
+ given in the URI.
+ 
+-When invoked as \fItype\fBcheck\fR, the type of the repository is
++When invoked as \fBdose3-\fItype\fBcheck\fR, the type of the repository is
+ assumed to be \fItype\fR, and the input is simply given in form of a
+ pathname of a file containing the repository.
+-.B debcheck
++.B dose3-debcheck
+ accepts in addition 
+ .B --
+ as input specification, with the effect that input is taken from
+@@ -57,7 +57,7 @@
+ separated by one blank line. For instance, the Packages files as found
+ on a Debian mirror server, or in the directory
+ \fI/var/lib/apt/lists/\fR of a Debian system, are suitable as input to
+-\fBdebcheck\fR.
++\fBdose3-debcheck\fR.
+ .P
+ Installability of packages is analyzed according to their
+ \fBDepends\fR, \fBConflicts\fR, and \fBProvides\fR fields with their
+@@ -70,7 +70,7 @@
+ 
+ .SS RPM
+ The input file can be either a \fIsynthesis\fR file or a \fIhdlist\fR
+-file.  By default rpmcheck expects a synthesis file as input. To
++file.  By default dose3-rpmcheck expects a synthesis file as input. To
+ specify a hdlist file distcheck must be invoked with a file argument
+ of the form hdlist://
+ 
