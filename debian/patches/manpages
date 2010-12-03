@@ -5,46 +5,14 @@ Description: various minor fixes to manpages that are in upstream svn
 
 Index: dose3/doc/manpages/distcheck.1
 ===================================================================
---- dose3.orig/doc/manpages/distcheck.1	2010-12-03 17:07:51.000000000 +0100
-+++ dose3/doc/manpages/distcheck.1	2010-12-03 17:08:10.000000000 +0100
-@@ -1,15 +1,15 @@
+--- dose3.orig/doc/manpages/distcheck.1	2010-12-03 19:45:22.000000000 +0100
++++ dose3/doc/manpages/distcheck.1	2010-12-03 19:45:49.000000000 +0100
+@@ -1,4 +1,4 @@
 -.TH distcheck 1 "November 12, 2010" "Version 3.0" "USER COMMANDS"
 +.TH distcheck 1 "December 3, 2010" "Version 2.9" "USER COMMANDS"
  .SH NAME
  distcheck \- check installability of packages according to metadata
  
- .SH SYNOPSIS
- \fBdistcheck\fR [option] ... \fIuri\fR
- .br
--\fBdose3-debcheck\fR [option] ... \fIfile\fR
-+\fBdebcheck\fR [option] ... \fIfile\fR
- .br
--\fBdose3-rpmcheck\fR [option] ... \fIfile\fR
-+\fBrpmcheck\fR [option] ... \fIfile\fR
- .br
--\fBdose3-eclipsecheck\fR [option] ... \fIfile\fR
-+\fBeclipsecheck\fR [option] ... \fIfile\fR
- 
- .SH DESCRIPTION
- .B distcheck
-@@ -41,7 +41,7 @@
- .I type
- given in the URI.
- 
--When invoked as \fBdose3-\fItype\fBcheck\fR, the type of the repository is
-+When invoked as \fItype\fBcheck\fR, the type of the repository is
- assumed to be \fItype\fR, and the input is simply given in form of a
- pathname of a file containing the repository.
- .B debcheck
-@@ -57,7 +57,7 @@
- separated by one blank line. For instance, the Packages files as found
- on a Debian mirror server, or in the directory
- \fI/var/lib/apt/lists/\fR of a Debian system, are suitable as input to
--\fBdose3-debcheck\fR.
-+\fBdebcheck\fR.
- .P
- Installability of packages is analyzed according to their
- \fBDepends\fR, \fBConflicts\fR, and \fBProvides\fR fields with their
 @@ -66,33 +66,35 @@
  \fBConflicts\fR.
  .P
