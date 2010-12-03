@@ -21,20 +21,20 @@ Architecture: any
 Depends: ${misc:Depends}, ${ocaml:Depends}
 Provides: ${ocaml:Provides}
 Description: OCaml libraries for package dependencies (development files)
- Dose3 is a framework made of several OCaml libraries for managing
- distribution packages and their dependencies.
+ Dose3 is a framework consisting of several OCaml libraries for analysing
+ the metadata of software packages (like Packages files of debian suites).
  .
  Though not tied to any particular distribution, Dose3 constitutes a
  pool of libraries which enable analyzing packages coming from various
- distribution. 
+ distributions. 
  .
  Besides basic functionalities for querying and setting package
- properties, dose also implements algorithms for solving more complex
+ properties, dose3 also implements algorithms for solving more complex
  problems (monitoring package evolutions, correct and complete
  dependency resolution, repository-wide uninstallability checks).
  .
- This package contains the development stuff you need to use dose3 in
- the development of your programs.
+ This package contains the development stuff you need to use dose3 for
+ the development of programs.
 
 Package: dose3-distcheck
 Architecture: any
@@ -43,10 +43,11 @@ Description: Checks whether dependencies of packages can be satisfied
  This software checks for every package of a distribution whether it
  is possible to satisfy its dependencies and conflicts within this
  distribution. It comes in several versions:
-  - edos-debcheck for Debian packages
-  - edos-rpmcheck for rpm packages
+  - dose3-debcheck for Debian packages
+  - dose3-rpmcheck for rpm packages
+  - dose3-eclipsecheck for OSGi plugins
  NOTE: This is an experimental package which will eventually replace
- edos-distcheck. Until then, the name of the package or of the binary,
+ edos-distcheck. Until then, the name of the package or of the binaries,
  as well as command line options and output format, are subject to change.
 
 Package: dose3-builddebcheck
@@ -54,12 +55,13 @@ Architecture: any
 Depends: ${ocaml:Depends}, ${misc:Depends}, ${shlibs:Depends}
 Description: Checks whether build-dependencies can be satisfied
  This software checks, given a collection of source package stanzas
- and a collection of binary package stanzas, whether the build-dependencies
- of each source package can be satisfied by the binay packages.
+ and a collection of binary package stanzas of debian packages, whether
+ the build-dependencies of each source package can be satisfied by the
+ binary packages.
  .
  NOTE: This is an experimental package which will eventually replace
  edos-distcheck. Until then, the name of the package or of the binary,
-  as well as command line options and output format, are subject to change.
+ as well as command line options and output format, are subject to change.
 
 Package: ceve
 Architecture: any

@@ -5,11 +5,11 @@ distcheck \- check installability of packages according to metadata
 .SH SYNOPSIS
 \fBdistcheck\fR [option] ... \fIuri\fR
 .br
-\fBdebcheck\fR [option] ... \fIfile\fR
+\fBdose3-debcheck\fR [option] ... \fIfile\fR
 .br
-\fBrpmcheck\fR [option] ... \fIfile\fR
+\fBdose3-rpmcheck\fR [option] ... \fIfile\fR
 .br
-\fBeclipsecheck\fR [option] ... \fIfile\fR
+\fBdose3-eclipsecheck\fR [option] ... \fIfile\fR
 
 .SH DESCRIPTION
 .B distcheck
@@ -41,7 +41,7 @@ found in that file must correspond to the
 .I type
 given in the URI.
 
-When invoked as \fItype\fBcheck\fR, the type of the repository is
+When invoked as \fBdose3-\fItype\fBcheck\fR, the type of the repository is
 assumed to be \fItype\fR, and the input is simply given in form of a
 pathname of a file containing the repository.
 .B debcheck
@@ -57,7 +57,7 @@ The input file has to contain stanzas in the format of deb-control(5),
 separated by one blank line. For instance, the Packages files as found
 on a Debian mirror server, or in the directory
 \fI/var/lib/apt/lists/\fR of a Debian system, are suitable as input to
-\fBdebcheck\fR.
+\fBdose3-debcheck\fR.
 .P
 Installability of packages is analyzed according to their
 \fBDepends\fR, \fBConflicts\fR, and \fBProvides\fR fields with their
