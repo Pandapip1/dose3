@@ -1,7 +1,7 @@
 Index: dose3/doc/manpages/distcheck.1
 ===================================================================
---- dose3.orig/doc/manpages/distcheck.1	2010-12-03 20:07:28.000000000 +0100
-+++ dose3/doc/manpages/distcheck.1	2010-12-03 20:08:24.000000000 +0100
+--- dose3.orig/doc/manpages/distcheck.1	2010-12-04 15:21:43.000000000 +0100
++++ dose3/doc/manpages/distcheck.1	2010-12-04 15:32:20.000000000 +0100
 @@ -1,4 +1,4 @@
 -.TH distcheck 1 "November 12, 2010" "Version 3.0" "USER COMMANDS"
 +.TH distcheck 1 "December 3, 2010" "Version 2.9" "USER COMMANDS"
@@ -78,3 +78,13 @@ Index: dose3/doc/manpages/distcheck.1
  <http://www.edos-project.org> is the home page of the EDOS project.
  <http://www.mancoosi.org> is the home page of the Mancoosi project.
 -
+Index: dose3/doc/manpages/ceve.1
+===================================================================
+--- dose3.orig/doc/manpages/ceve.1	2010-12-04 15:32:30.000000000 +0100
++++ dose3/doc/manpages/ceve.1	2010-12-04 15:32:54.000000000 +0100
+@@ -1,4 +1,4 @@
+-.TH ceve 1 "November 11, 2010" "Version 3.0" "USER COMMANDS"
++.TH ceve 1 "November 11, 2010" "Version 2.9" "USER COMMANDS"
+ .SH NAME
+ ceve \- parse package metadata
+ .SH SYNOPSIS
