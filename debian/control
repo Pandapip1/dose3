@@ -1,5 +1,4 @@
 Source: dose3
-Section: ocaml
 Priority: optional
 Maintainer: Debian OCaml Maintainers <debian-ocaml-maint@lists.debian.org>
 Uploaders: Stefano Zacchiroli <zack@debian.org>,
@@ -17,6 +16,7 @@ Vcs-Browser: http://git.debian.org/?p=pkg-ocaml-maint/packages/dose3.git
 Vcs-Git: git://git.debian.org/git/pkg-ocaml-maint/packages/dose3.git
 
 Package: libdose3-ocaml-dev
+Section: ocaml
 Architecture: any
 Depends: ${misc:Depends}, ${ocaml:Depends}
 Provides: ${ocaml:Provides}
@@ -37,6 +37,7 @@ Description: OCaml libraries for package dependencies (development files)
  the development of programs.
 
 Package: dose3-distcheck
+Section: devel
 Architecture: any
 Depends: ${ocaml:Depends}, ${misc:Depends}, ${shlibs:Depends}
 Description: Checks whether dependencies of packages can be satisfied
@@ -51,6 +52,7 @@ Description: Checks whether dependencies of packages can be satisfied
  as well as command line options and output format, are subject to change.
 
 Package: dose3-builddebcheck
+Section: devel
 Architecture: any
 Depends: ${ocaml:Depends}, ${misc:Depends}, ${shlibs:Depends}
 Description: Checks whether build-dependencies can be satisfied
@@ -64,6 +66,7 @@ Description: Checks whether build-dependencies can be satisfied
  as well as command line options and output format, are subject to change.
 
 Package: ceve
+Section: devel
 Architecture: any
 Depends: ${ocaml:Depends}, ${misc:Depends}, ${shlibs:Depends}
 Description: Parses package dependencies as set of constraints
