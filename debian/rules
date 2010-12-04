@@ -9,7 +9,9 @@ override_dh_auto_configure:
 
 override_dh_auto_install:
 	dh_auto_install
-	cd debian/tmp/usr/bin && mv distcheck dose3-distcheck
+	cd debian/tmp/usr/bin \
+		&& mv distcheck dose3-distcheck \
+		&& mv buildcheck dose3-builddebcheck
 
 override_dh_installman:
 	dh_installman
