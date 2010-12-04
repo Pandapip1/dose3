@@ -8,7 +8,7 @@ Copyright: © 2009 Jaap Boender
 License: LGPL-3+
 
 File: deb/format822.ml
-Copyright: © 2005-2009 Jerome Vouillion, Stefano Zacchiroli, Pietro Abate
+Copyright: © 2005-2009 Jérôme Vouillion, Stefano Zacchiroli, Pietro Abate
 License: LGPL-3+
 
 File: algo/statistics.ml
@@ -16,7 +16,7 @@ Copyright: © 2008 Jaap Boender, Stefano Zacchiroli, Pietro Abate
 License: LGPL-3+
 
 Files: common/edosSolver.ml, common/edosSolver.mli 
-Copyright: © 2005-2009 Jerome Vouillion
+Copyright: © 2005-2009 Jérôme Vouillion
 License: LGPL-3+
 
 File: common/util.ml
@@ -41,11 +41,6 @@ library, see the COPYING file for more information.
 On Debian systems, the complete text of the latest GNU Lesser General
 Public License can be found in `/usr/share/common-licenses/LGPL'.
 
-Files: debian/*
-Copyright: © 2010 Ralf Treinen <zack@debian.org>
-License: GPL-3+
-
 The Debian packaging is copyright Ralf Treinen, and licensed under the
 GNU General Public License, see `/usr/share/common-licenses/GPL' for
 the full text.
-

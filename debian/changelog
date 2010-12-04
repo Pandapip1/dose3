@@ -1,5 +1,5 @@
-dose3 (2.9.0-1) UNRELEASED; urgency=low
+dose3 (2.9.0-1) experimental; urgency=low
 
   * Initial release (Closes: #587521)
 
- -- Ralf Treinen <treinen@debian.org>  Sat, 27 Nov 2010 11:37:20 +0100
+ -- Ralf Treinen <treinen@debian.org>  Sat, 04 Dec 2010 17:25:15 +0100
