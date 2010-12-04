@@ -7,7 +7,7 @@ override_dh_auto_configure:
 	./configure --with-xml --with-ocamlgraph \
 		-- with-zip --with-bz2 --with-rpm
 
-ovverride_dh_auto_install:
+override_dh_auto_install:
 	dh_auto_install
 	cd debian/dose3-distcheck/usr/bin && mv distcheck dose3-distcheck
 	cd debian/dose3-distcheck/usr/share/man/man1 && \
