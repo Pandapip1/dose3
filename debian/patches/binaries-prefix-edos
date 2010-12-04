@@ -5,8 +5,8 @@ Description: In debian, the symlinks to distcheck for specific distribution
 
 Index: dose3/applications/distcheck.ml
 ===================================================================
---- dose3.orig/applications/distcheck.ml	2010-12-03 17:16:49.000000000 +0100
-+++ dose3/applications/distcheck.ml	2010-12-03 17:18:46.000000000 +0100
+--- dose3.orig/applications/distcheck.ml	2010-12-04 15:21:43.000000000 +0100
++++ dose3/applications/distcheck.ml	2010-12-04 15:45:01.000000000 +0100
 @@ -58,10 +58,10 @@
    let posargs =
      let args = OptParse.OptParser.parse_argv Options.options in
@@ -24,11 +24,18 @@ Index: dose3/applications/distcheck.ml
    Boilerplate.enable_debug (OptParse.Opt.get Options.verbose);
 Index: dose3/doc/manpages/distcheck.1
 ===================================================================
---- dose3.orig/doc/manpages/distcheck.1	2010-12-03 17:19:00.000000000 +0100
-+++ dose3/doc/manpages/distcheck.1	2010-12-03 17:19:10.000000000 +0100
-@@ -5,11 +5,11 @@
+--- dose3.orig/doc/manpages/distcheck.1	2010-12-04 15:45:01.000000000 +0100
++++ dose3/doc/manpages/distcheck.1	2010-12-04 15:46:43.000000000 +0100
+@@ -1,18 +1,18 @@
+-.TH distcheck 1 "December 3, 2010" "Version 2.9" "USER COMMANDS"
++.TH dose3-distcheck 1 "December 3, 2010" "Version 2.9" "USER COMMANDS"
+ .SH NAME
+-distcheck \- check installability of packages according to metadata
++dose3-distcheck \- check installability of packages according to metadata
+ 
  .SH SYNOPSIS
- \fBdistcheck\fR [option] ... \fIuri\fR
+-\fBdistcheck\fR [option] ... \fIuri\fR
++\fBdose3-distcheck\fR [option] ... \fIuri\fR
  .br
 -\fBdebcheck\fR [option] ... \fIfile\fR
 +\fBdose3-debcheck\fR [option] ... \fIfile\fR
@@ -40,7 +47,20 @@ Index: dose3/doc/manpages/distcheck.1
 +\fBdose3-eclipsecheck\fR [option] ... \fIfile\fR
  
  .SH DESCRIPTION
- .B distcheck
+-.B distcheck
++.B dose3-distcheck
+ determines, for a set of package control stanzas, called the
+ repository, whether packages of the repository can be installed
+ relative to the repository according to the inter-package
+@@ -29,7 +29,7 @@
+ 
+ .SH INPUT SPECIFICATION
+ Currently supported repository types are debian, rpm, and eclipse. The
+-.B distcheck
++.B dose3-distcheck
+ tool expects its input specifiation in the form
+ .I type://pathname
+ where
 @@ -41,10 +41,10 @@
  .I type
  given in the URI.
@@ -63,12 +83,23 @@ Index: dose3/doc/manpages/distcheck.1
  .P
  Installability of packages is analyzed according to their
  \fBDepends\fR, \fBConflicts\fR, and \fBProvides\fR fields with their
-@@ -70,7 +70,7 @@
+@@ -70,8 +70,8 @@
  
  .SS RPM
  The input file can be either a \fIsynthesis\fR file or a \fIhdlist\fR
 -file.  By default rpmcheck expects a synthesis file as input. To
+-specify a hdlist file distcheck must be invoked with a file argument
 +file.  By default dose3-rpmcheck expects a synthesis file as input. To
- specify a hdlist file distcheck must be invoked with a file argument
++specify a hdlist file dose3-distcheck must be invoked with a file argument
  of the form hdlist://
  
+ .SS Eclipse
+@@ -121,7 +121,7 @@
+ found in the directory \fB/var/lib/apt/lists\fR.
+ 
+ .SH NOTE
+-distcheck is a complete reimplementation of edos-debcheck, written for the
++dose3-distcheck is a complete reimplementation of edos-debcheck, written for the
+ EDOS project.
+ 
+ .SH AUTHOR
