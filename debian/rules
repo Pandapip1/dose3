@@ -9,6 +9,8 @@ override_dh_auto_configure:
 
 ovverride_dh_auto_install:
 	dh_auto_install
-	cd debian/tmp/dose3-distcheck/usr/bin && mv distcheck dose3-distcheck
+	cd debian/dose3-distcheck/usr/bin && mv distcheck dose3-distcheck
+	cd debian/dose3-distcheck/usr/share/man/man1 && \
+		mv distcheck.1 dose3-distcheck.1
 
 
