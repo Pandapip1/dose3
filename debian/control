@@ -10,7 +10,7 @@ Build-Depends: debhelper (>= 7.0.50~), dh-ocaml (>= 0.9~),
  libextlib-ocaml-dev,
  libocamlgraph-ocaml-dev,
  libcudf-ocaml-dev (>= 0.5.99),
- libexpat-ocaml-dev
+ libzip-ocaml-dev, libbz2-ocaml-dev, librpm-dev (>= 4.8)
 Standards-Version: 3.9.1
 Homepage: http://www.mancoosi.org/software/
 Vcs-Browser: http://git.debian.org/?p=pkg-ocaml-maint/packages/dose3.git

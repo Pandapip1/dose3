@@ -4,8 +4,7 @@
 	dh $@ --with ocaml
 
 override_dh_auto_configure:
-	./configure --with-xml --with-ocamlgraph \
-		-- with-zip --with-bz2 --with-rpm
+	./configure --with-ocamlgraph --with-zip --with-bz2 --with-rpm
 
 override_dh_auto_install:
 	dh_auto_install
