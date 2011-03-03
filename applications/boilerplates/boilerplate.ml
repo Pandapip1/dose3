@@ -1,5 +1,24 @@
+(**************************************************************************)
+(*  This file is part of a library developed with the support of the      *)
+(*  Mancoosi Project. http://www.mancoosi.org                             *)
+(*                                                                        *)
+(*  Main author(s):  Pietro Abate                                         *)
+(*                                                                        *)
+(*  This library is free software: you can redistribute it and/or modify  *)
+(*  it under the terms of the GNU Lesser General Public License as        *)
+(*  published by the Free Software Foundation, either version 3 of the    *)
+(*  License, or (at your option) any later version.  A special linking    *)
+(*  exception to the GNU Lesser General Public License applies to this    *)
+(*  library, see the COPYING file for more information.                   *)
+(**************************************************************************)
+
 open ExtLib
 open Common
+
+let debug fmt = Util.make_debug "Boilerplate" fmt
+let info fmt = Util.make_info "Boilerplate" fmt
+let warning fmt = Util.make_warning "Boilerplate" fmt
+let fatal fmt = Util.make_fatal "Boilerplate" fmt
 
 (*************************************************************)
 (* Options *)
@@ -13,6 +32,30 @@ module type Ot = sig
     ?formatter:OptParse.Formatter.t -> unit -> OptParse.OptParser.t
 end
 
+(* *************************************** *)
+
+let and_sep_re = Pcre.regexp "\\s*,\\s*"
+let pkg_re = Pcre.regexp "([0-9a-z][a-z0-9.+-]*)(\\s*$|\\s*\\(([><=!]+)\\s+([a-zA-Z0-9.+:~-]+)\\))"
+let parse_pkg s =
+  let parse_aux str =
+    try
+      let s = Pcre.exec ~rex:pkg_re str  in
+      let p = Pcre.get_substring s 1 in
+      try 
+        let c = Pcre.get_substring s 3 in
+        let v = Pcre.get_substring s 4 in
+        (p,CudfAdd.cudfop(Some(c,v)))
+      with Not_found -> (p,None)
+    with
+      Not_found -> fatal "Parse error %s\n" str
+  in List.map parse_aux (Pcre.split ~rex:and_sep_re s);;
+
+let vpkglist_option ?default ?(metavar = "VPKGLST") () =
+  OptParse.Opt.value_option metavar default
+  parse_pkg (fun _ s -> Printf.sprintf "invalid package list '%s'" s)
+
+(* *************************************** *)
+
 let and_sep_re = Pcre.regexp "\\s*;\\s*"
 let pkg_re = Pcre.regexp "\\(([0-9a-z][a-z0-9.+-]*)\\s*,\\s*([a-zA-Z0-9.+:~-]+)\\)"
 let parse_pkg s =
@@ -21,12 +64,14 @@ let parse_pkg s =
       let s = Pcre.exec ~rex:pkg_re str  in
       (Pcre.get_substring s 1, Pcre.get_substring s 2)
     with
-      Not_found -> (Printf.eprintf "Parse error %s\n" str ; exit 1)
+      Not_found -> fatal "Parse error %s" str
   in List.map parse_aux (Pcre.split ~rex:and_sep_re s);;
 
 let pkglist_option ?default ?(metavar = "PKGLST") () =
   OptParse.Opt.value_option metavar default
   parse_pkg (fun _ s -> Printf.sprintf "invalid package list '%s'" s)
+
+(* *************************************** *)
 
 module MakeOptions(O : Ot) = struct
   open OptParse ;;
@@ -66,10 +111,6 @@ let enable_timers verbose l =
   at_exit (Util.Timer.dump Format.err_formatter);
   if verbose then List.iter Util.Timer.enable l
 ;;
-
-let debug fmt = Util.make_debug "Boilerplate" fmt
-let info fmt = Util.make_info "Boilerplate" fmt
-let warning fmt = Util.make_warning "Boilerplate" fmt
 
 (*************************************************************)
 
@@ -127,7 +168,7 @@ IFDEF HASRPM THEN
   let pkglist = List.map (Rpm.Rpmcudf.tocudf tables) l in
   Rpm.Rpmcudf.clear tables;
   let from_cudf (p,i) = (p,string_of_int i) in
-  let to_cudf (p,v) = failwith "Nope ..." in
+  let to_cudf (p,v) = failwith (Printf.sprintf "to_cudf failed for p:%s v:%s" p v) in
   (pkglist,from_cudf,to_cudf)
 ELSE
   failwith "librpm not available. re-configure with --with-rpm"
@@ -142,14 +183,12 @@ let rpm_load_universe l =
     option). If the package is not valid fails and exit *)
 let parse_cudf doc =
   try
-    let p = Cudf_parser.from_IO_in_channel (*open_in doc*) (Input.open_file doc) in
+    let p = Cudf_parser.from_IO_in_channel (Input.open_file doc) in
     Cudf_parser.parse p
   with
   |Cudf_parser.Parse_error _
   | Cudf.Constraint_violation _ as exn -> begin
-    Printf.eprintf "Error while loading CUDF from %s: %s\n%!"
-    doc (Printexc.to_string exn);
-    exit (-1)
+    fatal "Error while loading CUDF from %s: %s" doc (Printexc.to_string exn)
   end
 
 let load_cudf_ch ch =
@@ -159,9 +198,7 @@ let load_cudf_ch ch =
   with
   |Cudf_parser.Parse_error _
   | Cudf.Constraint_violation _ as exn -> begin
-    Printf.eprintf "Error while loading CUDF: %s\n%!"
-    (Printexc.to_string exn);
-    exit (-1)
+    fatal "Error while loading CUDF: %s" (Printexc.to_string exn)
   end
 
 (** parse a cudf file and return a triple (preamble,universe,request option).
@@ -186,26 +223,26 @@ let cudf_load_universe file =
 (* return a list of file of the same type *)
 let rec filter init acc uris =
   match uris,init with
-  |[],None -> (Printf.eprintf "No input provided\n"; exit 1)
+  |[],None -> fatal "No input provided"
   |[],Some init -> (init,acc)
   |uri::tail, _ ->
     begin match Input.parse_uri uri, init with
     |("cudf",(_,_,_,_,"-"),_) as p, None when tail = [] -> ("cudfstdin",[p])
-    |("cudf",(_,_,_,_,"-"),_), _ when tail <> [] -> (Printf.eprintf "Only one cudf stdin input allowed\n"; exit 1)
+    |("cudf",(_,_,_,_,"-"),_), _ when tail <> [] -> fatal "Only one cudf stdin input allowed"
 
     |("cudf",_,_) as p, None when tail = [] -> ("cudf",[p])
-    |("cudf",_,_), _ when tail <> [] -> (Printf.eprintf "Only one cudf input allowed\n"; exit 1)
+    |("cudf",_,_), _ when tail <> [] -> fatal "Only one cudf input allowed"
 
     |("deb",(_,_,_,_,"-"),_) as p, None when tail = [] -> ("debstdin",[p])
-    |("deb",(_,_,_,_,"-"),_), _ when tail <> [] -> (Printf.eprintf "Only one deb stdin input allowed\n"; exit 1)
+    |("deb",(_,_,_,_,"-"),_), _ when tail <> [] -> fatal "Only one deb stdin input allowed"
 
     |(("pgsql"|"sqlite") as dbtype,_,_) as p, None when tail = [] -> (dbtype,[p])
-    |(("pgsql"|"sqlite"),_,_), None when tail <> [] -> (Printf.eprintf "Only one db input allowed\n"; exit 1)
+    |(("pgsql"|"sqlite"),_,_), None when tail <> [] -> fatal "Only one db input allowed"
 
     |(t,_,_) as p, None -> filter (Some t) (p::acc) tail
     |(t,_,_) as p, Some i when t = i -> filter (Some t) (p::acc) tail
 
-    |(t,_,_),_ -> (Printf.eprintf "You cannot mix different input types\n"; exit 1)
+    |(t,_,_),_ -> fatal "You cannot mix different input types";
     end
 
 (** return the name of the file *)
