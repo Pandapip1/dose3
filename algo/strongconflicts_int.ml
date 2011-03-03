@@ -31,7 +31,7 @@ module CflE = struct
 end
 
 (* unlabelled indirected graph, for the cache *)
-module IG = Graph.Imperative.Graph.Concrete(PkgV)
+module IG = Graph.Imperative.Matrix.Graph
 module CG = Graph.Imperative.Graph.ConcreteLabeled(PkgV)(CflE)
 
 (** progress bar *)
@@ -41,7 +41,6 @@ let localbar = Util.Progress.create "Strongconflicts_int.local" ;;
 (* open Depsolver_int *)
 
 module S = Set.Make (struct type t = int let compare = Pervasives.compare end)
-type cl = { rdc : S.t ; rd : S.t } 
 
 let swap (p,q) = if p < q then (p,q) else (q,p) ;;
 let to_set l = List.fold_right S.add l S.empty ;;
@@ -61,11 +60,11 @@ let explicit mdf =
   Util.list_unique !l
 ;;
 
-let triangle closures xpred ypred common =
+let triangle reverse xpred ypred common =
   if not (S.is_empty common) then
     let xrest = S.diff xpred ypred in
     let yrest = S.diff ypred xpred in
-    let pred_pred = S.fold (fun z acc -> S.union closures.(z).rd acc) common S.empty in
+    let pred_pred = S.fold (fun z acc -> S.union (to_set reverse.(z)) acc) common S.empty in
     (S.subset xrest pred_pred) && (S.subset yrest pred_pred)
   else
     false
@@ -78,9 +77,7 @@ let strongconflicts mdf =
   let solver = Depsolver_int.init_solver index in
   let reverse = Depsolver_int.reverse_dependencies mdf in
   let size = (Array.length index) in
-  let cache = IG.create ~size:size () in
-  let cl_dummy = {rdc = S.empty ; rd = S.empty} in
-  let closures = Array.create size cl_dummy in
+  let cache = IG.make size in
 
   debug "Pre-seeding ...";
 
@@ -89,9 +86,6 @@ let strongconflicts mdf =
   let cg = SG.create ~size () in
   for i = 0 to (size - 1) do
     Util.Progress.progress seedingbar;
-    let rdc = to_set (Depsolver_int.reverse_dependency_closure reverse [i]) in
-    let rd = to_set reverse.(i) in
-    closures.(i) <- {rdc = rdc; rd = rd};
     Defaultgraphs.IntPkgGraph.conjdepgraph_int ~transitive:true cg index i ; 
     IG.add_vertex cache i
   done;
@@ -140,7 +134,9 @@ let strongconflicts mdf =
       let donei = ref 0 in
       let pkg_x = index.(x) in
       let pkg_y = index.(y) in
-      let (a,b) = (closures.(x).rdc, closures.(y).rdc) in 
+      let (a,b) =
+        (to_set (Depsolver_int.reverse_dependency_closure reverse [x]),
+        to_set (Depsolver_int.reverse_dependency_closure reverse [y])) in
 
       IG.add_edge cache x y;
       CG.add_edge_e strongraph (x, (x, y, Explicit), y);
@@ -165,8 +161,8 @@ let strongconflicts mdf =
       (* unless :
        * 1- x and y are in triangle, that is: there is ONE reverse dependency
        * of both x and y that has a disjunction "x | y". *)
-      let xpred = closures.(x).rd in
-      let ypred = closures.(y).rd in 
+      let xpred = to_set reverse.(x) in
+      let ypred = to_set reverse.(y) in
       let common = S.inter xpred ypred in
       if (S.cardinal xpred = 1) && (S.cardinal ypred = 1) && (S.choose xpred = S.choose ypred) then
         let p = S.choose xpred in
@@ -176,14 +172,15 @@ let strongconflicts mdf =
           (CudfAdd.print_package index.(p).Mdf.pkg);
         try_add_edge strongraph p x x y; incr donei;
         try_add_edge strongraph p y x y; incr donei;
-      else if triangle closures xpred ypred common then
+      else if triangle reverse xpred ypred common then
         debug "debconf triangle %s - %s"
           (CudfAdd.print_package pkg_x.Mdf.pkg)
           (CudfAdd.print_package pkg_y.Mdf.pkg)
       else
         S.iter (fun p ->
           S.iter (fun q ->
-            try_add_edge strongraph p q x y; incr donei
+            try_add_edge strongraph p q x y; incr donei;
+            if !donei mod 10000 = 0 then debug "%d" !donei;
           ) (S.diff b (to_set (IG.succ cache p))) ;
         ) a
       ;

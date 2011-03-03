@@ -10,16 +10,18 @@
 (*  library, see the COPYING file for more information.                               *)
 (**************************************************************************************)
 
+module OcamlHash = Hashtbl
 open ExtLib
 open Common
 
 let debug fmt = Util.make_debug "Diagnostic" fmt
 let info fmt = Util.make_info "Diagnostic" fmt
 let warning fmt = Util.make_warning "Diagnostic" fmt
+let fatal fmt = Util.make_fatal "Diagnostic" fmt
 
 type reason =
   |Dependency of (Cudf.package * Cudf_types.vpkg list * Cudf.package list)
-  |EmptyDependency of (Cudf.package * Cudf_types.vpkg list)
+  |Missing of (Cudf.package * Cudf_types.vpkg list)
   |Conflict of (Cudf.package * Cudf.package)
 
 type request =
@@ -31,6 +33,38 @@ type result =
   |Failure of (unit -> reason list)
 
 type diagnosis = { result : result ; request : request }
+
+module ResultHash = OcamlHash.Make (
+  struct
+    type t = reason
+
+    let equal v w = match (v,w) with
+    |Missing (_,v1),Missing (_,v2) -> v1 = v2
+    |Conflict(i1,j1),Conflict (i2,j2) -> i1 = i2 && j1 = j2
+    |_ -> false
+
+    let hash = function
+      |Missing (_,vpkgs) -> OcamlHash.hash vpkgs
+      |Conflict (i,j) -> OcamlHash.hash (i,j)
+      |_ -> assert false
+  end
+)
+
+type summary = {
+  mutable missing : int;
+  mutable conflict : int;
+  mutable unique_missing : int;
+  mutable unique_conflict : int;
+  summary : (Cudf.package list ref) ResultHash.t 
+}
+
+let default_result n = {
+  missing = 0;
+  conflict = 0;
+  unique_missing = 0;
+  unique_conflict = 0;
+  summary = ResultHash.create n;
+}
 
 (** given a list of dependencies, return a list of list containg all
  *  paths in the dependency tree starting from [root] *)
@@ -65,42 +99,42 @@ let pp_package ?(source=false) pp fmt pkg =
     with Not_found -> () end
 ;;
 
-let pp_dependency pp ?(label="depends") fmt (i,vpkgs) =
-  let pp_vpkglist fmt = 
-    (* from libcudf ... again *)
-    let pp_list fmt ~pp_item ~sep l =
-      let rec aux fmt = function
-        | [] -> assert false
-        | [last] -> (* last item, no trailing sep *)
-            Format.fprintf fmt "@,%a" pp_item last
-        | vpkg :: tl -> (* at least one package in tl *)
-            Format.fprintf fmt "@,%a%s" pp_item vpkg sep ;
-            aux fmt tl
-      in
-      match l with
-      | [] -> ()
-      | [sole] -> pp_item fmt sole
-      | _ -> Format.fprintf fmt "@[<h>%a@]" aux l
+let pp_vpkglist pp fmt = 
+  (* from libcudf ... again *)
+  let pp_list fmt ~pp_item ~sep l =
+    let rec aux fmt = function
+      | [] -> assert false
+      | [last] -> (* last item, no trailing sep *)
+          Format.fprintf fmt "@,%a" pp_item last
+      | vpkg :: tl -> (* at least one package in tl *)
+          Format.fprintf fmt "@,%a%s" pp_item vpkg sep ;
+          aux fmt tl
     in
-    let string_of_relop = function
-        `Eq -> "="
-      | `Neq -> "!="
-      | `Geq -> ">="
-      | `Gt -> ">"
-      | `Leq -> "<="
-      | `Lt -> "<"
-    in
-    let pp_item fmt = function
-      |(p,None) -> Format.fprintf fmt "%s" (CudfAdd.decode p)
-      |(p,Some(c,v)) ->
-          let (p,v,_) = pp {Cudf.default_package with Cudf.package = p ; version = v} in
-          Format.fprintf fmt "%s (%s %s)" (CudfAdd.decode p) (string_of_relop c) v
-    in
-    pp_list fmt ~pp_item ~sep:" | "
+    match l with
+    | [] -> ()
+    | [sole] -> pp_item fmt sole
+    | _ -> Format.fprintf fmt "@[<h>%a@]" aux l
   in
+  let string_of_relop = function
+      `Eq -> "="
+    | `Neq -> "!="
+    | `Geq -> ">="
+    | `Gt -> ">"
+    | `Leq -> "<="
+    | `Lt -> "<"
+  in
+  let pp_item fmt = function
+    |(p,None) -> Format.fprintf fmt "%s" (CudfAdd.decode p)
+    |(p,Some(c,v)) ->
+        let (p,v,_) = pp {Cudf.default_package with Cudf.package = p ; version = v} in
+        Format.fprintf fmt "%s (%s %s)" (CudfAdd.decode p) (string_of_relop c) v
+  in
+  pp_list fmt ~pp_item ~sep:" | "
+
+let pp_dependency pp ?(label="depends") fmt (i,vpkgs) =
   Format.fprintf fmt "%a" (pp_package pp) i;
   if vpkgs <> [] then
-    Format.fprintf fmt "@,%s: %a" label pp_vpkglist vpkgs;
+    Format.fprintf fmt "@,%s: %a" label (pp_vpkglist pp) vpkgs;
 ;;
 
 let rec pp_list pp fmt = function
@@ -143,7 +177,7 @@ let print_error pp root fmt l =
           Format.fprintf fmt "@]"
         end else
           Format.fprintf fmt "@,@]"
-    |EmptyDependency (i,vpkgs) ->
+    |Missing (i,vpkgs) ->
         Format.fprintf fmt "@[<v 1>missing:@,";
         Format.fprintf fmt "@[<v 1>pkg:@,%a@]" (pp_dependency ~label:"missingdep" pp) (i,vpkgs);
         let pl = create_pathlist root (Dependency(i,vpkgs,[])::deps) in
@@ -152,7 +186,8 @@ let print_error pp root fmt l =
           Format.fprintf fmt "@]"
         end else
           Format.fprintf fmt "@,@]"
-    |_ -> assert false
+    (* only two failures reasons. Dependency describe the dependency chain to a failure witness *)
+    |_ -> assert false 
   in
   pp_list pp_reason fmt res;
 ;;
@@ -192,3 +227,63 @@ let printf ?(pp=default_pp) ?(failure=false) ?(success=false) ?(explain=false) d
 let is_solution = function
   |{result = Success _ } -> true
   |{result = Failure _ } -> false
+
+let add h k v =
+  try let l = ResultHash.find h k in l := v :: !l
+  with Not_found -> ResultHash.add h k (ref [v])
+
+let collect results = function
+  |{result = Failure (f) ; request = Package r } -> 
+      List.iter (fun reason ->
+        match reason with
+        |Conflict (i,j) ->
+            add results.summary reason r;
+            results.conflict <- results.conflict + 1
+        |Missing (i,vpkgs) ->
+            add results.summary reason r;
+            results.missing <- results.missing + 1
+        |_ -> ()
+      ) (f ())
+  |_  -> ()
+;;
+
+let pp_summary_row pp fmt = function
+  |(Conflict (i,j),pl) ->
+      Format.fprintf fmt "@[<v 1>conflict:@,";
+      Format.fprintf fmt "@[<v 1>pkg1:@,%a@]@," (pp_package pp) i;
+      Format.fprintf fmt "@[<v 1>pkg2:@,%a@]@," (pp_package pp) j;
+      Format.fprintf fmt "@[<v 1>packages:@," ;
+      pp_list (pp_package ~source:true pp) fmt pl;
+      Format.fprintf fmt "@]@]"
+  |(Missing (i,vpkgs) ,pl) -> 
+      Format.fprintf fmt "@[<v 1>missing:@,";
+      Format.fprintf fmt "@[<v 1>missingdep: %a@]@," (pp_vpkglist pp) vpkgs;
+      Format.fprintf fmt "@[<v 1>packages:@," ;
+      pp_list (pp_package ~source:true pp) fmt pl;
+      Format.fprintf fmt "@]@]"
+  |_ -> ()
+;;
+
+let pp_summary ?(pp=default_pp) () fmt result = 
+  let l =
+    ResultHash.fold (fun k v acc -> 
+      let l1 = Util.list_unique !v in
+      begin match k with
+        |Conflict(_,_) -> result.unique_conflict <- result.unique_conflict + 1;
+        |Missing(_,_) -> result.unique_missing <- result.unique_missing +1;
+        |_ -> ()
+      end;
+      if List.length l1 > 1 then (k,l1)::acc else acc 
+    ) result.summary [] 
+  in
+  let l = List.sort ~cmp:(fun (_,l1) (_,l2) -> (List.length l1) - (List.length l2)) l in
+
+  Format.fprintf fmt "missing-packages: %d@." result.missing;
+  Format.fprintf fmt "conflict-packages: %d@." result.conflict;
+  Format.fprintf fmt "unique-missing-packages: %d@." result.unique_missing;
+  Format.fprintf fmt "unique-conflict-packages: %d@." result.unique_conflict;
+
+  Format.fprintf fmt "@[<v 1>summary:@," ;
+  pp_list (pp_summary_row pp) fmt l;
+  Format.fprintf fmt "@]"
+;;

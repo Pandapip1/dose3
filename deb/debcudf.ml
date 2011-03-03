@@ -144,7 +144,12 @@ let get_real_version tables (package,cudfversion) =
     match !(Hashtbl.find tables.reverse_table cudfversion) with
     |[] -> fatal "This should never happen : at lease one version for (%s,%d) must exist" package cudfversion
     |[h] -> h
-    |l -> List.fold_left min "999999:999999" l
+    |l ->
+        begin
+          let v = List.fold_left min "999999:999999" l in
+          warning "version %s is equivalent to (%s)" v (String.concat "," l);
+          v
+        end
   with Not_found ->
     fatal "This should never happen : (%s,%d) is not known" package cudfversion
 
@@ -195,6 +200,7 @@ let preamble =
     ("recommends",(`Vpkgformula (Some [])));
     ("number",(`String None));
     ("architecture",(`String None));
+    ("priority",(`String (Some "")));
     ("source",(`String (Some ""))) ;
     ("sourceversion",(`String (Some ""))) ]
   in
@@ -203,6 +209,7 @@ let preamble =
 let add_extra extras tables pkg =
   let number = ("number",`String pkg.version) in
   let architecture = ("architecture",`String pkg.architecture) in
+  let priority = ("priority",`String pkg.priority) in
   let (source,sourceversion) =
     let (n,v) =
       match pkg.source with
@@ -230,7 +237,8 @@ let add_extra extras tables pkg =
     |(_,`Vpkgformula []) -> None
     |e -> Some e
   )
-  [architecture; number; source; sourceversion; recommends; replaces] @ l
+  [priority; architecture; number;
+   source; sourceversion; recommends; replaces]@ l
 ;;
 
 let add_essential = function
