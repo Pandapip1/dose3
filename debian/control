@@ -1,6 +1,6 @@
 Source: dose3
 Section: ocaml
-Priority: optional
+Priority: extra
 Maintainer: Debian OCaml Maintainers <debian-ocaml-maint@lists.debian.org>
 Uploaders: Stefano Zacchiroli <zack@debian.org>,
  Ralf Treinen <treinen@debian.org>
