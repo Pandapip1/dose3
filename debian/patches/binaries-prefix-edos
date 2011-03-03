@@ -2,30 +2,10 @@ Author: Ralf Treinen <treinen@debian.org>
 Description: In debian, the symlinks to distcheck for specific distribution
   formats are named dose3-*.
 
-
-Index: dose3/applications/distcheck.ml
-===================================================================
---- dose3.orig/applications/distcheck.ml	2010-12-04 15:21:43.000000000 +0100
-+++ dose3/applications/distcheck.ml	2010-12-04 15:45:01.000000000 +0100
-@@ -58,10 +58,10 @@
-   let posargs =
-     let args = OptParse.OptParser.parse_argv Options.options in
-     match Filename.basename(Sys.argv.(0)),args with
--    |"debcheck",[] -> ["deb://-"]
--    |"debcheck",l -> List.map ((^) "deb://") l
--    |"eclipsecheck",l -> List.map ((^) "eclipse://") l
--    |"rpmcheck",l -> List.map ((^) "synthesis://") l
-+    |"dose3-debcheck",[] -> ["deb://-"]
-+    |"dose3-debcheck",l -> List.map ((^) "deb://") l
-+    |"dose3-eclipsecheck",l -> List.map ((^) "eclipse://") l
-+    |"dose3-rpmcheck",l -> List.map ((^) "synthesis://") l
-     |_,_ -> args
-   in
-   Boilerplate.enable_debug (OptParse.Opt.get Options.verbose);
 Index: dose3/doc/manpages/distcheck.1
 ===================================================================
---- dose3.orig/doc/manpages/distcheck.1	2010-12-04 15:45:01.000000000 +0100
-+++ dose3/doc/manpages/distcheck.1	2010-12-04 15:46:43.000000000 +0100
+--- dose3.orig/doc/manpages/distcheck.1	2011-03-03 17:37:16.000000000 +0100
++++ dose3/doc/manpages/distcheck.1	2011-03-03 17:39:47.000000000 +0100
 @@ -1,18 +1,18 @@
 -.TH distcheck 1 "December 3, 2010" "Version 2.9" "USER COMMANDS"
 +.TH dose3-distcheck 1 "December 3, 2010" "Version 2.9" "USER COMMANDS"
@@ -103,3 +83,22 @@ Index: dose3/doc/manpages/distcheck.1
  EDOS project.
  
  .SH AUTHOR
+Index: dose3/applications/distcheck.ml
+===================================================================
+--- dose3.orig/applications/distcheck.ml	2011-03-03 17:40:03.000000000 +0100
++++ dose3/applications/distcheck.ml	2011-03-03 17:41:11.000000000 +0100
+@@ -61,10 +61,10 @@
+   let posargs =
+     let args = OptParse.OptParser.parse_argv Options.options in
+     match Filename.basename(Sys.argv.(0)),args with
+-    |("debcheck"|"edos-debcheck"),[] -> ["deb://-"]
+-    |("debcheck"|"edos-debcheck"),l -> List.map ((^) "deb://") l
+-    |"eclipsecheck",l -> List.map ((^) "eclipse://") l
+-    |("rpmcheck"|"edos-rpmcheck"),l -> List.map ((^) "synthesis://") l
++    |("debcheck"|"dose3-debcheck"),[] -> ["deb://-"]
++    |("debcheck"|"dose3-debcheck"),l -> List.map ((^) "deb://") l
++    |("eclipsecheck"|"dose3-eclipsecheck"),l -> List.map ((^) "eclipse://") l
++    |("rpmcheck"|"dose3-rpmcheck"),l -> List.map ((^) "synthesis://") l
+     |_,_ -> args
+   in
+   Boilerplate.enable_debug (OptParse.Opt.get Options.verbose);
