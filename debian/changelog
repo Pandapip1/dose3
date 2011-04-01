@@ -1,11 +1,18 @@
-dose3 (2.9.1-1) experimental; urgency=low
+dose3 (2.9.2-1) experimental; urgency=low
+
+  * New upstream release. This release does not include the directory
+    of experimental applications.
+
+ -- Ralf Treinen <treinen@debian.org>  Fri, 01 Apr 2011 12:08:59 +0200
+
+dose3 (2.9.1-1) UNRELEASED; urgency=low
 
   * New upstream release. This release seperates released applications
     from experimental applications.
 
  -- Ralf Treinen <treinen@debian.org>  Thu, 03 Mar 2011 15:31:22 +0100
 
-dose3 (2.9.0-1) experimental; urgency=low
+dose3 (2.9.0-1) UNRELEASED; urgency=low
 
   * Initial release (Closes: #587521)
 
