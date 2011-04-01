@@ -94,7 +94,7 @@ let saveplot2 h outfile =
 ;;
 
 let main () =
-  at_exit (fun () -> Util.dump Format.err_formatter);
+  (* at_exit (fun () -> Util.dump Format.err_formatter); *)
   let posargs = OptParse.OptParser.parse_argv Options.options in
   Boilerplate.enable_debug (OptParse.Opt.get Options.verbose);
   let (universe,_,_) = Boilerplate.load_universe posargs in
@@ -118,6 +118,7 @@ let main () =
   let connectivity = "Connectivity" >::: [
     "Average Out-Degree" >:: (fun _ -> Printf.fprintf outch "%0.2f" (S.averageOutDegree gr));
     "Average In-Degree"  >:: (fun _ -> Printf.fprintf outch "%0.2f" (S.averageInDegree gr));
+    "Zero-degree Packages" >:: (fun _ -> Printf.fprintf outch "%d" (S.zdp gr));
     ]
   in
   let componentsSC = "Strongly Connected Components" >::: [
@@ -144,20 +145,19 @@ let main () =
     "Centrality In Degree" >:: (fun _ -> Printf.fprintf outch "%0.5f" (S.centralityInDegree gr));
     ]
   in
-  let scatterplots = "Scattered Plots" >::: [
+  let scatterplots = "Scattered Plots" >:::
     if OptParse.Opt.get Options.combine_scatter then
-      ("Combined" >:: (fun _ ->
+      ["Combined" >:: (fun _ ->
         saveplot2 (S.scatteredPlotBoth gr) (prefix^"degree.data"); print_string "Done";
-      ))
+      )]
     else
-    ("Scattered Plot In" >:: (fun _ ->
+    ["Scattered Plot In" >:: (fun _ ->
       saveplot (S.scatteredPlotIn gr) (prefix^"indegree.data") ; print_string "Done" );
     "Scattered Plot Out" >:: (fun _ ->
-      saveplot (S.scatteredPlotOut gr) (prefix^"outdegree.data"); print_string "Done" );
+      saveplot (S.scatteredPlotOut gr) (prefix^"outdegree.data"); print_string "Done" )
 (*    "Hops Plot" >:: (fun _ ->
       saveplot (S.hopsplot gr 30) "hopsplot.data"; print_string "Done" );
-      *) )
-  ]
+      *) ]
   in
   let t = ref [] in
   if not (OptParse.Opt.get Options.scatterplots) then t := scatterplots :: !t ;
