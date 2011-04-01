@@ -25,7 +25,7 @@ let run () =
     Cudf.load_universe pl
   in
   List.fold_left Benchmark.merge [] [
-    strongdeps universe;
+    (* strongdeps universe; *)
     (* strongconflicts universe; *)
     univcheck universe;
     load universe;
