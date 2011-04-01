@@ -27,7 +27,7 @@ statistics.ml
 2008 Stefano Zacchiroli <zack@debian.org> and 
  * Jaap Boender <boender@pps.jussieu.fr> and
  * Pietro Abate <pietro.abate@pps.jussieu.fr>
-same licence
+GPL !!!! but this is being changed upstream
 
 
 ==========================================================================
@@ -87,6 +87,7 @@ util.ml[i]:
 2009  <pietro.abate@pps.jussieu.fr>
 Part of  the following code is borrowed from Cduce.
 Copyright: Alain Frisch     
+(this has been removed upstream)
 
 util.mli:
  (C) 2009 Pietro Abate <pietro.abate@pps.jussieu.fr>
