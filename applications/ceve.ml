@@ -1,7 +1,7 @@
 (**************************************************************************************)
-(*  Copyright (C) 2009 Pietro Abate <pietro.abate@pps.jussieu.fr>                     *)
+(*  Copyright (C) 2009-10 Pietro Abate <pietro.abate@pps.jussieu.fr>                     *)
 (*  and Jaap Boender <boender@pps.jussieu.fr *)
-(*  Copyright (C) 2009 Mancoosi Project                                               *)
+(*  Copyright (C) 2009-10 Mancoosi Project                                               *)
 (*                                                                                    *)
 (*  This library is free software: you can redistribute it and/or modify              *)
 (*  it under the terms of the GNU Lesser General Public License as                    *)
@@ -47,7 +47,7 @@ struct
       open_out (Opt.get out_ch)
     else stdout
 
-  let description = "Ceve ... what does it mean ?"
+  let description = "Ceve - integrated metadata parser and transformer"
   let options = OptParser.make ~description:description ()
 
   open OptParser

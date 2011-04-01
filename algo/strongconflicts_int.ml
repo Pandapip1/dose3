@@ -38,6 +38,9 @@ module CG = Graph.Imperative.Graph.ConcreteLabeled(PkgV)(CflE)
 let seedingbar = Util.Progress.create "Strongconflicts_int.seeding" ;;
 let localbar = Util.Progress.create "Strongconflicts_int.local" ;;
 
+(** timer *)
+let sctimer = Util.Timer.create "Strongconflicts_int.main";;
+
 (* open Depsolver_int *)
 
 module S = Set.Make (struct type t = int let compare = Pervasives.compare end)
@@ -79,6 +82,7 @@ let strongconflicts mdf =
   let size = (Array.length index) in
   let cache = IG.make size in
 
+  Util.Timer.start sctimer;
   debug "Pre-seeding ...";
 
   Util.Progress.set_total seedingbar (Array.length mdf.Mdf.index);
@@ -86,7 +90,7 @@ let strongconflicts mdf =
   let cg = SG.create ~size () in
   for i = 0 to (size - 1) do
     Util.Progress.progress seedingbar;
-    Defaultgraphs.IntPkgGraph.conjdepgraph_int ~transitive:true cg index i ; 
+    Defaultgraphs.IntPkgGraph.conjdepgraph_int cg index i ; 
     IG.add_vertex cache i
   done;
   (* we already add the transitive closure on the fly *)
@@ -97,7 +101,6 @@ let strongconflicts mdf =
 
   (* add all edges to the cache *)
   SG.iter_edges (IG.add_edge cache) cg;
-
   debug " done";
 
   let i = ref 0 in
@@ -167,15 +170,15 @@ let strongconflicts mdf =
       if (S.cardinal xpred = 1) && (S.cardinal ypred = 1) && (S.choose xpred = S.choose ypred) then
         let p = S.choose xpred in
         debug "triangle %s - %s (%s)" 
-          (CudfAdd.print_package pkg_x.Mdf.pkg)
-          (CudfAdd.print_package pkg_y.Mdf.pkg)
-          (CudfAdd.print_package index.(p).Mdf.pkg);
+          (CudfAdd.string_of_package pkg_x.Mdf.pkg)
+          (CudfAdd.string_of_package pkg_y.Mdf.pkg)
+          (CudfAdd.string_of_package index.(p).Mdf.pkg);
         try_add_edge strongraph p x x y; incr donei;
         try_add_edge strongraph p y x y; incr donei;
       else if triangle reverse xpred ypred common then
         debug "debconf triangle %s - %s"
-          (CudfAdd.print_package pkg_x.Mdf.pkg)
-          (CudfAdd.print_package pkg_y.Mdf.pkg)
+          (CudfAdd.string_of_package pkg_x.Mdf.pkg)
+          (CudfAdd.string_of_package pkg_y.Mdf.pkg)
       else
         S.iter (fun p ->
           S.iter (fun q ->
@@ -185,12 +188,13 @@ let strongconflicts mdf =
         ) a
       ;
 
-      debug " | tuple examined %d" !donei;
+      debug "\n | tuple examined %d" !donei;
       total := !total + !donei
     end
   ) ex ;
 
   Util.Progress.reset localbar;
   debug " total tuple examined %d" !total;
+  ignore (Util.Timer.stop sctimer ());
   strongraph
 ;;

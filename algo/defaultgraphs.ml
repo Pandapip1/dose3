@@ -19,6 +19,7 @@ let debug fmt = Util.make_debug "Defaultgraphs" fmt
 let info fmt = Util.make_info "Defaultgraphs" fmt
 let warning fmt = Util.make_warning "Defaultgraphs" fmt
 
+let tr_timer = Util.Timer.create "Defaultgraph.GraphOper.transitive_reduction"
 
 (** generic operation over imperative graphs *)
 module GraphOper (G : Sig.I) = struct
@@ -28,8 +29,7 @@ module GraphOper (G : Sig.I) = struct
       with the proviso that we know that our graph already is a transitive 
       closure *)
   let transitive_reduction graph =
-    let timer = Util.Timer.create "Defaultgraph.GraphOper.transitive_reduction" in
-    Util.Timer.start timer;
+    Util.Timer.start tr_timer;
     G.iter_vertex (fun v ->
       List.iter (fun v' ->
         if v <> v' then
@@ -39,7 +39,7 @@ module GraphOper (G : Sig.I) = struct
         ) (G.succ graph v')
       ) (G.succ graph v);
     ) graph;
-    Util.Timer.stop timer ()
+    Util.Timer.stop tr_timer ()
 
   module O = Oper.I(G) 
 
@@ -82,8 +82,8 @@ module SyntacticDependencyGraph = struct
 
   let string_of_vertex vertex =
     match G.V.label vertex with
-    |PkgV.Pkg p -> Printf.sprintf "Pkg %s" (CudfAdd.print_package p)
-    |PkgV.Or (p, _) -> Printf.sprintf "Or %s" (CudfAdd.print_package p)
+    |PkgV.Pkg p -> Printf.sprintf "Pkg %s" (CudfAdd.string_of_package p)
+    |PkgV.Or (p, _) -> Printf.sprintf "Or %s" (CudfAdd.string_of_package p)
 
   let string_of_edge edge =
     let label =
@@ -103,8 +103,8 @@ module SyntacticDependencyGraph = struct
       include G
       let vertex_name v =
         match G.V.label v with
-        |PkgV.Pkg i -> Printf.sprintf "\"%s\"" (CudfAdd.print_package i)
-        |PkgV.Or (i,c) -> Printf.sprintf "\"Or%s-%d\"" (CudfAdd.print_package i) c
+        |PkgV.Pkg i -> Printf.sprintf "\"%s\"" (CudfAdd.string_of_package i)
+        |PkgV.Or (i,c) -> Printf.sprintf "\"Or%s-%d\"" (CudfAdd.string_of_package i) c
 
       let graph_attributes = fun _ -> [`Rankdir `LeftToRight]
       let get_subgraph = fun _ -> None
@@ -194,7 +194,7 @@ module PackageGraph = struct
   module DisplayF (G : Sig.I) =
     struct
       include G
-      let vertex_name v = Printf.sprintf "\"%s\"" (CudfAdd.print_package v)
+      let vertex_name v = Printf.sprintf "\"%s\"" (CudfAdd.string_of_package v)
 
       let graph_attributes = fun _ -> []
       let get_subgraph = fun _ -> None
@@ -318,15 +318,17 @@ module IntPkgGraph = struct
       if S.is_empty new_red then ()
       else adapt k new_red
     in
+  begin
+    debug "Adding edge from %d to %d" i j;
     G.add_edge graph i j;
     if transitive then begin
-      (* add transitive closure arcs *)
       adapt i (S.singleton j);
       G.iter_pred (fun k ->
         if not (G.mem_edge graph k j) then
           adapt k (S.singleton j)
       ) graph i
     end
+  end
 
   (** add to the graph all conjunctive dependencies of package id *)
   let conjdepgraph_int ?(transitive=false) graph index id =
@@ -464,8 +466,8 @@ module StrongDepGraph = struct
     end
   )
 
-  let pbar_edge = Util.Progress.create "StrongDepGraph.transfrom.edges"
-  let pbar_vertex = Util.Progress.create "StrongDepGraph.transfrom.vertex"
+  let pbar_edge = Util.Progress.create "StrongDepGraph.transform.edges"
+  let pbar_vertex = Util.Progress.create "StrongDepGraph.transform.vertex"
 
   (* PackageGraph.G -> StrongDepGraph.G *)
   let transform_out pkggraph =

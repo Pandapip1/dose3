@@ -48,11 +48,13 @@ let parse_pkg s =
       with Not_found -> (p,None)
     with
       Not_found -> fatal "Parse error %s\n" str
-  in List.map parse_aux (Pcre.split ~rex:and_sep_re s);;
+  in List.map parse_aux (Pcre.split ~rex:and_sep_re s)
+;;
 
 let vpkglist_option ?default ?(metavar = "VPKGLST") () =
   OptParse.Opt.value_option metavar default
   parse_pkg (fun _ s -> Printf.sprintf "invalid package list '%s'" s)
+;;
 
 (* *************************************** *)
 
@@ -65,11 +67,13 @@ let parse_pkg s =
       (Pcre.get_substring s 1, Pcre.get_substring s 2)
     with
       Not_found -> fatal "Parse error %s" str
-  in List.map parse_aux (Pcre.split ~rex:and_sep_re s);;
+  in List.map parse_aux (Pcre.split ~rex:and_sep_re s)
+;;
 
 let pkglist_option ?default ?(metavar = "PKGLST") () =
   OptParse.Opt.value_option metavar default
   parse_pkg (fun _ s -> Printf.sprintf "invalid package list '%s'" s)
+;;
 
 (* *************************************** *)
 
@@ -166,9 +170,9 @@ let rpm_load_list l =
 IFDEF HASRPM THEN
   let tables =  Rpm.Rpmcudf.init_tables l in
   let pkglist = List.map (Rpm.Rpmcudf.tocudf tables) l in
-  Rpm.Rpmcudf.clear tables;
+  (* Rpm.Rpmcudf.clear tables; *)
   let from_cudf (p,i) = (p,string_of_int i) in
-  let to_cudf (p,v) = failwith (Printf.sprintf "to_cudf failed for p:%s v:%s" p v) in
+  let to_cudf (p,v) = (p,Rpm.Rpmcudf.get_cudf_version tables (p,v)) in
   (pkglist,from_cudf,to_cudf)
 ELSE
   failwith "librpm not available. re-configure with --with-rpm"

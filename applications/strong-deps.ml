@@ -94,10 +94,10 @@ let main () =
       ) depgraph []
       end
     in
-    Printf.fprintf outch "name, str, rev, dir, diff\n";
+    Printf.fprintf outch "name, #str-out, #str-in, #dir-out, #dir-in, diff\n";
     List.iter (fun (p,diff,rs,s,rd,d) ->
       let pkg = CudfAdd.print_package p in
-      Printf.fprintf outch "%s , %d, %d, %d, %d, %d\n" pkg s rs d rd diff
+      Printf.fprintf outch "%s , %d, %d, %d, %d, %d\n" pkg rs s rd d diff
     ) (List.sort ~cmp:(fun (_,x,_,_,_,_) (_,y,_,_,_,_) -> y - x) l);
     close_out outch
   end
