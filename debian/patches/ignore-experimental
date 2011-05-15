@@ -1,0 +1,13 @@
+Index: dose3/configure
+===================================================================
+--- dose3.orig/configure	2011-05-15 19:11:02.000000000 +0200
++++ dose3/configure	2011-05-15 19:11:33.000000000 +0200
+@@ -5882,7 +5882,7 @@
+ 
+ 
+ 
+-ac_config_files="$ac_config_files Makefile.config experimental/Makefile META db/db.mlpack db/_tags algo/_tags rpm/_tags deb/_tags eclipse/_tags algo/algo.mlpack common/_tags applications/_tags experimental/_tags applications/boilerplates/_tags common/versionInfo.ml doc/manpages/buildcheck.1 doc/manpages/ceve.1 doc/manpages/distcheck.1 _tags"
++ac_config_files="$ac_config_files Makefile.config META db/db.mlpack db/_tags algo/_tags rpm/_tags deb/_tags eclipse/_tags algo/algo.mlpack common/_tags applications/_tags applications/boilerplates/_tags common/versionInfo.ml doc/manpages/buildcheck.1 doc/manpages/ceve.1 doc/manpages/distcheck.1 _tags"
+ 
+ cat >confcache <<\_ACEOF
+ # This file is a shell script that caches the results of configure
