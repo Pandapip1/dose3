@@ -29,7 +29,7 @@ type source = {
 }
 
 let parse_name = parse_package
-let parse_arch s = Str.split (Str.regexp " ") s
+let parse_arch s = String.nsplit s " " (* Str.split (Str.regexp " ") s *)
 let parse_version s = parse_version s
 let parse_binary s = parse_vpkglist parse_constr s
 let parse_cnf s = parse_vpkgformula parse_builddeps s
@@ -57,9 +57,9 @@ let parse_sources_fields par =
   try Some (exec ()) with Not_found -> None (* this package doesn't either have version or name *)
 
 (** parse a debian Sources file from channel *)
-let parse_sources_in f ch =
+let parse_sources_in ch =
   let parse_packages = parse_822_iter parse_sources_fields in
-  parse_packages f (start_from_channel ch)
+  parse_packages (start_from_channel ch)
 
 (** parse a debian Sources file *)
 let input_raw =

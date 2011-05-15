@@ -108,7 +108,7 @@ let test_dependency_closure =
 let test_conjunctive_dependency_closure =
   "conjunctive dependency closure" >:: (fun _ ->
     List.iter (fun pkg ->
-      let dcl = Depsolver.dependency_closure ~conjuntive:true universe [pkg] in
+      let dcl = Depsolver.dependency_closure ~conjunctive:true universe [pkg] in
 (*      print_endline (CudfAdd.print_package pkg);
       List.iter (fun pkg -> print_endline (CudfAdd.print_package pkg)) dcl;
       print_newline (); *)
@@ -197,8 +197,8 @@ let test_strong ?(transitive=true) file l =
   if not((List.sort sdedges) = (List.sort testedges)) then
     List.iter (fun (p,q) -> 
       Printf.eprintf "%s -> %s\n" 
-      (CudfAdd.print_package p)
-      (CudfAdd.print_package q)
+      (CudfAdd.string_of_package p)
+      (CudfAdd.string_of_package q)
     ) sdedges
   ;
   assert_equal (List.sort sdedges) (List.sort testedges)
@@ -218,8 +218,8 @@ let test_strongcfl file l =
   if not((List.sort scedges) = (List.sort testedges)) then
     List.iter (fun (p,q) -> 
       Printf.eprintf "%s <-> %s\n" 
-      (CudfAdd.print_package p)
-      (CudfAdd.print_package q)
+      (CudfAdd.string_of_package p)
+      (CudfAdd.string_of_package q)
     ) scedges
   ;
   assert_equal (List.sort scedges) (List.sort testedges)

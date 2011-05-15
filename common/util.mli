@@ -139,3 +139,6 @@ module Timer : sig
   (** return the labels of all available progress bar *)
   val available : unit -> label list
 end
+
+module IntHashtbl : Hashtbl.S with type key = int
+module StringHashtbl : Hashtbl.S with type key = string

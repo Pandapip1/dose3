@@ -17,6 +17,7 @@ open CudfAdd
 let debug fmt = Util.make_debug "Depsolver" fmt
 let info fmt = Util.make_info "Depsolver" fmt
 let warning fmt = Util.make_warning "Depsolver" fmt
+let fatal fmt = Util.make_fatal "Depsolver" fmt
 
 type solver = {
   mdf : Mdf.universe ;
@@ -35,11 +36,9 @@ let load ?(check=true) universe =
       let mdf = Mdf.load_from_universe universe in
       let solver = Depsolver_int.init_solver mdf.Mdf.index in
       { mdf = mdf ; solver = solver }
-  |false,Some(r) -> begin
-      Printf.eprintf "%s"
+  |false,Some(r) -> 
+      fatal "%s"
       (Cudf_checker.explain_reason (r :> Cudf_checker.bad_solution_reason)) ;
-      exit (-1)
-  end
   |_,_ -> assert false
 
 let reason maps =
@@ -118,11 +117,11 @@ let trim universe =
   ignore (univcheck ~callback universe);
   Cudf.load_universe !trimmed_pkgs
 
-let dependency_closure ?maxdepth ?conjuntive universe pkglist =
+let dependency_closure ?maxdepth ?conjunctive universe pkglist =
   let mdf = Mdf.load_from_universe universe in
   let maps = mdf.Mdf.maps in
   let idlist = List.map maps.map#vartoint pkglist in
-  let closure = Depsolver_int.dependency_closure ?maxdepth ?conjuntive mdf idlist in
+  let closure = Depsolver_int.dependency_closure ?maxdepth ?conjunctive mdf idlist in
   List.map maps.map#inttovar closure
 
 let reverse_dependencies universe =
