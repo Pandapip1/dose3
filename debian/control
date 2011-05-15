@@ -11,13 +11,12 @@ Build-Depends: debhelper (>= 7.0.50~), dh-ocaml (>= 0.9~),
  libocamlgraph-ocaml-dev,
  libcudf-ocaml-dev (>= 0.5.99),
  libzip-ocaml-dev, libbz2-ocaml-dev, librpm-dev (>= 4.8)
-Standards-Version: 3.9.1
+Standards-Version: 3.9.2
 Homepage: http://www.mancoosi.org/software/
 Vcs-Browser: http://git.debian.org/?p=pkg-ocaml-maint/packages/dose3.git
 Vcs-Git: git://git.debian.org/git/pkg-ocaml-maint/packages/dose3.git
 
 Package: libdose3-ocaml-dev
-Section: ocaml
 Architecture: any
 Depends: ${misc:Depends}, ${ocaml:Depends}
 Provides: ${ocaml:Provides}

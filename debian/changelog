@@ -1,4 +1,14 @@
-dose3 (2.9.2-1-1) experimental; urgency=low
+dose3 (2.9.3.1) experimental; urgency=low
+
+  * New upstream release. This release resolves the problems with the
+    copyright of some of the files. In particular, common/url.ml has 
+    been rewritten from scratch.
+  * Standards-Version 3.9.2 (no change)
+  * debian/control: remove redundant Section entry for libdose3-ocaml-dev.
+
+ -- Ralf Treinen <treinen@debian.org>  Sun, 15 May 2011 18:40:58 +0200
+
+dose3 (2.9.2-1-1) UNRELEASED; urgency=low
   
   * New upstream release.
   
