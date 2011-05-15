@@ -36,7 +36,7 @@ end
 
 let and_sep_re = Pcre.regexp "\\s*,\\s*"
 let pkg_re = Pcre.regexp "([0-9a-z][a-z0-9.+-]*)(\\s*$|\\s*\\(([><=!]+)\\s+([a-zA-Z0-9.+:~-]+)\\))"
-let parse_pkg s =
+let parse_vpkg s =
   let parse_aux str =
     try
       let s = Pcre.exec ~rex:pkg_re str  in
@@ -53,7 +53,7 @@ let parse_pkg s =
 
 let vpkglist_option ?default ?(metavar = "VPKGLST") () =
   OptParse.Opt.value_option metavar default
-  parse_pkg (fun _ s -> Printf.sprintf "invalid package list '%s'" s)
+  parse_vpkg (fun _ s -> Printf.sprintf "invalid vpackage list '%s'" s)
 ;;
 
 (* *************************************** *)
@@ -121,7 +121,7 @@ let enable_timers verbose l =
 let argv_ f l =
   let a = Array.of_list l in
   if Array.length a = 0 then
-    (Printf.eprintf "No input file specified" ; exit 1)
+    fatal "No input file specified"
   else f a
 
 let argv1 l = argv_ (fun a -> a.(0)) l
@@ -131,8 +131,8 @@ let argv3 l = argv_ (fun a -> (a.(0),a.(1),a.(2))) l
 (** read a debian Packages file - compressed or not *)
 let read_deb ?(extras=[]) s =
   let ch = Input.open_file s in
-  let l = Debian.Packages.parse_packages_in ~extras (fun x->x) ch in
-  let _ = (* IO.close_in ch *) Input.close_ch ch in
+  let l = Debian.Packages.parse_packages_in ~extras ch in
+  let _ = Input.close_ch ch in
   l
 
 (** transform a list of debian control stanza into a cudf packages list *)
@@ -195,23 +195,23 @@ let parse_cudf doc =
     fatal "Error while loading CUDF from %s: %s" doc (Printexc.to_string exn)
   end
 
-let load_cudf_ch ch =
-  try
-    let p = Cudf_parser.from_IO_in_channel ch in
-    Cudf_parser.load p
-  with
-  |Cudf_parser.Parse_error _
-  | Cudf.Constraint_violation _ as exn -> begin
-    fatal "Error while loading CUDF: %s" (Printexc.to_string exn)
-  end
-
 (** parse a cudf file and return a triple (preamble,universe,request option).
     If the package is not valid fails and exit *)
 let load_cudf doc = 
   let ch = Input.open_file doc in
-  let l = load_cudf_ch ch in
+  let l = 
+    try
+      let p = Cudf_parser.from_IO_in_channel ch in
+      Cudf_parser.load p
+    with
+    |Cudf_parser.Parse_error _
+    |Cudf.Constraint_violation _ as exn -> begin
+      fatal "Error while loading CUDF file %s:\n%s" doc (Printexc.to_string exn)
+    end 
+  in
   Input.close_ch ch;
   l
+;;
 
 (* XXX when parsing a cudf, I should also remember the preamble !! *)
 let cudf_load_list file =
@@ -224,24 +224,28 @@ let cudf_load_universe file =
   let (l,f,t) = cudf_load_list file in
   (Cudf.load_universe l, f, t)
 
-(* return a list of file of the same type *)
-let rec filter init acc uris =
-  match uris,init with
+(* Check that all uris are of type that is an instance of scheme *)
+(* If yes return that instance of scheme, and the list of pathes *)
+(* in uris.                                                      *)
+let rec filter opt_scheme acc uris =
+  match uris,opt_scheme with
   |[],None -> fatal "No input provided"
-  |[],Some init -> (init,acc)
+  |[],Some real_scheme -> (real_scheme,acc)
   |uri::tail, _ ->
-    begin match Input.parse_uri uri, init with
-    |("cudf",(_,_,_,_,"-"),_) as p, None when tail = [] -> ("cudfstdin",[p])
-    |("cudf",(_,_,_,_,"-"),_), _ when tail <> [] -> fatal "Only one cudf stdin input allowed"
+    begin match Input.parse_uri uri, opt_scheme with
+    (* XXX add support !
+    |(Url.Cudf,(_,_,_,_,"-"),_) as p, None when tail = [] -> ("cudfstdin",[p])
+    |(Url.Cudf,(_,_,_,_,"-"),_), _ when tail <> [] -> fatal "Only one cudf stdin input allowed"
+    *)
 
-    |("cudf",_,_) as p, None when tail = [] -> ("cudf",[p])
-    |("cudf",_,_), _ when tail <> [] -> fatal "Only one cudf input allowed"
+    |(Url.Cudf,_,_) as p, None when tail = [] -> (Url.Cudf,[p])
+    |(Url.Cudf,_,_), _ when tail <> [] -> fatal "Only one cudf input allowed"
 
-    |("deb",(_,_,_,_,"-"),_) as p, None when tail = [] -> ("debstdin",[p])
-    |("deb",(_,_,_,_,"-"),_), _ when tail <> [] -> fatal "Only one deb stdin input allowed"
+    |(Url.Deb,(_,_,_,_,"-"),_), None when tail = [] && acc = []-> (Url.Deb,[]) (* stdin *)
+    |(Url.Deb,(_,_,_,_,"-"),_), _ when tail <> [] || acc <> [] -> fatal "Only one deb stdin input allowed"
 
-    |(("pgsql"|"sqlite") as dbtype,_,_) as p, None when tail = [] -> (dbtype,[p])
-    |(("pgsql"|"sqlite"),_,_), None when tail <> [] -> fatal "Only one db input allowed"
+    |((Url.Pgsql|Url.Sqlite) as dbtype,_,_) as p, None when tail = [] && acc = [] -> (dbtype,[p])
+    |((Url.Pgsql|Url.Sqlite),_,_), None when tail <> [] || acc <> [] -> fatal "Only one db input allowed"
 
     |(t,_,_) as p, None -> filter (Some t) (p::acc) tail
     |(t,_,_) as p, Some i when t = i -> filter (Some t) (p::acc) tail
@@ -255,44 +259,63 @@ let unpack (_,(_,_,_,_,file),_) = file
 (** parse a list of uris of the same type and return a cudf packages list *)
 let parse_input ?(default_arch=None) ?(extras=[]) uris =
   match filter None [] uris with
-  |("cudf",[("cudf",(_,_,_,_,file),_)]) ->
+  |(Url.Cudf,[(Url.Cudf,(_,_,_,_,file),_)]) ->
       cudf_load_list file
-  |("debstdin", [p]) ->
+  |(Url.Deb, []) ->
       let l = Debian.Packages.input_raw_ch ~default_arch (IO.input_channel stdin) in
       deb_load_list ~extras l
-  |("deb", l) ->
+  |(Url.Deb, l) ->
       let filelist = List.map unpack l in
       let l = Debian.Packages.input_raw ~default_arch filelist in
       deb_load_list ~extras l
-  |("eclipse", l) ->
+  |(Url.Eclipse, l) ->
       let filelist = List.map unpack l in
       let l = Eclipse.Packages.input_raw filelist in
       eclipse_load_list ~extras l
-  |("pgsql"|"sqlite"), [(("pgsql"|"sqlite") as dbtype,info,(Some query))] ->
+  |(Url.Pgsql|Url.Sqlite), [((Url.Pgsql|Url.Sqlite) as dbtype,info,(Some query))] ->
 IFDEF HASDB THEN
         let db = Db.Backend.init_database dbtype info (Idbr.parse_query query) in
         let l = Db.Backend.load_selection db (`All) in
         deb_load_list ~extras l
 ELSE
-      failwith (dbtype^" Not supported. re-configure with --with-??")
+    fatal "%s Not supported. re-configure with --with-??" (Url.scheme_to_string dbtype)
 END
-  |("hdlist", l) -> 
+  |(Url.Hdlist, l) -> 
 IFDEF HASRPM THEN
       let filelist = List.map unpack l in
       let l = Rpm.Packages.Hdlists.input_raw filelist in
       rpm_load_list l
 ELSE
-    failwith ("hdlist Not supported. re-configure with --with-rpm")
+    fatal "hdlist Not supported. re-configure with --with-rpm"
 END
-  |("synth", l) -> 
+  |(Url.Synthesis, l) -> 
 IFDEF HASRPM THEN
       let filelist = List.map unpack l in
       let l = Rpm.Packages.Synthesis.input_raw filelist in
       rpm_load_list l
 ELSE
-    failwith ("synth Not supported. re-configure with --with-rpm")
+    fatal "synthesis input format not supported. re-configure with --with-rpm"
 END
-    |(s,_) -> failwith (s^" Not supported")
+    |(s,_) -> fatal "%s Not supported" (Url.scheme_to_string s)
+;;
+
+let supported_formats () =
+  let standard = ["cudf://";"deb://";"deb://-";"eclipse://"] in
+  let rpm = 
+IFDEF HASRPM THEN
+     ["hdlist://";"synthesis://"]
+ELSE
+     []
+END
+   in
+   let db =
+IFDEF HASDB THEN
+     ["pgsql://";"sqlite://"]
+ELSE
+     []
+END
+   in
+   standard@rpm@db
 ;;
 
 (** parse and merge a list of files into a cudf package list *)

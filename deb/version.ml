@@ -1,5 +1,5 @@
 (**************************************************************************)
-(*  Copyright (C) 2009  Jaap Boender (jaap.boender@pps.jussieu.fr)        *)
+(*  Copyright (C) 2009  Jaap Boender <jaap.boender@pps.jussieu.fr>        *)
 (*                                                                        *)
 (*  This library is free software: you can redistribute it and/or modify  *)
 (*  it under the terms of the GNU Lesser General Public License as        *)
@@ -10,6 +10,7 @@
 (**************************************************************************)
 
 let fatal fmt = Common.Util.make_fatal "Debian.Version" fmt
+let info fmt = Common.Util.make_info "Debian.Version" fmt
 
 (* cannibalized from ocamldeb *)
 
@@ -56,48 +57,44 @@ let extract_epoch x =
   | Not_found -> ("",x)
 ;;
 
-let extract_revision x =
+let extract_string c x =
   try
-    let di = String.rindex x '-' in
+    let di = String.rindex x c in
     if di < String.length x - 1 then
-      let upstream = String.sub x 0 di
-      and revision = String.sub x (di + 1) (String.length x - di - 1)
-      in
-      (upstream,revision)
+      let before = String.sub x 0 di in
+      let after = String.sub x (di + 1) (String.length x - di - 1) in
+      (before,after)
     else
       (x,"")
   with
   | Not_found -> (x,"")
 ;;
 
-(* binNMU are of the for +b1 ... +bn *)
-(* old binNMUs were of the form version-major.minor.binNMU *)
-(** chops a possible bin-NMU suffix from a debian version string *)
-let extract_binnmu x =
-  let rex = Str.regexp "^\\(.*\\)\\(\\+b[0-9]+\\)$" in
-  try
-    ignore(Str.search_backward rex x (String.length(x)));
-    (Str.matched_group 1 x,Str.matched_group 2 x)
-  with Not_found -> (x,"")
+let extract_revision s = extract_string '-' s
+let extract_binnmu s = extract_string '+' s
 
-let extract_chunks x =
-  let (epoch,rest) = extract_epoch x in
+let split s =
+  let (epoch,rest) = extract_epoch s in
+  let (rest,binnmu) = extract_binnmu rest in
   let (upstream,revision) = extract_revision rest in
-  (epoch,upstream,revision)
+  (epoch,upstream,revision,binnmu)
 ;;
 
-let split x =
-  let (e,u,rest) = extract_chunks x in
-  let (r,b) = extract_binnmu rest in
-  (e,u,r,b)
+let concat = function
+  |("",u,"","") -> Printf.sprintf "%s" u (* 1.1 *)
+  |("",u,r,"") -> Printf.sprintf "%s-%s" u r (* 1.1-1 *)
+  |("",u,"",b) -> Printf.sprintf "%s+%s" u b (* 1.1+b1 *)
+  |("",u,r,b) -> Printf.sprintf "%s-%s+%s" u r b (* 1.1-1+b1 *)
+  |(e,u,"","") -> Printf.sprintf "%s:%s" e u (* 1:1.1 *)
+  |(e,u,"",b) -> Printf.sprintf "%s:%s+%s" e u b (* 1:1.1+b1 *)
+  |(e,u,r,"") -> Printf.sprintf "%s:%s-%s" e u r (* 1:1.1-1 *)
+  |(e,u,r,b) -> Printf.sprintf "%s:%s-%s+%s" e u r b (* 1:1.1-1+b1 *)
 ;;
 
-let normalize s =
-  let (e,u,rest) = extract_chunks s in
-  match extract_binnmu rest with
-  |("","") -> ""
-  |(x,_) -> Printf.sprintf "%s-%s" u x
-;;
+let normalize s = 
+  let (e,u,r,b) = split s in
+  concat ("",u,r,"")
+;; 
 
 let ( ** ) x y = if x = 0 then y else x;;
 let ( *** ) x y = if x = 0 then y () else x;;
@@ -197,12 +194,14 @@ let rec compare_chunks x y =
 ;;
 
 let compare x1 x2 =
-  let (e1,u1,r1) = extract_chunks x1
-  and (e2,u2,r2) = extract_chunks x2
+  let (e1,u1,r1,b1) = split x1
+  and (e2,u2,r2,b2) = split x2
   in
   (compare_numeric_decimal e1 e2) ***
     (fun () -> (compare_chunks u1 u2) ***
-      (fun () -> compare_chunks r1 r2))
+      (fun () -> (compare_chunks r1 r2) ***
+        (fun () -> (compare_chunks b1 b2)))
+    )
 ;;
 
 let compare (x : string) (y : string) =
@@ -219,27 +218,3 @@ let compare (x : string) (y : string) =
 
 let equal (x : string) (y : string) =
   if x = y then true else (compare x y) = 0
-
-(** [split_by_epoch vpl] splits the (sorted) list [vpl] grouping their elements by epoch *)
-(*
-let split_by_epoch =
-  let samepoch =
-    function
-        (e1,e2) when e1=e2 -> true
-      | (e1,e2) when e1="0:" && e2="" -> true
-      | (e1,e2) when e1="" && e2="0:" -> true
-      | _ -> false
-  in
-  let rec aux e (acc::accl) = function
-      [] -> List.rev (List.map List.rev (acc::accl))
-    | ((_,Eq debv) as vpair)::r when samepoch(e,(Debutil.chop_version debv)) ->
-        aux e ((vpair::acc)::accl) r
-    | ((_,Eq debv) as vpair)::r ->
-        aux (Debutil.chop_version debv) ([vpair]::acc::accl) r
-    | _ -> failwith "Split_by_epoch only handles real versions"
-  in function
-      [] -> []
-    | ((_,Eq debv) as vpair)::r -> aux (Debutil.chop_version debv) [[vpair]] r
-    | _ -> failwith "Split_by_epoch only handles real versions"
-;;
-*)

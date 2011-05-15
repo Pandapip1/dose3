@@ -10,25 +10,13 @@
 (*  library, see the COPYING file for more information.                               *)
 (**************************************************************************************)
 
-(* binNMU are of the for +b1 ... +bn *)
-(* old binNMUs were of the form version-major.minor.binNMU *)
-(** chops a possible bin-NMU suffix from a debian version string *)
-let chop_binnmu s =
-  let rex = Str.regexp "^\\(.*\\)\\+b[0-9]+$" in
-  try
-    ignore(Str.search_backward rex s (String.length(s)));
-    Str.matched_group 1 s
-  with Not_found -> s
+open ExtLib
+open Common
 
-(* *)
-let chop_epoch s =
-  let rex = Str.regexp "^[0-9]+:\\(.*\\)$" in
-  try
-    ignore(Str.search_forward rex s 0);
-    Str.matched_group 1 s
-  with Not_found -> s
-
-let normalize s = chop_epoch (chop_binnmu s)
+let debug fmt = Util.make_debug "Debutil" fmt
+let info fmt = Util.make_info "Debutil" fmt
+let warning fmt = Util.make_warning "Debutil" fmt
+let fatal fmt = Util.make_fatal "Debutil" fmt
 
 (** [group_by_source universe] returns a hashtbl that maps
     (source,sourceversion) -> to a packages list *)
@@ -40,32 +28,35 @@ let normalize s = chop_epoch (chop_binnmu s)
 let cluster packagelist =
   let th = Hashtbl.create (List.length packagelist) in
   List.iter (fun pkg ->
+    let packageversion = Version.normalize pkg.Packages.version in
     let (source, sourceversion) =
-     match pkg.Packages.source with
-     |("",None) -> (pkg.Packages.name, pkg.Packages.version)
-     |(n,None) -> (n, pkg.Packages.version)
-     |(n,Some v) -> (n,v)
+      match pkg.Packages.source with
+      |("",None) -> (pkg.Packages.name, packageversion)
+      |(n,None) -> (n, packageversion)
+      |(n,Some v) -> (n,v)
     in
-    let packageversion = normalize pkg.Packages.version in
-
     try
       let h = Hashtbl.find th (source,sourceversion) in
-      try
-        let l = Hashtbl.find h packageversion in
-        l := pkg :: !l
-      with Not_found -> begin (* found the source, but not the package version *)
+      try let l = Hashtbl.find h packageversion in l := pkg :: !l
+      with Not_found -> 
+        (* found the source, but not the package version *)
         Hashtbl.add h packageversion (ref[pkg])
-      end
-    with Not_found -> begin (* didn't found the source *)
+    with Not_found -> begin 
+      (* didn't found the source *)
       let h = Hashtbl.create 17 in
       Hashtbl.add h packageversion (ref[pkg]);
       Hashtbl.add th (source,sourceversion) h
     end
   ) packagelist ;
   let h = Hashtbl.create (List.length packagelist) in
+  let i = ref 0 in
   Hashtbl.iter (fun (s,v) thv ->
     let l = Hashtbl.fold (fun v {contents=l} acc -> (v,l)::acc) thv [] in
+    i := !i + (List.length l);
     Hashtbl.add h (s,v) l
   ) th;
+  info "Packages: %d" (List.length packagelist);
+  info "Source Clusters: %d" (Hashtbl.length h);
+  info "Binary (effective) Clusters: %d" !i;
   h
 ;;

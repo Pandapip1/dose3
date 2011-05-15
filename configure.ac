@@ -95,7 +95,7 @@ if test "$HAS_RPM" = "yes" ; then
   AC_CHECK_HEADERS([rpm/rpmtypes.h],,AC_MSG_ERROR([missing rpmtypes.h]))
   INCLUDE_RPM="<rpm>: include"
   CONFIG_RPM="-DHASRPM"
-  LINK_RPM="<*.native>: c_use_rpm"
+  LINK_RPM="<*.native> or <*.top>: c_use_rpm"
 fi
 
 AC_ARG_WITH(sqlite,
@@ -275,6 +275,7 @@ AC_SUBST(LDFLAGS)
 
 AC_CONFIG_FILES([
   Makefile.config
+  experimental/Makefile
   META
   db/db.mlpack
   db/_tags
@@ -285,8 +286,12 @@ AC_CONFIG_FILES([
   algo/algo.mlpack
   common/_tags
   applications/_tags
+  experimental/_tags
   applications/boilerplates/_tags
   common/versionInfo.ml
+  doc/manpages/buildcheck.1
+  doc/manpages/ceve.1
+  doc/manpages/distcheck.1
   _tags
 ])
 AC_OUTPUT

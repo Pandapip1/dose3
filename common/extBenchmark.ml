@@ -128,11 +128,6 @@ let parse_benchmark filename =
 let pp_benchmark fmt (ut,h) =
   let pp_t fmt t = Format.fprintf fmt "%s" (Benchmark.to_string ~fdigits:6 t) in
   Format.fprintf fmt "date %.f@." ut;
-  (* XXX 
-  Format.fprintf fmt "rev $Revision$@.";
-  Format.fprintf fmt "author $Author$@.";
-  Format.fprintf fmt "hostid ????@.";
-  *)
   Hashtbl.iter (fun s tl ->
     Format.fprintf fmt "%s : @[<h>%a@]@," s (pp_list ~sep:"," pp_t) tl
   ) h

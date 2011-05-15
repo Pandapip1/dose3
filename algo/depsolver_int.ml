@@ -33,7 +33,7 @@ module S = EdosSolver.M(R)
     if size = 0 then the mapping is the identity function *)
 class intprojection size = object
 
-  val vartoint = Hashtbl.create (2 * size)
+  val vartoint = Util.IntHashtbl.create (2 * size)
   val inttovar = Array.create size 0
   val mutable counter = 0
 
@@ -42,7 +42,7 @@ class intprojection size = object
     if (size = 0) then assert false ;
     if (counter > size - 1) then assert false;
     debug "intprojection : var %d -> int %d" v counter;
-    Hashtbl.add vartoint v counter;
+    Util.IntHashtbl.add vartoint v counter;
     inttovar.(counter) <- v;
     counter <- counter + 1
 
@@ -50,7 +50,7 @@ class intprojection size = object
       raise Not_found if the package id is not known *)
   method vartoint v =
     if size = 0 then v
-    else Hashtbl.find vartoint v
+    else Util.IntHashtbl.find vartoint v
       
   (* given a sat solver variable return a package id *)
   method inttovar i =
@@ -192,17 +192,19 @@ let copy_solver solver =
 
 (** low level call to the sat solver *)
 let solve solver request =
+  (* XXX this function gets called a zillion times ! *)
   S.reset solver.constraints;
 
   let result solve collect ?(proxies=[]) var =
     if solve solver.constraints var then begin
       let get_assignent ?(all=false) () =
         let l = ref [] in
-        Array.iteri (fun i v ->
-          if v = S.True then
+        let a = S.assignment solver.constraints in
+        for i = 0 to (Array.length a) - 1 do
+          if a.(i) = S.True then
             if not(List.mem i proxies) then
               l := (solver.map#inttovar i) :: !l
-        ) (S.assignment solver.constraints);
+        done;
         !l
       in
       Diagnostic_int.Success(get_assignent)
@@ -246,30 +248,31 @@ let reverse_dependencies mdf =
     all packages in [l] .
 
     @param maxdepth the maximum cone depth (infinite by default)
-    @param conjuntive consider only conjuntive dependencies (false by default)
+    @param conjunctive consider only conjunctive dependencies (false by default)
     @param index the package universe
     @param l a subset of [index]
 
     This function has in a memoization strategy.
 *)
-let dependency_closure ?(maxdepth=max_int) ?(conjuntive=false) mdf =
+let dependency_closure ?(maxdepth=max_int) ?(conjunctive=false) mdf =
   let h = Hashtbl.create (Array.length mdf.Mdf.index) in
+  let cmp : int -> int -> bool = (=) in
   fun idlist ->
-    try Hashtbl.find h (idlist,conjuntive,maxdepth)
+    try Hashtbl.find h (idlist,conjunctive,maxdepth)
     with Not_found -> begin
       let index = mdf.Mdf.index in
       let queue = Queue.create () in
       let visited = Hashtbl.create (2 * (List.length idlist)) in
-      List.iter (fun e -> Queue.add (e,0) queue) (Util.list_unique idlist);
+      List.iter (fun e -> Queue.add (e,0) queue) (List.unique ~cmp idlist);
       while (Queue.length queue > 0) do
         let (id,level) = Queue.take queue in
         if not(Hashtbl.mem visited id) && level < maxdepth then begin
           Hashtbl.add visited id ();
           List.iter (function
-            |(_,[i],_) when conjuntive = true ->
+            |(_,[i],_) when conjunctive = true ->
               if not(Hashtbl.mem visited i) then
                 Queue.add (i,level+1) queue
-            |(_,dsj,_) when conjuntive = false ->
+            |(_,dsj,_) when conjunctive = false ->
               List.iter (fun i ->
                 if not(Hashtbl.mem visited i) then
                   Queue.add (i,level+1) queue
@@ -279,7 +282,7 @@ let dependency_closure ?(maxdepth=max_int) ?(conjuntive=false) mdf =
         end
       done;
       let result = Hashtbl.fold (fun k _ l -> k::l) visited [] in
-      Hashtbl.add h (idlist,conjuntive,maxdepth) result;
+      Hashtbl.add h (idlist,conjunctive,maxdepth) result;
       result
     end
 
@@ -296,12 +299,13 @@ let dependency_closure ?(maxdepth=max_int) ?(conjuntive=false) mdf =
 *)
 let reverse_dependency_closure ?(maxdepth=max_int) reverse =
   let h = Hashtbl.create (Array.length reverse) in
+  let cmp : int -> int -> bool = (=) in
   fun idlist ->
     try Hashtbl.find h (idlist,maxdepth)
     with Not_found -> begin
       let queue = Queue.create () in
       let visited = Hashtbl.create (List.length idlist) in
-      List.iter (fun e -> Queue.add (e,0) queue) (Util.list_unique idlist);
+      List.iter (fun e -> Queue.add (e,0) queue) (List.unique ~cmp idlist);
       while (Queue.length queue > 0) do
         let (id,level) = Queue.take queue in
         if not(Hashtbl.mem visited id) && level < maxdepth then begin

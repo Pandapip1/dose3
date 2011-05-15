@@ -1,7 +1,5 @@
 (*****************************************************************************)
 (*  Copyright (C) 2009  <pietro.abate@pps.jussieu.fr>                        *)
-(*  Part of  the following code is borrowed from Cduce.                      *)
-(*  Copyright: Alain Frish                                                   *)
 (*                                                                           *)
 (*  This library is free software: you can redistribute it and/or modify     *)
 (*  it under the terms of the GNU Lesser General Public License as           *)
@@ -35,7 +33,7 @@ let list_unique l =
   in
   (* List.rev *) add [] l
 
-(* standard memoizazion function *)
+(* standard memoization function *)
 let memo f =
   let h = Hashtbl.create 1023 in
   fun i ->
@@ -118,7 +116,7 @@ let make_debug label =
 
 let make_fatal label =
   let l = Printf.sprintf "Fatal error in module %s: " label in
-  Printf.kprintf (fun s -> failwith (l^s))
+  Printf.kprintf (fun s -> Printf.eprintf "%s%s\n%!" l s; exit (-1))
 
 (** Printf bars are printed immediately on stderr.
  * they can be enabled or disabled (default) *)
@@ -237,3 +235,19 @@ let pp_process_time fmt () =
   Format.fprintf fmt "Process time (user):  %5.2f@." pt.Unix.tms_utime;
   Format.fprintf fmt "Process time (sys):   %5.2f@." pt.Unix.tms_stime
 ;;
+
+module StringHashtbl = Hashtbl.Make (
+  struct
+    type t = string
+    let equal (a : string) (b : string) = (a = b)
+    let hash s = Hashtbl.hash s
+  end
+)
+
+module IntHashtbl = Hashtbl.Make (
+  struct
+    type t = int
+    let equal (a : int) (b : int) = (a = b)
+    let hash i = Hashtbl.hash i
+  end
+)

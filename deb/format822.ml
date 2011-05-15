@@ -19,6 +19,7 @@ open Common
 let debug fmt = Util.make_debug "Debian.Format822" fmt
 let info fmt = Util.make_info "Debian.Format822" fmt
 let warning fmt = Util.make_warning "Debian.Format822" fmt
+let fatal fmt = Util.make_fatal "Debian.Format822" fmt
 
 type name = string
 type version = string
@@ -68,8 +69,6 @@ let is_blank i = not (eof i) && cur i = ""
 let skip_blank_lines i =
   while is_blank i do next i done
 
-let field_re = Str.regexp "^\\([^:]*\\)*:[ \t]*\\(.*\\)$"
-
 let remove_ws s =
   let l = String.length s in
   let p = ref (l - 1) in
@@ -99,7 +98,7 @@ let parse_paragraph i =
         data := remove_ws (cur i) :: !data;
         next i
       done;
-      fields := (String.lowercase name, List.rev !data) :: !fields;
+      fields := (name, List.rev !data) :: !fields;
       not (eof i || is_blank i)
     do () done;
     assert (!fields <> []) ;
@@ -109,12 +108,10 @@ let parse_paragraph i =
 let single_line f = function
   |[s] -> s
   | _ as l ->
-      failwith (
-        Printf.sprintf "field '%s' should be a single line\n%s"
-        f (String.concat " " l)
-      )
+      fatal "field '%s' should be a single line\n%s" f (String.concat " " l)
 
 (* May need to accept package name containing "_" *)
+(* XXX remove Str from here !!!! *)
 let token_re =
   Str.regexp
     ("[ \t]+\\|\\(" ^
@@ -171,9 +168,10 @@ let check_version i s =
     (warning "Bad version '%s'" s);
     if not (Str.string_match version_re_1 s 0 || Str.string_match version_re_2 s 0) then 
       raise (ParseError ((Printf.sprintf "Bad version '%s'" s), i.line))
-  end
+  end 
 
-let parse_version s = 
+let parse_version ?(check=false) s = 
+  if check then
   begin try check_version dummy_t s
   with ParseError (s,i) -> parse_error ~s:s dummy_t end;
   s
@@ -181,19 +179,20 @@ let parse_version s =
 
 (*****************************************************)
 
-let strict_package_re = Str.regexp "^[a-z0-9][a-z0-9.+-]+$"
-let package_re = Str.regexp "^[A-Za-z0-9][A-Za-z0-9._+-]+$"
+let strict_package_re = Str.regexp "^[a-z0-9][a-z0-9.+-]+\\(:[a-z0-9][a-z0-9]*\\)?$"
+let package_re = Str.regexp "^[A-Za-z0-9][A-Za-z0-9._+-]+\\(:[a-z0-9][a-z0-9]*\\)?$"
 
 let check_package_name i s =
   if not (Str.string_match strict_package_re s 0) then begin
     (warning "Bad package name '%s'" s);
     if not (Str.string_match package_re s 0) then
       raise (ParseError ((Printf.sprintf "Bad package name '%s'" s), i.line))
-  end
+  end 
 
-let parse_package s =
-  begin try check_package_name dummy_t s
-  with ParseError (s,i) -> parse_error ~s:s dummy_t end ;
+let parse_package ?(check=false) s =
+  if check then
+    begin try check_package_name dummy_t s
+    with ParseError (s,i) -> parse_error ~s:s dummy_t end ;
   s
 ;;
 
@@ -220,7 +219,7 @@ let parse_constr_aux ?(check=true) vers s =
       (name, None)
     end
   end else begin
-    (* XXX we do not reall check if a contraint syntactically correct *)
+    (* XXX we do not really check if a contraint syntactically correct *)
     (name, None)
   end
 
@@ -249,35 +248,32 @@ let parse_builddeps s =
 
 (*****************************************************)
 
-let space_re = Str.regexp "[ \t]+"
-let and_sep_re = Str.regexp "[ \t]*,[ \t]*"
-let or_sep_re = Str.regexp "[ \t]*|[ \t]*"
-
 let parse_source s =
-  match Str.split space_re s with
-  |[n] -> (n,None)
+  match String.nsplit s " " with
+  |[n] -> (String.strip n,None)
   |[n;s'] ->
       let re = Str.regexp "(\\([^)]+\\))" in
-      if Str.string_match re s' 0 then 
-        (n,Some (Str.matched_group 1 s'))
+      if Str.string_match re (String.strip s') 0 then 
+        (String.strip n,Some (Str.matched_group 1 s'))
       else begin
         warning "Bad source name '%s'\n" s;
         (n,None)
       end
   |_ -> parse_error ~s:(Printf.sprintf "Malformed source field : '%s'" s) dummy_t
 
-let list_parser ?(sep = space_re) p s = List.map p (Str.split sep s)
+let list_parser ?(sep = " ") p s =
+  List.map (fun s -> p (String.strip s)) (String.nsplit s sep)
 
-let parse_vpkglist parse_vpkg = list_parser ~sep:and_sep_re parse_vpkg
+let parse_vpkglist parse_vpkg = list_parser ~sep:"," parse_vpkg
 
 let parse_vpkgformula parse_vpkg s =
-  let and_args = Str.split and_sep_re s in
+  let and_args = String.nsplit s "," in
   List.map (fun and_arg ->
-    let or_args = Str.split or_sep_re and_arg in
-    List.map parse_vpkg or_args
+    let or_args = String.nsplit and_arg "|" in
+    List.map (fun s -> parse_vpkg (String.strip s)) or_args
   ) and_args
 
-let parse_veqpkglist parse_veqpkg = list_parser ~sep:and_sep_re parse_veqpkg
+let parse_veqpkglist parse_veqpkg = list_parser ~sep:"," parse_veqpkg
 
 let progressbar = Util.Progress.create "Debian.Parse.parse_822_iter"
 exception Eof
@@ -285,9 +281,8 @@ exception Eof
 (** parse a 822 compliant file.
     @return list of packages.
     @param parse : paragraph parser
-    @param f : filter to be applied to each paragraph 
     @param ExtLib.IO.input channel *)
-let parse_822_iter parse f ch =
+let parse_822_iter parse ch =
   let total = 25000 in (* estimate *)
   Util.Progress.set_total progressbar total;
   let l = ref [] in
@@ -299,7 +294,7 @@ let parse_822_iter parse f ch =
       |Some par ->
         begin match parse par with
         |None -> ()
-        |Some e -> l := (f e) :: !l
+        |Some e -> l := e :: !l
         end
     done ;
     !l
@@ -309,7 +304,7 @@ let parse_822_iter parse f ch =
  * with a equality function on (name,version,arch) and the functor
  * can be removed... *)
 module RawInput ( Set : Set.S ) = struct
-  let input_raw f files =
+  let input_raw parse files =
     let timer = Util.Timer.create "Debian.Format822.input_raw" in
     Util.Timer.start timer;
     if List.length files > 1 then info "Merging debian packages lists" ;
@@ -317,7 +312,7 @@ module RawInput ( Set : Set.S ) = struct
       List.fold_left (fun acc file ->
         info "Parsing debian file %s..." file;
         let ch = (Input.open_file file) in
-        let l = f (fun x -> x) ch in
+        let l = parse ch in
         let _ = Input.close_ch ch in
         List.fold_left (fun s x -> Set.add x s) acc l
       ) Set.empty files
@@ -325,12 +320,12 @@ module RawInput ( Set : Set.S ) = struct
     info "total Debian packages %n" (Set.cardinal s);
     Util.Timer.stop timer (Set.elements s)
 
-  let input_raw_ch f ch =
+  let input_raw_ch parse ch =
     let timer = Util.Timer.create "Debian.Format822.input_raw_ch" in
     Util.Timer.start timer;
     let s =
       info "Parsing debian packages...";
-      let l = f (fun x -> x) ch in
+      let l = parse ch in
       let _ = Input.close_ch ch in
       List.fold_left (fun s x -> Set.add x s) Set.empty l
     in

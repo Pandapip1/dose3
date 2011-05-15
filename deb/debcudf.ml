@@ -22,19 +22,19 @@ let warning fmt = Util.make_warning "Debian.Debcudf" fmt
 let fatal fmt = Util.make_fatal "Debian.Debcudf" fmt
 
 type tables = {
-  virtual_table : (string, unit) Hashtbl.t;
-  unit_table : (string, unit) Hashtbl.t ;
-  versions_table : (string, int) Hashtbl.t;
-  versioned_table : (string, unit) Hashtbl.t;
-  reverse_table : (int, string list ref) Hashtbl.t
+  virtual_table : unit Util.StringHashtbl.t;
+  unit_table : unit Util.StringHashtbl.t ;
+  versions_table : int Util.StringHashtbl.t;
+  versioned_table : unit Util.StringHashtbl.t;
+  reverse_table : string list ref Util.IntHashtbl.t
 }
 
 let create n = {
-  virtual_table = Hashtbl.create n;
-  unit_table = Hashtbl.create n;
-  versions_table = Hashtbl.create n;
-  versioned_table = Hashtbl.create n;
-  reverse_table = Hashtbl.create n;
+  virtual_table = Util.StringHashtbl.create (10 * n);
+  unit_table = Util.StringHashtbl.create (2 * n);
+  versions_table = Util.StringHashtbl.create (10 * n);
+  versioned_table = Util.StringHashtbl.create (10 *n);
+  reverse_table = Util.IntHashtbl.create (10 * n);
 }
 
 type lookup = {
@@ -43,16 +43,16 @@ type lookup = {
 }
 
 let clear tables =
-  Hashtbl.clear tables.virtual_table;
-  Hashtbl.clear tables.unit_table;
-  Hashtbl.clear tables.versions_table;
-  Hashtbl.clear tables.versioned_table;
-  Hashtbl.clear tables.reverse_table
+  Util.StringHashtbl.clear tables.virtual_table;
+  Util.StringHashtbl.clear tables.unit_table;
+  Util.StringHashtbl.clear tables.versions_table;
+  Util.StringHashtbl.clear tables.versioned_table;
+  Util.IntHashtbl.clear tables.reverse_table
 ;;
 
 let add table k v =
-  if not(Hashtbl.mem table k) then
-    Hashtbl.add table k v
+  if not(Util.StringHashtbl.mem table k) then
+    Util.StringHashtbl.add table k v
 
 (* collect names of virtual packages *)
 let init_virtual_table table pkg =
@@ -98,9 +98,9 @@ let init_versions_table table pkg =
 ;;
 
 let init_tables ?(step=1) ?(versionlist=[]) pkglist =
-  let n = 2 * List.length pkglist in
+  let n = List.length pkglist in
   let tables = create n in 
-  let temp_versions_table = Hashtbl.create n in
+  let temp_versions_table = Util.StringHashtbl.create (10 * n) in
   let ivt = init_versions_table temp_versions_table in
   let ivrt = init_virtual_table tables.virtual_table in
   let ivdt = init_versioned_table tables.versioned_table in
@@ -108,21 +108,21 @@ let init_tables ?(step=1) ?(versionlist=[]) pkglist =
 
   List.iter (fun v -> add temp_versions_table v ()) versionlist; 
   List.iter (fun pkg -> ivt pkg ; ivrt pkg ; ivdt pkg ; iut pkg) pkglist ;
-  let l = Hashtbl.fold (fun v _ acc -> v::acc) temp_versions_table [] in
+  let l = Util.StringHashtbl.fold (fun v _ acc -> v::acc) temp_versions_table [] in
   let add_reverse i v =
-     try let l = Hashtbl.find tables.reverse_table i in l := v::!l
-     with Not_found -> Hashtbl.add tables.reverse_table i (ref [v])
+     try let l = Util.IntHashtbl.find tables.reverse_table i in l := v::!l
+     with Not_found -> Util.IntHashtbl.add tables.reverse_table i (ref [v])
   in
   let sl = List.sort ~cmp:Version.compare l in
   let rec numbers (prec,i) = function
     |[] -> ()
     |v::t ->
       if Version.equal v prec then begin
-        Hashtbl.add tables.versions_table v i;
+        add tables.versions_table v i;
         add_reverse i v;
         numbers (prec,i) t
       end else begin
-        Hashtbl.add tables.versions_table v (i+step);
+        add tables.versions_table v (i+step);
         add_reverse (i+step) v;
         numbers (v,(i+step)) t
       end
@@ -133,7 +133,7 @@ let init_tables ?(step=1) ?(versionlist=[]) pkglist =
 ;;
 
 let get_cudf_version tables (package,version) =
-  try Hashtbl.find tables.versions_table version
+  try Util.StringHashtbl.find tables.versions_table version
   with Not_found -> begin
     warning "This should never happen : (%s,%s) is not known" package version;
     raise Not_found
@@ -142,7 +142,7 @@ let get_cudf_version tables (package,version) =
 let get_real_version tables (package,cudfversion) =
   let min a b = match Version.compare a b with -1 -> a | _ -> b in
   try
-    match !(Hashtbl.find tables.reverse_table cudfversion) with
+    match !(Util.IntHashtbl.find tables.reverse_table cudfversion) with
     |[] -> fatal "This should never happen : at lease one version for (%s,%d) must exist" package cudfversion
     |[h] -> h
     |l ->
@@ -157,16 +157,17 @@ let get_real_version tables (package,cudfversion) =
 let loadl tables l =
   List.flatten (
     List.map (fun (name,sel) ->
+      let encname = CudfAdd.encode name in
       match CudfAdd.cudfop sel with
       |None ->
-          if (Hashtbl.mem tables.virtual_table name) &&
-          (Hashtbl.mem tables.versioned_table name) then
-            [(CudfAdd.encode (name^"--virtual"), None);
-             (CudfAdd.encode name, None)]
+          if (Util.StringHashtbl.mem tables.virtual_table name) &&
+          (Util.StringHashtbl.mem tables.versioned_table name) then
+            [(encname^"--virtual", None);
+             (encname, None)]
           else
-            [(CudfAdd.encode name, None)]
+            [(encname, None)]
       |Some(op,v) ->
-          [(CudfAdd.encode name,Some(op,get_cudf_version tables (name,v)))]
+          [(encname,Some(op,get_cudf_version tables (name,v)))]
     ) l
   )
 
@@ -176,15 +177,18 @@ let loadlc tables name l = (CudfAdd.encode name, None)::(loadl tables l)
 
 let loadlp tables l =
   List.map (fun (name,sel) ->
+    let encname = CudfAdd.encode name in
     match CudfAdd.cudfop sel with
     |None  ->
-        if (Hashtbl.mem tables.unit_table name) || (Hashtbl.mem tables.versioned_table name)
-        then (CudfAdd.encode (name^"--virtual"),None)
-        else (CudfAdd.encode name, None)
+        if (Util.StringHashtbl.mem tables.unit_table name) || 
+        (Util.StringHashtbl.mem tables.versioned_table name)
+        then (encname^"--virtual",None)
+        else (encname, None)
     |Some(`Eq,v) ->
-        if (Hashtbl.mem tables.unit_table name) || (Hashtbl.mem tables.versioned_table name)
-        then (CudfAdd.encode (name^"--virtual"),Some(`Eq,get_cudf_version tables (name,v)))
-        else (CudfAdd.encode name,Some(`Eq,get_cudf_version tables (name,v)))
+        if (Util.StringHashtbl.mem tables.unit_table name) || 
+        (Util.StringHashtbl.mem tables.versioned_table name)
+        then (encname^"--virtual",Some(`Eq,get_cudf_version tables (name,v)))
+        else (encname,Some(`Eq,get_cudf_version tables (name,v)))
     |_ -> fatal "This should never happen : a provide can be either = or unversioned"
   ) l
 
@@ -222,10 +226,8 @@ let add_extra extras tables pkg =
   in
   let l =
     List.filter_map (fun (debprop, (cudfprop,v)) ->
-      let debprop = String.lowercase debprop in
-      let cudfprop = String.lowercase cudfprop in
       try 
-        let s = List.assoc debprop pkg.extras in
+        let s = Packages.assoc debprop pkg.extras in
         let typ = Cudf_types.type_of_typedecl v in
         Some (cudfprop, Cudf_types_pp.parse_value typ s)
       with Not_found -> None
@@ -250,7 +252,7 @@ let add_inst inst pkg =
   if inst then true 
   else
     try
-      match String.nsplit (List.assoc "status" pkg.extras) " " with
+      match String.nsplit (Packages.assoc "Status" pkg.extras) " " with
       |[_;_;"installed"] -> true
       | _ -> false
     with Not_found -> false
