@@ -1,3 +1,8 @@
+Author: Ralf Treinen <treinen@debian.org>
+Description: Remove references to experimental/ which is not ditsributed
+  with the upstream tarball
+Upstream-bug: http://gforge.info.ucl.ac.be/tracker/index.php?func=detail&aid=332&group_id=35&atid=283 
+
 Index: dose3/configure
 ===================================================================
 --- dose3.orig/configure	2011-05-15 19:11:02.000000000 +0200
