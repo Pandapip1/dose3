@@ -1,5 +1,6 @@
 dose3 (2.9.3-1) experimental; urgency=low
 
+  * Initial upload (closes:  #587521)
   * New upstream release. This release resolves the problems with the
     copyright of some of the files. In particular, common/url.ml has 
     been rewritten from scratch.
@@ -10,29 +11,3 @@ dose3 (2.9.3-1) experimental; urgency=low
     which does not exist in the released tarball.
 
  -- Ralf Treinen <treinen@debian.org>  Sun, 15 May 2011 19:12:44 +0200
-
-dose3 (2.9.2-1-1) UNRELEASED; urgency=low
-  
-  * New upstream release.
-  
- -- Ralf Treinen <treinen@debian.org>  Fri, 01 Apr 2011 15:53:27 +0200
-  
-dose3 (2.9.2-1) UNRELEASED; urgency=low
-
-  * New upstream release. This release does not include the directory
-    of experimental applications.
-
- -- Ralf Treinen <treinen@debian.org>  Fri, 01 Apr 2011 12:08:59 +0200
-
-dose3 (2.9.1-1) UNRELEASED; urgency=low
-
-  * New upstream release. This release seperates released applications
-    from experimental applications.
-
- -- Ralf Treinen <treinen@debian.org>  Thu, 03 Mar 2011 15:31:22 +0100
-
-dose3 (2.9.0-1) UNRELEASED; urgency=low
-
-  * Initial release (Closes: #587521)
-
- -- Ralf Treinen <treinen@debian.org>  Sat, 04 Dec 2010 17:25:15 +0100
