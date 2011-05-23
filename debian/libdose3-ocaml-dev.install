@@ -1,1 +1,4 @@
-usr/lib/ocaml/dose3	usr/lib/ocaml
+usr/lib/ocaml/dose3/*.mli	usr/lib/ocaml/dose3
+usr/lib/ocaml/dose3/*.cmi	usr/lib/ocaml/dose3
+usr/lib/ocaml/dose3/*.o		usr/lib/ocaml/dose3
+usr/lib/ocaml/dose3/*.a		usr/lib/ocaml/dose3

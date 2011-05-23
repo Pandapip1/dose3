@@ -1,10 +1,11 @@
 dose3 (2.9.3-2) experimental; urgency=low
 
   * use debian/libdose3-ocaml-dev.install (instead of ..install.in)
-  * install in the libdose3-ocaml-dev package the complete directory
-    usr/lib/ocaml/dose3.
+  * install in the libdose3-ocaml-dev package more files
+    (*.mli, *.cmi, *.a, *.o) from usr/lib/ocaml/dose3.
+  * Recompile against librpm 4.9.0
 
- -- Ralf Treinen <treinen@debian.org>  Thu, 19 May 2011 08:21:18 +0200
+ -- Ralf Treinen <treinen@debian.org>  Mon, 23 May 2011 08:07:08 +0200
 
 dose3 (2.9.3-1) experimental; urgency=low
 
