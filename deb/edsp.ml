@@ -42,7 +42,14 @@ let default_request = {
   preferences = ""
 }
 
-let parse_conj _ s = Format822.list_parser ~sep:" " Format822.parse_constr s
+let parse_req s = 
+  match String.nsplit s "=" with
+  |[n] -> (n,None)
+  |[n;v] -> (n,Some("=",v))
+  |_ -> assert false
+;;
+
+let parse_conj _ s = Format822.list_parser ~sep:" " parse_req s
 
 let parse_request_stanza par =
   let aux par =
@@ -87,7 +94,28 @@ let input_raw_ch ch =
         |None -> fatal "empty request (document does not start with a request)"
         |Some r -> r
   in
-  let pkglist = Packages.parse_packages_in ~extras ch in
+  (* XXX: not convinced that this is the correct level to put this filter *)
+  let pkglist = 
+    if request.strict_pin then
+      let filter pkg = 
+        let inst () =
+          try
+            Packages.parse_bool "Installed"
+            (Packages.assoc "Installed" pkg.Packages.extras)
+          with Not_found -> false
+        in
+        let candidate () =
+          try
+            let s = Packages.assoc "APT-Candidate" pkg.Packages.extras in
+            Packages.parse_bool "APT-Candidate" s
+          with Not_found -> false
+        in
+        (inst ()) || (candidate ())
+      in
+      Packages.parse_packages_in ~filter ~extras ch 
+    else
+      Packages.parse_packages_in ~extras ch
+  in
   (request,pkglist)
 ;;
 

@@ -19,7 +19,6 @@ module StringSet = CudfAdd.StringSet
 type solution = {
   installed : Cudf_set.t ;
   removed : Cudf_set.t ;
-  unchanged : Cudf_set.t
 }
 
 (* the 'package' is always taken from the universe *)
@@ -30,8 +29,7 @@ let to_set univ l =
   ) Cudf_set.empty l
 ;;
 
-(* for each pkgname I've the list of all versions that were installed, removed
- * or left unchanged *)
+(* for each pkgname I've the list of all versions that were installed or removed *)
 let diff univ sol =
   let pkgnames = CudfAdd.pkgnames univ in
   let h = Hashtbl.create (StringSet.cardinal pkgnames) in
@@ -40,25 +38,30 @@ let diff univ sol =
     let are_installed = to_set univ (Cudf.get_installed sol pkgname) in
     let r = Cudf_set.diff were_installed are_installed in
     let i = Cudf_set.diff are_installed were_installed in
-
-    let old_packages = to_set univ (Cudf.lookup_packages univ pkgname) in
-    let new_packages = to_set univ (Cudf.lookup_packages sol pkgname) in
-    let u = Cudf_set.inter old_packages new_packages in
-
-    let s = { removed = r ; installed = i ; unchanged = u } in
+    let s = { removed = r ; installed = i } in
     Hashtbl.add h pkgname s
   ) pkgnames ;
   h
 
-type t =
-  |Un of Cudf_set.t (* unchanged *)
-  |Rm of Cudf_set.t (* removed *)
-  |In of Cudf_set.t (* installed *)
-  |Up of Cudf_set.t (* upgraded *)
-  |Dw of Cudf_set.t (* downgraded *)
+(* 
+   [all] : all versions of a package in the universe . 
+   [s] : the set of version for version of a package in a solution 
+   returns a list that contains for each version its status : installed, 
+   removed, upgraded, etc
+*)
+type summary_t = {
+  mutable i : Cudf.package list; (* installed *)
+  mutable r : Cudf.package list; (* removed *)
+  mutable u : (Cudf.package * Cudf.package) option ; (* upgraded *)
+  mutable d : (Cudf.package * Cudf.package) option ; (* downgraded *)
+  mutable nu : Cudf.package list; (* not upgraded *)
+}
+
+(* for one package *)
+let default_summary () = { u = None; d = None ; i = [] ; r = [] ; nu = [] }
 
 let uniqueversion all s =
-  let l = ref [] in
+  let l = default_summary () in
   let i = Cudf_set.filter (fun pkg -> pkg.Cudf.installed) all in
   if (Cudf_set.cardinal i <= 1) && ((Cudf_set.cardinal s.installed) <= 1) then
     begin
@@ -67,25 +70,40 @@ let uniqueversion all s =
           let np = Cudf_set.choose i in
           let op = Cudf_set.choose s.installed in
           if np.Cudf.version < op.Cudf.version
-          then l := Up(s.installed)::!l
-          else l := Dw(s.installed)::!l
+          then l.u <- Some(np,op)
+          else l.d <- Some(op,np)
         end
         else
-          l := In(s.installed)::!l
-      end;
-      if not (Cudf_set.is_empty s.unchanged) then
-        l := Un(s.unchanged)::!l;
-      if not (Cudf_set.is_empty s.removed) then
-        l := Rm(s.removed)::!l ;
-    end
+          l.i <- Cudf_set.elements s.installed;
+      end else
+        if not (Cudf_set.is_empty s.removed) then
+          l.r <- Cudf_set.elements s.removed;
+      end
   else begin
-    if not (Cudf_set.is_empty s.unchanged) then
-      l := Un(s.unchanged)::!l;
     if not (Cudf_set.is_empty s.removed) then
-      l := Rm(s.removed)::!l ;
+      l.r <- Cudf_set.elements s.removed;
     if not (Cudf_set.is_empty s.installed) then
-      l := In(s.installed)::!l ;
+      l.i <- Cudf_set.elements s.installed;
   end;
-  !l
+  l
 ;;
 
+let summary univ diff =
+  let i = ref [] in
+  let u = ref [] in
+  let d = ref [] in
+  let r = ref [] in
+  let names = CudfAdd.pkgnames univ in
+  StringSet.iter (fun pkgname ->
+    let all = CudfAdd.to_set (Cudf.lookup_packages univ pkgname) in
+    let s = Hashtbl.find diff pkgname in
+    let l = uniqueversion all s in
+    i := l.i @ !i ; 
+    r := l.r @ !r ; 
+    if not (Option.is_none l.u) then
+      u := (Option.get l.u) :: !u;
+    if not (Option.is_none l.d) then
+      d := (Option.get l.d) :: !d;
+  ) names;
+  (!i,!u,!d,!r)
+;;
