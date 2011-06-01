@@ -1,7 +1,7 @@
 VERSION=@PACKAGE_VERSION@
 NAME=@PACKAGE_NAME@
 
-CFLAGS=@CFLAGS@
+CFLAGS=@CFLAGS@ -fPIC -Wall -pedantic -Werror -Wno-long-long
 CPPFLAGS=@CPPFLAGS@
 LDFLAGS=@LDFLAGS@
 
@@ -15,6 +15,10 @@ ifeq ($(DESTDIR),)
 else
   INSTALL=$(OCAMLFIND) install -destdir $(LIBDIR)
   UNINSTALL=$(OCAMLFIND) remove -destdir $(LIBDIR)
+endif
+
+ifeq ("@OCAML_OS_TYPE@","freebsd")
+  LDFLAGS=$(LDFLAGS) -fstack-protector
 endif
 
 OCAMLBUILD=@OCAMLBUILD@
@@ -72,7 +76,6 @@ ifeq ("@HAS_OCAMLGRAPH@","yes")
 	     applications/strong-deps.$(OCAMLBEST) \
 	     applications/strong-conflicts.$(OCAMLBEST)
 endif
-
 
 #ocamlgraph support
 ifeq ("@HAS_OCAMLGRAPH@","yes")
