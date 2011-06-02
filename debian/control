@@ -9,7 +9,7 @@ Build-Depends: debhelper (>= 7.0.50~), dh-ocaml (>= 0.9~),
  libpcre-ocaml-dev,
  libextlib-ocaml-dev,
  libocamlgraph-ocaml-dev,
- libcudf-ocaml-dev (>= 0.5.99),
+ libcudf-ocaml-dev (>= 0.6),
  libzip-ocaml-dev, libbz2-ocaml-dev, librpm-dev (>= 4.8)
 Standards-Version: 3.9.2
 Homepage: http://www.mancoosi.org/software/
@@ -35,6 +35,25 @@ Description: OCaml libraries for package dependencies (development files)
  .
  This package contains the development stuff you need to use dose3 for
  the development of programs.
+
+Package: libdose3-ocaml
+Architecture: any
+Depends: ${misc:Depends}, ${ocaml:Depends}, ${shlibs:Depends} 
+Provides: ${ocaml:Provides}
+Description: OCaml libraries for package dependencies (runtime files)
+ Dose3 is a framework consisting of several OCaml libraries for analysing
+ the metadata of software packages (like Packages files of debian suites).
+ .
+ Though not tied to any particular distribution, Dose3 constitutes a
+ pool of libraries which enable analyzing packages coming from various
+ distributions. 
+ .
+ Besides basic functionalities for querying and setting package
+ properties, dose3 also implements algorithms for solving more complex
+ problems (monitoring package evolutions, correct and complete
+ dependency resolution, repository-wide uninstallability checks).
+ .
+ This package contains only the shared runtime stub libraries.
 
 Package: dose3-distcheck
 Section: devel

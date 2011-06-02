@@ -5,11 +5,11 @@ distcheck \- check installability of packages according to metadata
 .SH SYNOPSIS
 \fBdistcheck\fR [option] ... \fIuri\fR
 .br
-\fBdebcheck\fR [option] ... \fIfile\fR
+\fBdose3-debcheck\fR [option] ... \fIfile\fR
 .br
-\fBrpmcheck\fR [option] ... \fIfile\fR
+\fBdose3-rpmcheck\fR [option] ... \fIfile\fR
 .br
-\fBeclipsecheck\fR [option] ... \fIfile\fR
+\fBdose3-eclipsecheck\fR [option] ... \fIfile\fR
 
 .SH DESCRIPTION
 .B distcheck
@@ -44,7 +44,7 @@ given in the URI.
 When invoked as \fItype\fBcheck\fR, the type of the repository is
 assumed to be \fItype\fR, and the input is simply given in form of a
 pathname of a file containing the repository.
-.B debcheck
+.B dose3-debcheck
 accepts in addition 
 .B --
 as input specification, with the effect that input is taken from
@@ -57,7 +57,7 @@ The input file has to contain stanzas in the format of deb-control(5),
 separated by one blank line. For instance, the Packages files as found
 on a Debian mirror server, or in the directory
 \fI/var/lib/apt/lists/\fR of a Debian system, are suitable as input to
-\fBdebcheck\fR.
+\fBdose3-debcheck\fR.
 .P
 Installability of packages is analyzed according to their
 \fBDepends\fR, \fBConflicts\fR, and \fBProvides\fR fields with their
@@ -70,7 +70,7 @@ two packages with the same name but different versions.
 
 .SS RPM
 The input file can be either a \fIsynthesis\fR file or a \fIhdlist\fR
-file.  By default rpmcheck expects a synthesis file as input. To
+file.  By default dose3-rpmcheck expects a synthesis file as input. To
 specify a hdlist file distcheck must be invoked with a file argument
 of the form hdlist://
 
@@ -115,7 +115,7 @@ installable. Hence, the exit code 2 can occur only when the
 .SH EXAMPLE
 Check which packages in a particular distribution are not installable and why:
 
-  debcheck \-\-failures \-\-explain < Packages
+  dose3-debcheck \-\-failures \-\-explain < Packages
 
 where Packages is the file pertaining to that distribution, as for instance
 found in the directory \fB/var/lib/apt/lists\fR.

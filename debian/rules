@@ -11,6 +11,9 @@ override_dh_auto_install:
 	cd debian/tmp/usr/bin \
 		&& mv distcheck dose3-distcheck \
 		&& mv deb-buildcheck dose3-builddebcheck
+# this should be fixed upstream:
+	cp _build/algo/algo.o _build/algo/algo.a \
+		debian/tmp/usr/lib/ocaml/dose3
 
 override_dh_installman:
 	dh_installman
