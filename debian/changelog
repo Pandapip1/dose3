@@ -3,11 +3,12 @@ dose3 (2.9.4-1) experimental; urgency=low
   * New upstream release. This release solves an issue with spuriously
     exported modules that blocked resolution of #627274.
   * Install all of usr/lib/ocaml/dose3 in the -dev package (closes: #627274) 
+  * Remove patch ignore-experimental since this is fixed upstream now.
   * Bump version on build-dependency libcudf-ocaml-dev.
   * Add a binary package libdose3-ocaml for the runtime stub libraries.
   * debian/rules: install _build/algo/algo.{a,o}. 
 
- -- Ralf Treinen <treinen@debian.org>  Thu, 02 Jun 2011 11:06:34 +0200
+ -- Ralf Treinen <treinen@debian.org>  Thu, 02 Jun 2011 11:25:57 +0200
 
 dose3 (2.9.3-2) experimental; urgency=low
 
