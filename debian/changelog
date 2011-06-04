@@ -1,3 +1,11 @@
+dose3 (2.9.4-2) experimental; urgency=low
+
+  * Attempt to install algo.{a,o} only when they exist. This should fix
+    compilation of the package on non-native architectures.
+    (closes: #627283)
+
+ -- Ralf Treinen <treinen@debian.org>  Sat, 04 Jun 2011 10:39:54 +0200
+
 dose3 (2.9.4-1) experimental; urgency=low
 
   * New upstream release. This release solves an issue with spuriously
