@@ -18,7 +18,7 @@ else
 endif
 
 ifeq ("@OCAML_OS_TYPE@","freebsd")
-  LDFLAGS=$(LDFLAGS) -fstack-protector
+  LDFLAGS += -fstack-protector
 endif
 
 OCAMLBUILD=@OCAMLBUILD@
@@ -31,30 +31,41 @@ else
   OCAMLLIBBEST=cma
 endif
 
+LIBS=
 TARGETS= \
-		 applications/distcheck.$(OCAMLBEST) \
-		 applications/deb-buildcheck.$(OCAMLBEST) \
-		 applications/ceve.$(OCAMLBEST) \
+                 applications/distcheck.$(OCAMLBEST) \
+                 applications/deb-buildcheck.$(OCAMLBEST) \
+                 applications/ceve.$(OCAMLBEST) \
+                 applications/apt-cudf.$(OCAMLBEST) \
 
-EXPERIMENTAL= \
-		 experimental/deb-cudf.$(OCAMLBEST) \
-		 experimental/randcudf.$(OCAMLBEST) \
-		 experimental/cudf-solver.$(OCAMLBEST) \
-		 experimental/cudf-diff.$(OCAMLBEST)
+ifeq ("@HAS_LIBCUDF@","no")
+  LIBS += libcudf/cudf.$(OCAMLLIBBEST) libcudf/cudf.a
+  ifeq ("@OCAMLBEST@","opt")
+    LIBS += libcudf/cudf.cma
+  endif
+endif
 
-LIBS= \
-	  common/common.$(OCAMLLIBBEST) \
-	  deb/debian.$(OCAMLLIBBEST) \
-	  algo/algo.$(OCAMLLIBBEST)
+LIBS += common/common.$(OCAMLLIBBEST) common/common.a
+LIBS += debian/debian.$(OCAMLLIBBEST) debian/debian.a
+LIBS += rpm/rpm.$(OCAMLLIBBEST) rpm/rpm.a
+LIBS += eclipse/eclipse.$(OCAMLLIBBEST) eclipse/eclipse.a
+LIBS += algo/algo.$(OCAMLLIBBEST) algo/algo.a
+LIBS += doseparse/boilerplateNoRpm.$(OCAMLLIBBEST) doseparse/boilerplateNoRpm.a
+LIBS += doseparse/boilerplate.$(OCAMLLIBBEST) doseparse/boilerplate.a
 
 #we always compile bytecode libraries
 ifeq ("@OCAMLBEST@","opt")
-	LIBS += common/common.cma deb/debian.cma algo/algo.cma
+  LIBS += common/common.cma
+  LIBS += debian/debian.cma
+  LIBS += rpm/rpm.cma
+  LIBS += eclipse/eclipse.cma
+  LIBS += algo/algo.cma
+  LIBS += doseparse/boilerplate.cma
 endif
 
-#external libcudf, then we build the check tool in-house
-ifeq ("@HAS_LIBCUDF@","no")
-  TARGETS += libcudf/main_cudf_check.$(OCAMLBEST)
+#rpm support
+ifeq ("@HAS_RPM@","yes")
+  LIBS += rpm/rpm.$(OCAMLLIBBEST) rpm/rpm.a
 endif
 
 #database support
@@ -81,13 +92,6 @@ endif
 ifeq ("@HAS_OCAMLGRAPH@","yes")
   TARGETS += \
 	     applications/ceve.$(OCAMLBEST)
-endif
-
-#rpm support
-ifeq ("@HAS_RPM@","yes")
-#  TARGETS += applications/rpm-cudf.$(OCAMLBEST)
-  LIBS += rpm/rpm.$(OCAMLLIBBEST)
-#  TEST_RPM=rpm
 endif
 
 #ounit support
