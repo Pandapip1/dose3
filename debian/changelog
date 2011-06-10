@@ -1,3 +1,12 @@
+dose3 (2.9.7+r2696-1) UNRELEASED; urgency=low
+
+  [ Stefano Zacchiroli ]
+  * Imported Upstream version 2.9.7+r2696
+    - upstream SVN snapshot, release 2696
+    - contains apt-cudf
+
+ -- Stefano Zacchiroli <zack@debian.org>  Fri, 10 Jun 2011 15:45:43 +0200
+
 dose3 (2.9.4-2) experimental; urgency=low
 
   * Attempt to install algo.{a,o} only when they exist. This should fix
