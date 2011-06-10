@@ -4,6 +4,11 @@ dose3 (2.9.4+r2696-1) UNRELEASED; urgency=low
   * Imported Upstream version 2.9.4+r2696
     - upstream SVN snapshot, release 2696
     - contains apt-cudf
+  * new binary package: apt-cudf
+    - provides glue among CUDF solvers and EDSP (i.e. APT's native)
+      external solvers
+    - new helper update-cudf-solvers, to be invoked at each new
+      installation of CUDF solvers, to bind them to APT
 
  -- Stefano Zacchiroli <zack@debian.org>  Fri, 10 Jun 2011 15:45:43 +0200
 

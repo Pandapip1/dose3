@@ -1,0 +1,62 @@
+#!/usr/bin/perl -w
+#
+# update-cudf-solvers: register available CUDF solvers and bind them to APT
+#
+# Copyright (C) Stefano Zacchiroli 2011 <zack@debian.org>
+# License: GNU Lesser General Public License, version 3 or above
+
+use strict;
+use File::Basename;
+
+my $cudf_dir = "/usr/share/cudf/solvers";
+my $edsp_dir = "/usr/lib/apt/solvers";
+my $apt_cudf = "/usr/bin/apt-cudf";
+
+my $debug = 0;
+
+sub shallow_find($$) {
+    my ($dir, $pred) = @_;
+    my @found = ();
+    foreach my $f (`find $dir -maxdepth 1 $pred`) {
+	chomp $f;
+	push @found, basename $f;
+    }
+    return @found;
+}
+
+sub warning($) { my ($msg) = @_; print STDERR "update-cudf-solvers: W: $msg\n"; }
+sub debug($) { my ($msg) = @_; print STDERR "update-cudf-solvers: I: $msg\n" if $debug; }
+
+my @cudf_solvers = shallow_find($cudf_dir, "-type f");	# current CUDF solvers
+my @edsp_solvers = shallow_find($edsp_dir, "-type l");	# current EDSP solvers
+
+foreach my $s (@cudf_solvers) { debug "found cudf solver: $s"; }
+foreach my $s (@edsp_solvers) { debug "found edsp solver: $s"; }
+
+# install: act on new CUDF solvers; make them available as EDSP solvers
+foreach my $cudf_name (@cudf_solvers) {
+    my $edsp_solver = "$edsp_dir/$cudf_name";
+    unless (-l $edsp_solver && readlink($edsp_solver) eq $apt_cudf) {
+	if (-e $edsp_solver || -l $edsp_solver) {
+	    # either existing non CUDF solver or dangling symlink
+	    warning "refuse to overwrite $edsp_solver with a symlink to $apt_cudf, skipping";
+	} else {	# file exists, but doesn't point to apt-cudf
+	    debug "symlink $edsp_solver to $apt_cudf";
+	    symlink $apt_cudf, $edsp_solver
+		or warning "cannot symlink $edsp_solver to $apt_cudf, skipping";
+	}
+    }
+}
+
+# garbage collection: act on old EDSP solvers; get rid of them
+foreach my $edsp_name (@edsp_solvers) {
+    my $edsp_solver = "$edsp_dir/$edsp_name";
+    if (-l $edsp_solver && readlink($edsp_solver) eq $apt_cudf) {
+	if (! grep {"$_" eq "$edsp_name"} @cudf_solvers) {	
+	    # EDSP && CUDF solver, no longer existing
+	    debug "unlink (gone) $edsp_solver";
+	    unlink $edsp_solver
+		or warning "cannot unlink $edsp_solver, skipping";
+	}
+    }
+}
