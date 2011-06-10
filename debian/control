@@ -106,3 +106,25 @@ Description: Parses package dependencies as set of constraints
   * dot/Graphviz
   * CNF (formula in conjunctive normal form)
   * DIMACS format of propositional formula
+
+Package: apt-cudf
+Section: admin
+Architecture: any
+Depends: cudf-solver,
+ ${ocaml:Depends}, ${misc:Depends}, ${shlibs:Depends}
+Description: CUDF solver integration for APT
+ apt-cudf provides integration among the APT package manager and CUDF solvers,
+ allowing APT to rely on external (CUDF-based) dependency solvers to plan
+ package installation, upgrade, and removal.
+ .
+ CUDF is a distribution-independent, standard format to describe dependency
+ solving scenarios, as faced by package managers in popular package-based
+ GNU/Linux distributions. APT is a well-known package manager for Debian-based
+ distributions, which is able to delegate dependency solving to external
+ solvers, by the means of the External Dependency Solving Protocol (EDSP).
+ .
+ apt-cudf provides the glue between the EDSP protocol and CUDF solvers,
+ enabling any installed CUDF solver to be used as an external solver for APT.
+ .
+ Several CUDF solvers are available in Debian. They all provide the cudf-solver
+ virtual package.

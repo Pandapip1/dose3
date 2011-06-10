@@ -1,7 +1,7 @@
-dose3 (2.9.7+r2696-1) UNRELEASED; urgency=low
+dose3 (2.9.4+r2696-1) UNRELEASED; urgency=low
 
   [ Stefano Zacchiroli ]
-  * Imported Upstream version 2.9.7+r2696
+  * Imported Upstream version 2.9.4+r2696
     - upstream SVN snapshot, release 2696
     - contains apt-cudf
 
