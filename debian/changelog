@@ -9,6 +9,8 @@ dose3 (2.9.4+r2696-1) UNRELEASED; urgency=low
       external solvers
     - new helper update-cudf-solvers, to be invoked at each new
       installation of CUDF solvers, to bind them to APT
+    - set up trigger monitoring /usr/share/cudf/solvers/; it will invoke
+      update-cudf-solvers at each change
 
  -- Stefano Zacchiroli <zack@debian.org>  Fri, 10 Jun 2011 15:45:43 +0200
 
