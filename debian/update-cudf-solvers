@@ -181,7 +181,9 @@ Unregister all CUDF solvers (see DESCRIPTION above).
 
 =head1 SEE ALSO
 
-apt-get(8), L<README.cudf-solvers|file:///usr/share/doc/apt-cudf/README.cudf-solvers>, L<README.Debian|file:///usr/share/doc/apt-cudf/README.Debian>
+apt-get(8), apt-cudf(8),
+L<README.cudf-solvers|file:///usr/share/doc/apt-cudf/README.cudf-solvers>,
+L<README.Debian|file:///usr/share/doc/apt-cudf/README.Debian>
 
 =head1 AUTHOR
 
