@@ -25,10 +25,10 @@ override_dh_auto_build:
 	dh_auto_build
 	pod2man --section 8 \
 	  --release "apt-cudf $(shell dpkg-parsechangelog | grep ^Version: | cut -f 2 -d' ')" \
-	  debian/update-cudf-solvers > debian/update-cudf-solvers.1
+	  debian/update-cudf-solvers > debian/update-cudf-solvers.8
 
 override_dh_auto_clean:
 	dh_auto_clean
-	rm -f debian/update-cudf-solvers.1
+	rm -f debian/update-cudf-solvers.8
 	rm -f _tags
 
