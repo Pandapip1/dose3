@@ -22,6 +22,22 @@ my $debug = 0;
 my $help_action = 0;
 my $remove_action = 0;
 
+sub warning($) {
+    my ($msg) = @_;
+    print STDERR "update-cudf-solvers: W: $msg\n";
+}
+
+sub debug($) {
+    my ($msg) = @_;
+    print STDERR "update-cudf-solvers: I: $msg\n" if $debug;
+}
+
+sub die_usage() {
+    my %podflags = ( "verbose" => 1,
+		     "exitval" => 2 );
+    pod2usage(%podflags);
+}
+
 sub shallow_find($$) {
     my ($dir, $pred) = @_;
     my @found = ();
@@ -30,15 +46,6 @@ sub shallow_find($$) {
 	push @found, basename $f;
     }
     return @found;
-}
-
-sub warning($) { my ($msg) = @_; print STDERR "update-cudf-solvers: W: $msg\n"; }
-sub debug($) { my ($msg) = @_; print STDERR "update-cudf-solvers: I: $msg\n" if $debug; }
-
-sub die_usage() {
-    my %podflags = ( "verbose" => 1,
-		     "exitval" => 2 );
-    pod2usage(%podflags);
 }
 
 # check whether a given EDSP solver path originates from a CUDF solver
