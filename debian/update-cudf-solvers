@@ -8,6 +8,7 @@
 use strict;
 
 use File::Basename;
+use File::Path qw(make_path);
 use Getopt::Long;
 use Pod::Usage;
 
@@ -97,6 +98,8 @@ sub main() {
 	"remove" => \$remove_action,
 	);
     die_usage if (! $getopt || $help_action);
+
+    -d $edsp_dir or make_path($edsp_dir, { mode => 0755 });
 
     my @cudf_solvers = shallow_find($cudf_dir, "-type f");
     my @edsp_solvers = shallow_find($edsp_dir, "-type l");
