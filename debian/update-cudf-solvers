@@ -2,17 +2,24 @@
 #
 # update-cudf-solvers: register available CUDF solvers and bind them to APT
 #
-# Copyright (C) Stefano Zacchiroli 2011 <zack@debian.org>
+# Copyright: © Stefano Zacchiroli 2011 <zack@debian.org>
 # License: GNU Lesser General Public License, version 3 or above
 
 use strict;
-use File::Basename;
 
+use File::Basename;
+use Getopt::Long;
+use Pod::Usage;
+
+# configuration
 my $cudf_dir = "/usr/share/cudf/solvers";
 my $edsp_dir = "/usr/lib/apt/solvers";
 my $apt_cudf = "/usr/bin/apt-cudf";
 
+# globals
 my $debug = 0;
+my $help_action = 0;
+my $remove_action = 0;
 
 sub shallow_find($$) {
     my ($dir, $pred) = @_;
@@ -27,16 +34,24 @@ sub shallow_find($$) {
 sub warning($) { my ($msg) = @_; print STDERR "update-cudf-solvers: W: $msg\n"; }
 sub debug($) { my ($msg) = @_; print STDERR "update-cudf-solvers: I: $msg\n" if $debug; }
 
-my @cudf_solvers = shallow_find($cudf_dir, "-type f");	# current CUDF solvers
-my @edsp_solvers = shallow_find($edsp_dir, "-type l");	# current EDSP solvers
+sub die_usage() {
+    my %podflags = ( "verbose" => 1,
+		     "exitval" => 2 );
+    pod2usage(%podflags);
+}
 
-foreach my $s (@cudf_solvers) { debug "found cudf solver: $s"; }
-foreach my $s (@edsp_solvers) { debug "found edsp solver: $s"; }
+# check whether a given EDSP solver path originates from a CUDF solver
+sub is_cudf_solver($) {
+    my ($path) = @_;
+    return (-l $path && readlink($path) eq $apt_cudf);
+}
 
 # install: act on new CUDF solvers; make them available as EDSP solvers
-foreach my $cudf_name (@cudf_solvers) {
-    my $edsp_solver = "$edsp_dir/$cudf_name";
-    unless (-l $edsp_solver && readlink($edsp_solver) eq $apt_cudf) {
+sub install_new($$) {
+    my ($cudf_solvers, $edsp_solvers) = @_;
+    foreach my $cudf_name (@$cudf_solvers) {
+	my $edsp_solver = "$edsp_dir/$cudf_name";
+	next if is_cudf_solver($edsp_solver);
 	if (-e $edsp_solver || -l $edsp_solver) {
 	    # either existing non CUDF solver or dangling symlink
 	    warning "refuse to overwrite $edsp_solver with a symlink to $apt_cudf, skipping";
@@ -49,10 +64,12 @@ foreach my $cudf_name (@cudf_solvers) {
 }
 
 # garbage collection: act on old EDSP solvers; get rid of them
-foreach my $edsp_name (@edsp_solvers) {
-    my $edsp_solver = "$edsp_dir/$edsp_name";
-    if (-l $edsp_solver && readlink($edsp_solver) eq $apt_cudf) {
-	if (! grep {"$_" eq "$edsp_name"} @cudf_solvers) {	
+sub remove_old($$) {
+    my ($cudf_solvers, $edsp_solvers) = @_;
+    foreach my $edsp_name (@$edsp_solvers) {
+	my $edsp_solver = "$edsp_dir/$edsp_name";
+	next unless is_cudf_solver($edsp_solver);
+	if (! grep {"$_" eq "$edsp_name"} @$cudf_solvers) {	
 	    # EDSP && CUDF solver, no longer existing
 	    debug "unlink (gone) $edsp_solver";
 	    unlink $edsp_solver
@@ -60,3 +77,113 @@ foreach my $edsp_name (@edsp_solvers) {
 	}
     }
 }
+
+# remove all EDSP solvers originating from CUDF solvers
+sub remove_all($$) {
+    my ($cudf_solvers, $edsp_solvers) = @_;
+    foreach my $edsp_name (@$edsp_solvers) {
+	my $edsp_solver = "$edsp_dir/$edsp_name";
+	if (is_cudf_solver($edsp_solver)) {
+	    unlink $edsp_solver
+		or warning "cannot unlink $edsp_solver, skipping";
+	}
+    }
+}
+
+sub main() {
+    my $getopt = GetOptions(
+	"debug" => \$debug,
+	"h|help" => \$help_action,
+	"remove" => \$remove_action,
+	);
+    die_usage if (! $getopt || $help_action);
+
+    my @cudf_solvers = shallow_find($cudf_dir, "-type f");
+    my @edsp_solvers = shallow_find($edsp_dir, "-type l");
+    foreach my $s (@cudf_solvers) { debug "found cudf solver: $s"; }
+    foreach my $s (@edsp_solvers) { debug "found edsp solver: $s"; }
+
+    if ($remove_action) {
+	remove_all(\@cudf_solvers, \@edsp_solvers);
+    } else {
+	install_new(\@cudf_solvers, \@edsp_solvers);
+	remove_old(\@cudf_solvers, \@edsp_solvers);
+    }
+    exit 0;
+}
+
+main();
+
+__END__
+
+=head1 NAME
+
+update-cudf-solvers - register available CUDF solvers as APT external solvers
+
+=head1 SYNOPSIS
+
+=over
+
+=item B<update-cudf-solvers> [I<OPTION>]...
+
+=item B<update-cudf-solvers> [I<OPTION>]... --remove
+
+=back
+
+=head1 DESCRIPTION
+
+update-cudf-solvers maintain the list of installed CUDF solvers and register
+them as external solvers for APT.
+
+The first form (without mandatory options) should be invoked each time a new
+CUDF solver specification file is added to or removed from the CUDF solver
+specification directory (by default F</usr/share/cudf/solvers>).
+update-cudf-solvers will synchronize the differences with APT external solvers,
+by installing suitable symlinks to the F</usr/bin/apt-cudf> wrapper under
+F</usr/lib/apt/solvers>.
+
+The second form (with the mandatory C<--remove> option) will remove all
+installed external APT solvers that originated from CUDF solvers. It's a
+cleanup operation meant to be used only upon removal of the apt-cudf package.
+
+Note that other, non-CUDF based, APT external solvers might be present under
+F</usr/lib/apt/solvers>. update-cudf-solvers leaves the untouched and act only
+on (present or past) APT solvers corresponding to CUDF solvers.
+
+=head1 TRIGGER-BASED OPERATION
+
+The directory F</usr/share/cudf/solvers> is monitored by a dpkg trigger that
+invokes update-cudf-solvers as needed. In all but exceptional circumstances,
+you should not be required to opearte update-cudf-solvers manually.
+
+=head1 OPTIONS
+
+=over 4
+
+=item --debug
+
+Print debugging information during operation.
+
+=item -h
+
+=item --help
+
+Show usage information and exit.
+
+=item --remove
+
+Unregister all CUDF solvers (see DESCRIPTION above).
+
+=back
+
+=head1 SEE ALSO
+
+apt-get(8), L<README.cudf-solvers|file:///usr/share/doc/apt-cudf/README.cudf-solvers>, L<README.Debian|file:///usr/share/doc/apt-cudf/README.Debian>
+
+=head1 AUTHOR
+
+Copyright: (C) 2011 Stefano Zacchiroli <zack@debian.org>
+
+License: GNU Lesser General Public License (GPL), version 3 or above
+
+=cut
