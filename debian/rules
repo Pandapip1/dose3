@@ -21,4 +21,11 @@ override_dh_installman:
 	cd debian/dose3-distcheck/usr/share/man/man1 \
 		&& mv distcheck.1 dose3-distcheck.1
 
+override_dh_auto_build:
+	dh_auto_build
+	pod2man debian/update-cudf-solvers > debian/update-cudf-solvers.1
+
+override_dh_auto_clean:
+	dh_auto_clean
+	rm -f debian/update-cudf-solvers.1
 
