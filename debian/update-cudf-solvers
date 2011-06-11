@@ -20,6 +20,7 @@ my $apt_cudf = "/usr/bin/apt-cudf";
 # globals
 my $debug = 0;
 my $help_action = 0;
+my $list_action = 0;
 my $remove_action = 0;
 
 sub warning($) {
@@ -38,10 +39,10 @@ sub die_usage() {
     pod2usage(%podflags);
 }
 
-sub shallow_find($$) {
+sub shallow_find($) {
     my ($dir, $pred) = @_;
     my @found = ();
-    foreach my $f (`find $dir -maxdepth 1 $pred`) {
+    foreach my $f (`find $dir -maxdepth 1 -mindepth 1 -type f -o -type l`) {
 	chomp $f;
 	push @found, basename $f;
     }
@@ -100,20 +101,26 @@ sub remove_all($$) {
 
 sub main() {
     my $getopt = GetOptions(
-	"debug" => \$debug,
+	"d|debug" => \$debug,
 	"h|help" => \$help_action,
-	"remove" => \$remove_action,
+	"l|list" => \$list_action,
+	"r|remove" => \$remove_action,
 	);
     die_usage if (! $getopt || $help_action);
 
     -d $edsp_dir or make_path($edsp_dir, { mode => 0755 });
 
-    my @cudf_solvers = shallow_find($cudf_dir, "-type f");
-    my @edsp_solvers = shallow_find($edsp_dir, "-type l");
-    foreach my $s (@cudf_solvers) { debug "found cudf solver: $s"; }
-    foreach my $s (@edsp_solvers) { debug "found edsp solver: $s"; }
+    my @cudf_solvers = shallow_find($cudf_dir);
+    my @edsp_solvers = shallow_find($edsp_dir);
+    if ($debug) {
+	foreach my $s (@cudf_solvers) { debug "found cudf solver: $s"; }
+	foreach my $s (@edsp_solvers) { debug "found edsp solver: $s"; }
+    }
 
-    if ($remove_action) {
+    if ($list_action) {
+	foreach my $s (@cudf_solvers) { print "cudf: $s\n"; }
+	foreach my $s (@edsp_solvers) { print "edsp: $s\n"; }
+    } elsif ($remove_action) {
 	remove_all(\@cudf_solvers, \@edsp_solvers);
     } else {
 	install_new(\@cudf_solvers, \@edsp_solvers);
@@ -138,6 +145,8 @@ update-cudf-solvers - register available CUDF solvers as APT external solvers
 
 =item B<update-cudf-solvers> [I<OPTION>]... --remove
 
+=item B<update-cudf-solvers> [I<OPTION>]... --list
+
 =back
 
 =head1 DESCRIPTION
@@ -156,6 +165,8 @@ The second form (with the mandatory C<--remove> option) will remove all
 installed external APT solvers that originated from CUDF solvers. It's a
 cleanup operation meant to be used only upon removal of the apt-cudf package.
 
+The third form just lists available solvers and exit.
+
 Note that other, non-CUDF based, APT external solvers might be present under
 F</usr/lib/apt/solvers>. update-cudf-solvers leaves the untouched and act only
 on (present or past) APT solvers corresponding to CUDF solvers.
@@ -170,6 +181,8 @@ you should not be required to opearte update-cudf-solvers manually.
 
 =over 4
 
+=item -d
+
 =item --debug
 
 Print debugging information during operation.
@@ -180,9 +193,18 @@ Print debugging information during operation.
 
 Show usage information and exit.
 
+=item -l
+
+=item --list
+
+List available solvers and exit. Both CUDF and APT's external solvers (AKA
+"EDSP solvers") will be listed.
+
+=item -r
+
 =item --remove
 
-Unregister all CUDF solvers (see DESCRIPTION above).
+Unregister all CUDF solvers.
 
 =back
 
