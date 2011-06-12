@@ -1,9 +1,8 @@
-dose3 (2.9.4+r2709-1) UNRELEASED; urgency=low
+dose3 (2.9.8-1) UNRELEASED; urgency=low
 
   [ Stefano Zacchiroli ]
-  * Imported Upstream version 2.9.4+r2709
-    - upstream SVN snapshot, release 2709
-    - contains apt-cudf
+  * New upstream release
+    - first release shipping apt-cudf
   * new binary package: apt-cudf
     - provides glue among CUDF solvers and EDSP (i.e. APT's native)
       external solvers
@@ -12,7 +11,7 @@ dose3 (2.9.4+r2709-1) UNRELEASED; urgency=low
     - set up trigger monitoring /usr/share/cudf/solvers/; it will invoke
       update-cudf-solvers at each change
 
- -- Stefano Zacchiroli <zack@debian.org>  Sat, 11 Jun 2011 11:57:28 +0200
+ -- Stefano Zacchiroli <zack@debian.org>  Sun, 12 Jun 2011 09:37:58 +0200
 
 dose3 (2.9.4-2) experimental; urgency=low
 
