@@ -10,6 +10,8 @@ dose3 (2.9.8-1) UNRELEASED; urgency=low
       installation of CUDF solvers, to bind them to APT
     - set up trigger monitoring /usr/share/cudf/solvers/; it will invoke
       update-cudf-solvers at each change
+  * debian/copyright: add coverage of packaging work, singling out
+    update-cudf-solvers
 
  -- Stefano Zacchiroli <zack@debian.org>  Sun, 12 Jun 2011 09:37:58 +0200
 

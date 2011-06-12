@@ -27,6 +27,15 @@ File: common/url.ml
 Copyright: © 2001,2002 b8_bavard, b8_fee_carabine, INRIA
 License: LGPL-2+
 
+File: debian/update-cudf-solvers
+Copyright: © 2011 Stefano Zacchiroli
+License: LGPL-3+
+
+File: debian/*
+Copyright: © 2011 Ralf Treinen
+           © 2011 Stefano Zacchiroli
+License: LGPL-3+
+
 File: *
 Copyright: © 2009-2010 Pietro Abate
 License: LGPL-3+
