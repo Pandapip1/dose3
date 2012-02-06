@@ -14,18 +14,21 @@
 
 open ExtLib
 open Common
-open Format822
 
-type architecture = string
+let info fmt = Util.make_info __FILE__ fmt
+let warning fmt = Util.make_warning __FILE__ fmt
+let debug fmt = Util.make_debug __FILE__ fmt
+let fatal fmt = Util.make_fatal __FILE__ fmt
+
 type source = {
-  name : name;
-  version : version;
-  binary : vpkg list;
-  architecture : architecture list;
-  build_depends : (vpkg * (bool * architecture) list) list list;
-  build_depends_indep : (vpkg * (bool * architecture) list) list list;
-  build_conflicts : (vpkg * (bool * architecture) list) list;
-  build_conflicts_indep : (vpkg * (bool * architecture) list) list;
+  name : Format822.name;
+  version : Format822.version;
+  binary : Format822.name list;
+  architecture : Format822.architecture list;
+  build_depends : Format822.builddepsformula;
+  build_depends_indep : Format822.builddepsformula;
+  build_conflicts : Format822.builddepslist;
+  build_conflicts_indep : Format822.builddepslist;
 }
 
 let default_source = {
@@ -39,46 +42,44 @@ let default_source = {
   build_conflicts_indep = [];
 }
 
-let parse_s = Format822.parse_s
-let parse_name _ s = Format822.parse_package s
-let parse_version _ s = Format822.parse_version s
-let parse_arch _ s = String.nsplit s " "
-let parse_binary _ s = Format822.list_parser ~sep:"," Format822.parse_constr s
-let parse_conj _ s = Format822.parse_vpkglist Format822.parse_builddeps s
-let parse_cnf _ s = Format822.parse_vpkgformula Format822.parse_builddeps s
+let parse_s = Packages.parse_s
+let parse_name = Packages.parse_name
+let parse_version = Packages.parse_version
+let parse_arch = Packages.lexbuf_wrapper Packages_parser.archlist_top
+let parse_binary s = List.map fst (Packages.parse_vpkglist s) (* hack XXX *)
+let parse_builddepslist = Packages.lexbuf_wrapper Packages_parser.builddepslist_top
+let parse_builddepsformula = Packages.lexbuf_wrapper Packages_parser.builddepsformula_top
 
 (* Relationships between source and binary packages
  * http://www.debian.org/doc/debian-policy/ch-relationships.html
  * Build-Depends, Build-Depends-Indep, Build-Conflicts, Build-Conflicts-Indep
 *)
 let parse_package_stanza filter par =
-  let aux par = 
-    let p = {
-        name = parse_s ~err:"(MISSING NAME)" parse_name "Package" par;
-        version = parse_s ~err:"(MISSING VERSION)" parse_version "Version" par;
-        architecture = parse_s ~err:"(MISSING ARCH)" parse_arch "Architecture" par;
-        binary = parse_s ~opt:[] ~multi:true parse_binary "Binary" par; 
-        build_depends = parse_s ~opt:[] ~multi:true parse_cnf "Build-Depends" par; 
-        build_depends_indep =
-          parse_s ~opt:[] ~multi:true parse_cnf "Build-Depends-Indep" par;
-        build_conflicts = parse_s ~opt:[] ~multi:true parse_conj "Build-Conflicts" par;
-        build_conflicts_indep = 
-          parse_s ~opt:[] ~multi:true parse_conj "Build-Conflicts-Indep" par 
-    }
-    in
-    if Option.is_none filter then Some p
-    else if (Option.get filter) p then Some(p) else None
-  in Format822.parse_packages_fields aux par
+  let p = {
+      name = parse_s ~err:"(MISSING NAME)" parse_name "Package" par;
+      version = parse_s ~err:"(MISSING VERSION)" parse_version "Version" par;
+      architecture = parse_s ~err:"(MISSING ARCH)" parse_arch "Architecture" par;
+      binary = parse_s ~opt:[] ~multi:true parse_binary "Binary" par; 
+      build_depends = 
+        parse_s ~opt:[] ~multi:true parse_builddepsformula "Build-Depends" par; 
+      build_depends_indep =
+        parse_s ~opt:[] ~multi:true parse_builddepsformula "Build-Depends-Indep" par;
+      build_conflicts = 
+        parse_s ~opt:[] ~multi:true parse_builddepslist "Build-Conflicts" par;
+      build_conflicts_indep = 
+        parse_s ~opt:[] ~multi:true parse_builddepslist "Build-Conflicts-Indep" par 
+  }
+  in
+  if Option.is_none filter then Some p
+  else if (Option.get filter) p then Some(p) 
+  else None
 ;;
 
 (** parse a debian Sources file from channel *)
-let parse_sources_in ch =
-  let parse_packages =
-    Format822.parse_822_iter (
-      parse_package_stanza None
-    )
-  in
-  parse_packages (Format822.start_from_channel ch)
+let parse_sources_in file ic =
+  info "Parsing Sources file %s..." file;
+  let stanza_parser = parse_package_stanza None in
+  Format822.parse_from_ch (Packages.packages_parser stanza_parser []) ic
 
 (** parse a debian Sources file *)
 let input_raw =
@@ -86,35 +87,44 @@ let input_raw =
   let module M = Format822.RawInput(Set) in
   M.input_raw parse_sources_in
 
+let sep = ":" ;;
+
 (** transform a list of sources into dummy packages to be then converted to cudf *)
-let sources2packages arch l =
+let sources2packages ?(src="src") archs l =
+  let archs = "all"::"any"::archs in
   (* as per policy, if the first arch restriction contains a !
    * then we assume that all archs on the lists are bang-ed.
    * cf: http://www.debian.org/doc/debian-policy/ch-relationships.html 7.1 *)
   let select = function
-    |(v,(((false,_)::_) as al)) when List.for_all (fun (_,a) -> not(a = arch)) al -> Some v
-    |(v,(((true,_)::_) as al)) when List.exists (fun (_,a) -> a = arch) al -> Some v
+    |(v,(((false,_)::_) as al)) when 
+      List.for_all (fun (_,a) -> not(List.mem a archs)) al -> Some v
+    |(v,(((true,_)::_) as al)) when 
+      List.exists (fun (_,a) -> List.mem a archs) al -> Some v
     |(v,[]) -> Some v
     |_ -> None
   in
   let conflicts l = List.filter_map select l in
-  let depends ll = List.filter_map (fun l ->
-    match List.filter_map select l with [] -> None | l -> Some l
+  let depends ll = 
+    List.filter_map (fun l ->
+      match List.filter_map select l with 
+      |[] -> None 
+      | l -> Some l
     ) ll
   in
+  let bins pkg = String.concat "," pkg.binary in
   List.filter_map (fun pkg ->
-    let archs = pkg.architecture in
-    if List.exists (fun a -> a = "all" || a = "any" || a = arch) archs then (
+    let pkgarchs = pkg.architecture in
+    if List.exists (fun a -> List.mem a archs) pkgarchs then
       Some (
       { Packages.default_package with
-        Packages.name = "src:" ^ pkg.name ;
+        Packages.name = src ^ sep ^ pkg.name ;
         source = (pkg.name, Some pkg.version);
         version = pkg.version;
         depends = depends (pkg.build_depends_indep @ pkg.build_depends);
         conflicts = conflicts (pkg.build_conflicts_indep @ pkg.build_conflicts);
-        architecture = String.concat "," pkg.architecture
+        architecture = String.concat "," pkg.architecture;
+        extras = [("type",src);("binaries",bins pkg)]
       }
       )
-    )
     else None
   ) l

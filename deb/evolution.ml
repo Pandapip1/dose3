@@ -41,9 +41,20 @@ let range ?(bottom=false) vl =
   aux [] (None,l)
 ;;
 
-let discriminant ?(bottom=false) evalsel vl constraints =
+(** [discriminants ?bottom ?ascending evalsel vl constraints]
+   returns the discriminants of the versions [vl] w.r.t.
+   the [constraints], using [evalsel] to determine whether a
+   a version satisfy a constraint.
+   For each discriminant, a canonical representative is given,
+   as well as the list of all other equivalent versions.
+   @param bottom set to true includes a version strictly smaller than all [vl] 
+   @param highest chooses the highest version as representative, if set to true,
+                      and the lowest otherwise.
+ *)
+let discriminant ?(bottom=false) ?(highest=true) evalsel vl constraints =
   let eval_constr = Hashtbl.create 17 in
   let constr_eval = Hashtbl.create 17 in
+  let candidates = range ~bottom vl in
   List.iter (fun target ->
     let eval = List.map (evalsel target) constraints in
     try
@@ -54,7 +65,7 @@ let discriminant ?(bottom=false) evalsel vl constraints =
       Hashtbl.add eval_constr eval target;
       Hashtbl.add constr_eval target []
     end
-  ) (range ~bottom vl) ;
+  ) (if highest then List.rev candidates else candidates) ;
   (Hashtbl.fold (fun k v acc -> (k,v)::acc) constr_eval [])
 ;;
 
@@ -84,9 +95,12 @@ let cnf_iter t ll = List.iter (conj_iter t) ll
 let constraints packagelist =
   let constraints_table = Hashtbl.create (List.length packagelist) in
   List.iter (fun pkg ->
+    (* add_unique constraints_table pkg.Packages.name None; *)
     conj_iter constraints_table pkg.Packages.conflicts ;
+    conj_iter constraints_table pkg.Packages.breaks ;
     conj_iter constraints_table pkg.Packages.provides ;
-    cnf_iter constraints_table pkg.Packages.depends
+    cnf_iter constraints_table pkg.Packages.depends;
+    cnf_iter constraints_table pkg.Packages.pre_depends
   ) packagelist
   ;
   let h = Hashtbl.create (List.length packagelist) in
@@ -132,29 +146,47 @@ let migrate packagelist target =
   List.map (fun pkg -> ((pkg,target),(align pkg.Packages.version target))) packagelist
 ;;
 
-(*
-let aa repository =
-  (* to be optimized !!! *)
-  let constraints_table = Debian.Evolution.constraints repository in
-  let clusters = Debian.Debutil.cluster repository in
-  Hashtbl.fold (fun (sn,sv) l acc0 ->
-    List.fold_left (fun acc1 (version,cluster) ->
-    let (versionlist, constr) =
-      (* all binary versions in the cluster *)
-      let clustervl = List.map (fun pkg -> pkg.Packages.version) cluster in
-      List.fold_left (fun (vl,cl) pkg ->
-        let pn = pkg.Packages.name in
-        let pv = pkg.Packages.version in
-        let constr = all_constraints constraints_table pn in
-        let vl = clustervl@(all_versions constr) in
-        let el = (extract_epochs vl) in
-        let tvl = add_normalize vl in
-        let versionlist = add_epochs el tvl in
-        (versionlist @ vl, constr @ cl)
-      ) ([],[]) cluster
-    in
-    (sn,version,cluster,List.unique versionlist,List.unique constr)::acc1
-    ) acc0 l
-  ) clusters []
+let extract_epochs vl =
+  Util.list_unique (
+    List.fold_left (fun acc v ->
+      let (e,_,_,_) = Version.split v in
+      e :: acc
+    ) [] vl
+  )
 ;;
-*)
+
+let add_normalize vl =
+  List.fold_left (fun acc v ->
+    let (e,u,r,b) = Version.split v in
+    let n1 = Version.concat ("",u,r,"") in
+    let n2 = Version.concat ("",u,r,b) in
+    n1::n2::v::acc
+  ) [] vl
+;;
+
+let add_epochs el vl =
+  List.fold_left (fun acc1 e ->
+    List.fold_left (fun acc2 v ->
+      match Version.split v with
+      |("",u,r,b) -> (Version.concat (e,u,r,b))::v::acc2
+      |_ -> v::acc2
+    ) acc1 vl
+  ) [] el
+;;
+
+let all_ver_constr constraints_table cluster =
+  let (versionlist, constr) =
+    List.fold_left (fun (_vl,_cl) pkg ->
+      let pn = pkg.Packages.name in
+      let pv = pkg.Packages.version in
+      let constr = all_constraints constraints_table pn in
+      let vl = pv::(all_versions constr) in
+      (vl @ _vl,constr @ _cl)
+    ) ([],[]) cluster
+  in
+  let all_epochs = extract_epochs versionlist in
+  let all_norm = add_normalize versionlist in
+  let versionlist = add_epochs all_epochs all_norm in
+  (Util.list_unique versionlist,Util.list_unique constr)
+;;
+

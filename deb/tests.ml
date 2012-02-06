@@ -1,22 +1,32 @@
-(**************************************************************************************)
-(*  Copyright (C) 2009 Pietro Abate <pietro.abate@pps.jussieu.fr>                     *)
-(*  Copyright (C) 2009 Mancoosi Project                                               *)
-(*                                                                                    *)
-(*  This library is free software: you can redistribute it and/or modify              *)
-(*  it under the terms of the GNU Lesser General Public License as                    *)
-(*  published by the Free Software Foundation, either version 3 of the                *)
-(*  License, or (at your option) any later version.  A special linking                *)
-(*  exception to the GNU Lesser General Public License applies to this                *)
-(*  library, see the COPYING file for more information.                               *)
-(**************************************************************************************)
+(******************************************************************************)
+(*  This file is part of the Dose library http://www.irill.org/software/dose  *)
+(*                                                                            *)
+(*  Copyright (C) 2009-2011 Pietro Abate <pietro.abate@pps.jussieu.fr>        *)
+(*                                                                            *)
+(*  Contributions 2011 Ralf Treinen <ralf.treinen@pps.jussieu.fr>             *)
+(*                                                                            *)
+(*  This library is free software: you can redistribute it and/or modify      *)
+(*  it under the terms of the GNU Lesser General Public License as            *)
+(*  published by the Free Software Foundation, either version 3 of the        *)
+(*  License, or (at your option) any later version.  A special linking        *)
+(*  exception to the GNU Lesser General Public License applies to this        *)
+(*  library, see the COPYING file for more information.                       *)
+(*                                                                            *)
+(*  Work developed with the support of the Mancoosi Project                   *)
+(*  http://www.mancoosi.org                                                   *)
+(*                                                                            *)
+(******************************************************************************)
+
+
 
 open OUnit
-open Debian
 open Common
-open Cudf
 
-let f_packages = "tests/Packages" ;;
-let f_release = "tests/Release" ;;
+let test_dir = "tests"
+
+let f_packages = Filename.concat test_dir "DebianPackages/Packages.bz2" ;;
+let f_release = Filename.concat test_dir "DebianPackages/Release" ;;
+let f_discriminants = Filename.concat test_dir "deb/discriminants" ;;
 
 (* XXX TODO:
   * add test for default arch
@@ -37,7 +47,120 @@ let packagelist = Packages.input_raw [f_packages] ;;
 let tables = Debcudf.init_tables packagelist ;;
 let cudf_list = List.map (Debcudf.tocudf ~extras:extras_properties tables) packagelist ;; 
 let universe = Cudf.load_universe cudf_list ;;
-let maps = CudfAdd.build_maps universe ;;
+
+(* version comparison ****************************************************************************)
+
+let version_test_cases = [
+  ("1.2-5.6","3.4-5.8",-1);      (* easy *)
+  ("1:2-3","2:2-3",-1);          (* period comparison - equal *)
+  ("1:2-3","1:2-3",0);           (* period comparison - less *)
+  ("2:2-3","1:2-3",1);           (* period comparison - greater *)
+  ("0:1.2-3","1.2-3",0);         (* period =0 when missing *)
+  ("000001:2-3","2:1",-1);       (* leading 0 in period *)
+  ("00:1","0000:1",0);           (* leading 0 in period *)
+  ("1",":1",0);                  (* epoch separator but no epoch *)
+  ("1a","1c",-1);                (* character ordering *)
+  ("1z","1A",1);                 (* character ordering *)
+  ("1Z","1.",-1);                (* character ordering *)
+  ("1.","1-",1);                 (* character ordering *)
+  ("1-","1+",-1);                (* character ordering *)
+  ("1~~","1~~a",-1);             (* tilde - example from policy *)
+  ("1~~a","1~",-1);              (* tilde - example from policy *)
+  ("1~","1",-1);                 (* tilde - example from policy *)
+  ("1","1a",-1);                 (* tilde - example from policy *)
+  ("000","00",0);                (* numerical comparison - zeros *)
+  ("1a000","1a",0);              (* empty string in numerical part counts as 0 *)
+  ("1-000","1",0);               (* empty string in numerical part counts as 0 *)
+  ("1.23","1.23~",1);            (* tilde after numerical part *)
+  ("1.2+a.3","1.2+a.3",0);       (* alternating lexical and numerical *)
+  ("1.2+a.3","1.2+aa.3",1);      (* alternating lexical and numerical *)
+  ("1.2+a.3","1.2+a~.3",1);      (* alternating lexical and numerical *)
+  ("05","000001",1);             (* skiping leading zeros *)
+  ("1a","1a00000~",1);
+  ("2:1","3:1",-1);              (* hierarchy of parts *)
+  ("2:1.1.1","2:1.1.2",-1);      (* hierarchy of parts *)
+  ("2:1.1-1.1","2:1.1-1.2",-1);  (* hierarchy of parts *)
+];;
+
+let dpkg_compare x y =
+  let c1 = Printf.sprintf "dpkg --compare-versions %s lt %s" x y in
+  let c2 = Printf.sprintf "dpkg --compare-versions %s eq %s" x y in
+  if (Sys.command c1) = 0 then -1
+  else if (Sys.command c2) = 0 then 0
+  else 1
+;;
+
+let test_version_comparison = 
+  "debian version comparison" >::: [
+    "" >:: (fun _ ->
+      (* we might want to execute these tests also on a non debian machine *)
+      let debian_machine = ref true in
+      List.iter (fun (v1,v2,res) ->
+        let dose_cmp = Version.compare v1 v2 in
+        let dpkg_cmp = if !debian_machine then dpkg_compare v1 v2 else res in
+        if dose_cmp <> dpkg_cmp then begin
+          Printf.eprintf "error version comparison %s %s\n" v1 v2;
+          Printf.eprintf "dpkg says %d\n" dpkg_cmp;
+          Printf.eprintf "dose says %d\n" dose_cmp
+        end;
+        assert_equal dose_cmp dpkg_cmp
+      ) version_test_cases
+    )
+  ]
+;;
+
+(* architecture matching *****************************************************************)
+
+let architecture_test_cases = [
+  ("all", "i386", true);               (* all matches everything *)
+  ("any", "kfreebsd-amd64",true);      (* any matches everything *)
+  ("amd64", "i386", false);            (* pattern and arch do not split *)
+  ("toaster", "toaster", true);        
+  ("hurd-amd64", "hurd-amd64", true);  (* pattern and arch split *)
+  ("hurd-amd64", "netbsd-amd64", false);   
+  ("hurd-amd64", "hurd-i386", false);
+  ("hurd-amd64", "netbsd-i386", false);
+  ("hurd-amd64", "amd64", false);      (* pattern splits, arch doesn't *)
+  ("hurd-amd64", "i386", false);
+  ("linux-amd64", "amd64", true);
+  ("linux-amd64", "i386", false);
+  ("amd64", "hurd-amd64", false);      (* arch splits,patten doesn't *)
+  ("amd64", "hurd-i386", false);
+  ("amd64", "linux-amd64", true);
+  ("amd64", "linux-i386", false);
+  ("any-amd64", "hurd-amd64", true);   (* OS pattern *)
+  ("any-amd64", "linux-amd64", true);
+  ("any-amd64", "hurd-i386", false);
+  ("any-amd64", "linux-i386", false);
+  ("hurd-any", "hurd-alpha", true);    (* CPU pattern *)
+  ("linux-any", "linux-alpha", true);
+  ("hurd-any", "netbsd-alpha", false);
+  ("linux-any", "netbsd-alpha", false);
+  ("any-any", "linux-i386", true);     (* OS and CPU pattern *)
+  ("any-any", "hurd-i386", true);
+  ("any-any", "amd64", true)
+];;
+
+let test_architecture_matching =
+  "debian architecture matching" >::: [
+    "" >:: (fun _ ->
+      List.iter
+	(fun (source,arch,expected) ->
+	  let result = Architecture.src_matches_arch source arch  in
+	  if result <> expected
+	  then
+	    begin
+	      Printf.printf "error matching architecture %s against %s\n" source arch;
+	      Printf.printf "found %b, should be %b\n" result expected
+	    end;
+	  assert_equal result expected
+	)
+	architecture_test_cases
+    )
+  ]
+;;
+
+(*****************************************************************************************)
 
 let test_version = 
   "debian version parsing" >::: [
@@ -114,7 +237,7 @@ let rec assert_delay_stub l =
 ;;
 
 let test_cluster =
-  let packagelist = Packages.input_raw ["tests/discriminants"] in
+  let packagelist = Packages.input_raw [f_discriminants] in
   let clusters = Debutil.cluster packagelist in
   "cluster" >::: [
     "groups" >:: (fun _ -> 
@@ -131,7 +254,7 @@ let test_cluster =
 
       Hashtbl.iter (fun (sourcename, sourceversion) l ->
         (* Printf.eprintf "(1)cluster (%s,%s)\n%!" sourcename sourceversion; *)
-        List.iter (fun (version,cluster) ->
+        List.iter (fun (version,realversion,cluster) ->
           (* Printf.eprintf "(1)v %s\n%!" version; *)
           let l = List.map(fun pkg -> (pkg.Packages.name,pkg.Packages.version)) cluster in
           (*
@@ -148,7 +271,7 @@ let test_cluster =
 
 
 let test_evolution =
-  let packagelist = Packages.input_raw ["tests/discriminants"] in
+  let packagelist = Packages.input_raw [f_discriminants] in
   let constraints_table = Evolution.constraints packagelist in
   let clusters = Debutil.cluster packagelist in
   "evolution" >::: [
@@ -203,7 +326,7 @@ let test_evolution =
       let assert_delay = assert_delay_stub [ ] in
       let constr = [(`Gt,"76")] in
       let vl = ["3.4";"76"] in
-      let discr = Evolution.discriminant vl constr in
+      let discr = Evolution.discriminant evalsel vl constr in
       List.iter (fun (target,equiv) -> 
         Printf.eprintf "(3) %s\n%!" (Evolution.string_of_range target);
         List.iter (fun k ->
@@ -302,7 +425,7 @@ let test_numbering =
       try
         let debconf = Cudf.lookup_package universe ("debconf",32) in
         Printf.eprintf "debconf : %s\n" (CudfAdd.string_of_package debconf);
-        assert_equal debconf.version 32
+        assert_equal debconf.Cudf.version 32
       with Not_found -> assert_failure "debconf version mismatch"
     );
   ] 
@@ -314,8 +437,8 @@ let test_virtual =
       try
         let ssmtp = Cudf.lookup_package universe ("ssmtp",8366) in
         let vpkg = ("mail-transport-agent--virtual",None) in
-        let provides = maps.CudfAdd.who_provides vpkg in
-        assert_equal true (List.exists ((=%) ssmtp) provides)
+        let provides = CudfAdd.who_provides universe vpkg in
+        assert_equal true (List.exists (Cudf.(=%) ssmtp) provides)
       with Not_found -> assert_failure "ssmtp version mismatch"
     );
     "virtual real" >:: (fun _ -> ())
@@ -326,7 +449,7 @@ let test_conflicts =
     "self conflict" >:: (fun _ -> 
       try 
         let ssmtp = Cudf.lookup_package universe ("ssmtp",8366) in
-        assert_equal true (List.mem (ssmtp.package,None) ssmtp.conflicts)
+        assert_equal true (List.mem (ssmtp.Cudf.package,None) ssmtp.Cudf.conflicts)
       with Not_found -> assert_failure "ssmtp version mismatch"
     );
   ]
@@ -343,7 +466,9 @@ let all =
     test_conflicts;
     test_version;
     test_cluster;
-    test_evolution
+    test_evolution;
+    test_version_comparison;
+    test_architecture_matching
   ]
 
 let main () =

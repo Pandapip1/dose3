@@ -22,15 +22,14 @@ let progressbar_init = Util.Progress.create "Depsolver_int.init_solver"
 let progressbar_univcheck = Util.Progress.create "Depsolver_int.univcheck"
 
 (** Message printers *)
-let debug fmt = Util.make_debug "Depsolver_int" fmt
-let info fmt = Util.make_info "Depsolver_int" fmt
-let warning fmt = Util.make_warning "Depsolver_int" fmt
+let debug fmt = Util.make_debug __FILE__ fmt
+let info fmt = Util.make_info __FILE__ fmt
+let warning fmt = Util.make_warning __FILE__ fmt
 
 module R = struct type reason = Diagnostic_int.reason end
 module S = EdosSolver.M(R)
 
-(** associate a sat solver variable to a package id
-    if size = 0 then the mapping is the identity function *)
+(** associate a sat solver variable to a package id *)
 class intprojection size = object
 
   val vartoint = Util.IntHashtbl.create (2 * size)
@@ -41,149 +40,193 @@ class intprojection size = object
   method add v =
     if (size = 0) then assert false ;
     if (counter > size - 1) then assert false;
-    debug "intprojection : var %d -> int %d" v counter;
+    (* debug "intprojection : var %d -> int %d" v counter; *)
     Util.IntHashtbl.add vartoint v counter;
     inttovar.(counter) <- v;
     counter <- counter + 1
 
   (** given a package id return a sat solver variable 
       raise Not_found if the package id is not known *)
-  method vartoint v =
-    if size = 0 then v
-    else Util.IntHashtbl.find vartoint v
-      
+  method vartoint v = Util.IntHashtbl.find vartoint v
+
   (* given a sat solver variable return a package id *)
   method inttovar i =
-    if size = 0 then i else begin
-      if (i > size - 1) then assert false;
-      inttovar.(i)
-    end
+    if (i > size - 1) then assert false;
+    inttovar.(i)
 end
+
+class identity = object
+  method add (v : int) = ()
+  method vartoint (v : int) = v
+  method inttovar (v : int) = v
+end
+
+let init_map closure univ =
+  if List.length closure > 0 then begin
+    let map = new intprojection (List.length closure) in
+    List.iter map#add closure;
+    map
+  end
+  else new identity
 
 (** low level solver data type *)
 type solver = {
-  constraints : S.state ; (** the sat problem *)
-  conflicts : int ;       (** total number of conflicts *)
-  disjunctions : int ;    (** total number of disjunctions *)
-  dependencies : int ;    (** total number of dependencies *)
-  map : intprojection;    (** map a package id to a sat solver variable *)
-  proxy : int -> int;     (** return the index of a proxy variable. 
-                              Proxy variables are numbered from 0 to proxy_size - 1 *)
-  nr_variables : int ;    (** number of non-proxy variables *)
+  constraints : S.state; (** the sat problem *)
+  map : intprojection
 }
 
-(** low level constraint solver initialization
- 
-    @param buffer debug buffer to print out debug messages
-    @param proxy_size  proxy variables. These are additional variables 
-                       used to encode specific contraint.
-    @param closure init the solver with a subset of packages. This must be
-                   the **dependency closure** of the subset of packages.
-    @param index package index
- *)
-let init_solver ?(buffer=false) ?(proxy_size=0) ?closure index =
-  let num_conflicts = ref 0 in
-  let num_disjunctions = ref 0 in
-  let num_dependencies = ref 0 in
+type pool_t =
+  ((Cudf_types.vpkg list * S.var list) list * 
+   (Cudf_types.vpkg * S.var list) list) array
+and pool = SolverPool of pool_t | CudfPool of pool_t
 
-  (* add dependencies *)
-  let exec_depends map constraints pkg_id pkg =
-    let satvar = map#vartoint pkg_id in
-    let lit = S.lit_of_var satvar false in
-    List.iter (fun (vpkgs,disjunction,_) ->
-      incr num_dependencies;
-      if List.length disjunction = 0 then
-        S.add_rule constraints [|lit|] [Diagnostic_int.Missing(pkg_id,vpkgs)]
-      else begin
-        let lit_list =
-          let a =
-            List.map (fun i -> 
-              incr num_disjunctions;
-              S.lit_of_var (map#vartoint i) true
-            ) disjunction
-          in
-          lit::a
-        in
-        S.add_rule constraints (Array.of_list lit_list)
-        [Diagnostic_int.Dependency(pkg_id,vpkgs,disjunction)]
-        ;
-        if List.length disjunction > 1 then
-          S.associate_vars constraints
-          (S.lit_of_var satvar true)
-          (List.map map#vartoint disjunction)
-      end
-    ) pkg.Mdf.depends
-  in
+let strip_solver_pool = function SolverPool p -> p | _ -> assert false
+let strip_cudf_pool = function CudfPool p -> p | _ -> assert false
 
-  (* add conflicts *)
-  let exec_conflicts map constraints pkg_id1 pkg =
-    try
-      let conjunction = pkg.Mdf.conflicts in
-      let x = S.lit_of_var (map#vartoint pkg_id1) false in 
-      List.iter (fun (_, pkg_id2) ->
-        if pkg_id1 <> pkg_id2 then begin
-            let y = S.lit_of_var (map#vartoint pkg_id2) false in
-            incr num_conflicts;
-            S.add_rule constraints [|x; y|] [Diagnostic_int.Conflict(pkg_id1, pkg_id2)]
-        end
-      ) conjunction
-    with Not_found -> begin
+(* cudf uid -> cudf uid array . Here we assume cudf uid are sequential
+ * and we can use them as an array index *)
+let init_pool_univ univ =
+  let pool = 
+    Array.init (Cudf.universe_size univ) (fun uid ->
+      let pkg = Cudf.package_by_uid univ uid in
+      let dll = 
+        List.map (fun vpkgs ->
+          (vpkgs, CudfAdd.resolve_vpkgs_int univ vpkgs)
+        ) pkg.Cudf.depends 
+      in
+      let cl = 
+        List.map (fun vpkg ->
+          (vpkg, CudfAdd.resolve_vpkg_int univ vpkg)
+        ) pkg.Cudf.conflicts
+      in
+      (dll,cl)
+    )
+  in CudfPool pool
+;;
+
+(* this function creates an array indexed by solver
+ * ids that can be used to init the edos solver *)
+let init_solver_pool map pool closure =
+  let cudfpool = strip_cudf_pool pool in
+  let solverpool = 
+    Array.init (List.length closure) (fun sid ->
+      let uid = map#inttovar sid in
+      let (dll,cl) = cudfpool.(uid) in
+      let sdll = 
+        List.map (fun (vpkgs,uidl) ->
+          (vpkgs,List.map map#vartoint uidl)
+        ) dll
+      in
+      let scl = 
       (* ignore conflicts that are not in the closure.
        * if nobody depends on a conflict package, then it is irrelevant.
        * This requires a leap of faith in the user ability to build an
        * appropriate closure. If the closure is wrong, you are on your own *)
-      debug "init_solver : Conflict for package %s not in the universe" pkg.Mdf.pkg.Cudf.package;
-      ()
+        List.map (fun (vpkg,uidl) ->
+          let l =
+            List.filter_map (fun uid -> 
+              try Some(map#vartoint uid)
+              with Not_found -> None
+            ) uidl
+          in
+          (vpkg, l)
+        ) cl 
+      in
+      (sdll,scl)
+    )
+  in SolverPool solverpool
+;;
+
+(* operates only on solver ids *)
+let init_solver_cache ?(buffer=false) pool =
+  let pool = strip_solver_pool pool in
+  let num_conflicts = ref 0 in
+  let num_disjunctions = ref 0 in
+  let num_dependencies = ref 0 in
+  let size = Array.length pool in
+
+  let add_depend constraints vpkgs pkg_id l =
+    let lit = S.lit_of_var pkg_id false in 
+    if (List.length l) = 0 then 
+      S.add_rule constraints [|lit|] [Diagnostic_int.Missing(pkg_id,vpkgs)]
+    else begin
+      let lits = List.map (fun id -> S.lit_of_var id true) l in
+      num_disjunctions := !num_disjunctions + (List.length lits);
+      S.add_rule constraints (Array.of_list (lit :: lits))
+        [Diagnostic_int.Dependency (pkg_id, vpkgs, l)];
+      if (List.length lits) > 1 then
+        S.associate_vars constraints (S.lit_of_var pkg_id true) l;
     end
   in
 
-  let nvars = 
-    if Option.is_none closure then Array.length index
-    else List.length (Option.get closure)
+  let conflicts = Hashtbl.create (size / 10) in
+  let add_conflict constraints vpkg (i,j) =
+    if i <> j then begin
+      let pair = (min i j,max i j) in
+      (* we get rid of simmetric conflicts *)
+      if not(Hashtbl.mem conflicts pair) then begin
+        incr num_conflicts;
+        Hashtbl.add conflicts pair ();
+        let p = S.lit_of_var i false in
+        let q = S.lit_of_var j false in
+        S.add_rule constraints [|p;q|] [Diagnostic_int.Conflict(i,j,vpkg)];
+      end
+    end
   in
 
-  let size = nvars + proxy_size in
-  Util.Progress.set_total progressbar_init size ;
+  let exec_depends constraints pkg_id dll =
+    List.iter (fun (vpkgs,dl) ->
+      incr num_dependencies;
+      add_depend constraints vpkgs pkg_id dl
+    ) dll
+  in 
 
+  let exec_conflicts constraints pkg_id cl =
+    List.iter (fun (vpkg,l) ->
+      List.iter (fun id ->
+        add_conflict constraints vpkg (pkg_id, id)
+      ) l
+    ) cl
+  in
+
+  Util.Progress.set_total progressbar_init size ;
   let constraints = S.initialize_problem ~buffer size in
 
-  let proxy =
-    let a = Array.init proxy_size (fun i -> nvars + i) in 
-    fun i -> try a.(i) with _ -> assert false
-  in
+  Array.iteri (fun id (dll,cl) ->
+    Util.Progress.progress progressbar_init;
+    exec_depends constraints id dll;
+    exec_conflicts constraints id cl;
+  ) pool;
+    
+  Hashtbl.clear conflicts;
 
-  let map =
-    (* intprojection 0 => identity function *)
-    if Option.is_none closure then new intprojection 0
-    else new intprojection size
-  in
-
-  if Option.is_none closure then
-    for i = 0 to (Array.length index) - 1 do
-      Util.Progress.progress progressbar_init;
-      exec_depends map constraints i index.(i);
-      exec_conflicts map constraints i index.(i); 
-    done
-  else begin
-    let closure = Option.get closure in
-    List.iter map#add closure;
-    List.iter (fun i ->
-      Util.Progress.progress progressbar_init;
-      exec_depends map constraints i index.(i);
-      exec_conflicts map constraints i index.(i);
-    ) closure
-  end;
+  debug "n. disjunctions %d" !num_disjunctions;
+  debug "n. dependencies %d" !num_dependencies;
+  debug "n. conflicts %d" !num_conflicts;
 
   S.propagate constraints ;
-  {
-    constraints = constraints ;
-    conflicts = !num_conflicts ;
-    dependencies = !num_dependencies ;
-    disjunctions = !num_disjunctions ;
-    map = map ;
-    proxy = proxy ;
-    nr_variables = nvars ;
-  }
+  constraints
+;;
+
+(** low level constraint solver initialization
+ 
+    @param buffer debug buffer to print out debug messages
+    @param closure init the solver with a subset of packages. This must be
+                   the **dependency closure** of the subset of packages.
+    @param index package index
+*)
+let init_solver_univ ?(buffer=false) univ =
+  let map = new identity in
+  let pool = SolverPool (strip_cudf_pool (init_pool_univ univ)) in
+  { constraints = init_solver_cache ~buffer pool ; map = map }
+;;
+
+(* pool = cudf pool - closure = dependency clousure . cudf uid list *)
+let init_solver_closure ?(buffer=false) pool closure =
+  let map = new intprojection (List.length closure) in
+  List.iter map#add closure;
+  let pool = init_solver_pool map pool closure in
+  { constraints = init_solver_cache ~buffer pool ; map = map }
 ;;
 
 (** return a copy of the state of the solver *)
@@ -195,15 +238,13 @@ let solve solver request =
   (* XXX this function gets called a zillion times ! *)
   S.reset solver.constraints;
 
-  let result solve collect ?(proxies=[]) var =
+  let result solve collect var =
     if solve solver.constraints var then begin
       let get_assignent ?(all=false) () =
         let l = ref [] in
         let a = S.assignment solver.constraints in
         for i = 0 to (Array.length a) - 1 do
-          if a.(i) = S.True then
-            if not(List.mem i proxies) then
-              l := (solver.map#inttovar i) :: !l
+          if a.(i) = S.True then l := (solver.map#inttovar i) :: !l
         done;
         !l
       in
@@ -221,6 +262,82 @@ let solve solver request =
       result S.solve_lst S.collect_reasons_lst (List.map solver.map#vartoint il)
 ;;
 
+let pkgcheck callback solver failed tested id =
+  let memo (tested,failed) res = 
+    begin
+      match res with
+      |Diagnostic_int.Success(f_int) ->
+          List.iter (fun i -> tested.(i) <- true) (f_int ())
+      |Diagnostic_int.Failure _  -> incr failed
+    end ; res
+  in
+  let req = Diagnostic_int.Sng id in
+  let res =
+    Util.Progress.progress progressbar_univcheck;
+    if not(tested.(id)) then begin
+      memo (tested,failed) (solve solver req)
+    end
+    else begin
+      (* this branch is true only if the package was previously
+       * added to the tested packages and therefore it is installable *)
+      (* if all = true then the solver is called again to provide the list
+       * of installed packages despite the fact the the package was already
+       * tested. This is done to provide one installation set for each package
+       * in the universe *)
+      let f ?(all=false) () =
+        if all then begin
+          match solve solver req with
+          |Diagnostic_int.Success(f_int) -> f_int ()
+          |Diagnostic_int.Failure _ -> assert false (* impossible *)
+        end else []
+      in Diagnostic_int.Success(f) 
+    end
+  in
+  match callback with
+  |None -> ()
+  |Some f -> f (res,req)
+;;
+
+(** [univcheck ?callback (mdf,solver)] check if all packages known by 
+    the solver are installable. XXX
+
+    @param mdf package index 
+    @param solver dependency solver
+    @return the number of packages that cannot be installed
+*)
+let univcheck ?callback univ =
+  let timer = Util.Timer.create "Algo.Depsolver.univcheck" in
+  Util.Timer.start timer;
+  let solver = init_solver_univ univ in
+  let failed = ref 0 in
+  let size = Cudf.universe_size univ in
+  let tested = Array.make size false in
+  Util.Progress.set_total progressbar_univcheck size ;
+  let check = pkgcheck callback solver failed tested in
+  for i = 0 to size - 1 do check i done;
+  Util.Timer.stop timer !failed
+;;
+
+(** [listcheck ?callback idlist mdf] check if a subset of packages 
+    known by the solver [idlist] are installable
+
+    @param idlist list of packages id to be checked
+    @param maps package index
+    @return the number of packages that cannot be installed
+*)
+let listcheck ?callback univ idlist =
+  let solver = init_solver_univ univ in
+  let timer = Util.Timer.create "Algo.Depsolver.listcheck" in
+  Util.Timer.start timer;
+  let failed = ref 0 in
+  let size = Cudf.universe_size univ in
+  Util.Progress.set_total progressbar_univcheck size ;
+  let tested = Array.make size false in
+  let check = pkgcheck callback solver failed tested in
+  List.iter check idlist ;
+  Util.Timer.stop timer !failed
+;;
+
 (***********************************************************)
 
 (** [reverse_dependencies index] return an array that associates to a package id
@@ -228,21 +345,45 @@ let solve solver request =
 
     @param mdf the package universe
 *)
-let reverse_dependencies mdf =
-  let index = mdf.Mdf.index in
-  let size = Array.length index in
+let reverse_dependencies univ =
+  let size = Cudf.universe_size univ in
   let reverse = Array.create size [] in
-  let rev i dl = 
-    List.iter (fun (_,a,_) ->
-      List.iter (fun j ->
+  Cudf.iteri_packages (fun i p ->
+    List.iter (fun ll ->
+      List.iter (fun q ->
+        let j = CudfAdd.vartoint univ q in
         if i <> j then
           if not(List.mem i reverse.(j)) then
             reverse.(j) <- i::reverse.(j)
-      ) a
-    ) dl
-  in
-  for i = 0 to size - 1 do rev i index.(i).Mdf.depends done;
+      ) ll
+    ) (CudfAdd.who_depends univ p)
+  ) univ;
   reverse
+
+let dependency_closure_cache ?(maxdepth=max_int) ?(conjunctive=false) pool idlist =
+  let cudfpool = strip_cudf_pool pool in
+  let queue = Queue.create () in
+  let visited = Hashtbl.create (2 * (List.length idlist)) in
+  List.iter (fun e -> Queue.add (e,0) queue) (CudfAdd.normalize_set idlist);
+  while (Queue.length queue > 0) do
+    let (id,level) = Queue.take queue in
+    if not(Hashtbl.mem visited id) && level < maxdepth then begin
+      Hashtbl.add visited id ();
+      List.iter (function
+        |(_,[i]) when conjunctive = true ->
+          if not(Hashtbl.mem visited i) then
+            Queue.add (i,level+1) queue
+        |(_,dsj) when conjunctive = false ->
+          List.iter (fun i ->
+            if not(Hashtbl.mem visited i) then
+              if not(Hashtbl.mem visited i) then
+                Queue.add (i,level+1) queue
+          ) dsj
+        |_ -> ()
+      ) (fst(cudfpool.(id)))
+    end
+  done;
+  Hashtbl.fold (fun k _ l -> k::l) visited []
 
 (** [dependency_closure index l] return the union of the dependency closure of
     all packages in [l] .
@@ -251,40 +392,11 @@ let reverse_dependencies mdf =
     @param conjunctive consider only conjunctive dependencies (false by default)
     @param index the package universe
     @param l a subset of [index]
-
-    This function has in a memoization strategy.
 *)
-let dependency_closure ?(maxdepth=max_int) ?(conjunctive=false) mdf =
-  let h = Hashtbl.create (Array.length mdf.Mdf.index) in
-  let cmp : int -> int -> bool = (=) in
-  fun idlist ->
-    try Hashtbl.find h (idlist,conjunctive,maxdepth)
-    with Not_found -> begin
-      let index = mdf.Mdf.index in
-      let queue = Queue.create () in
-      let visited = Hashtbl.create (2 * (List.length idlist)) in
-      List.iter (fun e -> Queue.add (e,0) queue) (List.unique ~cmp idlist);
-      while (Queue.length queue > 0) do
-        let (id,level) = Queue.take queue in
-        if not(Hashtbl.mem visited id) && level < maxdepth then begin
-          Hashtbl.add visited id ();
-          List.iter (function
-            |(_,[i],_) when conjunctive = true ->
-              if not(Hashtbl.mem visited i) then
-                Queue.add (i,level+1) queue
-            |(_,dsj,_) when conjunctive = false ->
-              List.iter (fun i ->
-                if not(Hashtbl.mem visited i) then
-                  Queue.add (i,level+1) queue
-              ) dsj
-            |_ -> ()
-          ) index.(id).Mdf.depends
-        end
-      done;
-      let result = Hashtbl.fold (fun k _ l -> k::l) visited [] in
-      Hashtbl.add h (idlist,conjunctive,maxdepth) result;
-      result
-    end
+let dependency_closure ?(maxdepth=max_int) ?(conjunctive=false) univ idlist =
+  let pool = init_pool_univ univ in
+  dependency_closure_cache ~maxdepth ~conjunctive pool idlist
+;;
 
 (*    XXX : elements in idlist should be included only if because
  *    of circular dependencies *)
@@ -321,81 +433,3 @@ let reverse_dependency_closure ?(maxdepth=max_int) reverse =
       result
     end
 
-(***********************************************************)
-
-let pkgcheck callback solver failed tested id =
-  let memo (tested,failed) res = 
-    begin
-      match res with
-      |Diagnostic_int.Success(f_int) -> 
-          List.iter (fun i -> tested.(i) <- true) (f_int ())
-      |Diagnostic_int.Failure _  -> incr failed
-    end ; res
-  in
-  try
-    let req = Diagnostic_int.Sng id in
-    let res =
-      Util.Progress.progress progressbar_univcheck;
-      if not(tested.(id)) then
-        memo (tested,failed) (solve solver req)
-      else begin
-        (* this branch is true only if the package was previously
-         * added to the tested packages and therefore it is installable *)
-        (* if all = true then the solver is called again to provide the list
-         * of installed packages despite the fact the the package was already
-         * tested. This is done to provide one installation set for each package
-         * in the universe *)
-        let f ?(all=false) () =
-          if all then
-            match solve solver req with
-            |Diagnostic_int.Success(f_int) -> f_int ()
-            |Diagnostic_int.Failure _ -> assert false (* impossible *)
-          else []
-        in Diagnostic_int.Success(f) 
-      end
-    in
-    match callback with
-    |None -> ()
-    |Some f -> f (res,req) 
-  with Not_found -> assert false
-
-(** [listcheck ?callback idlist mdf] check if a subset of packages 
-    known by the solver [idlist] are installable
-
-    @param idlist list of packages id to be checked
-    @param mdf package index
-    @return the number of packages that cannot be installed
-*)
-let listcheck ?callback mdf idlist =
-  let closure = dependency_closure mdf idlist in
-  let solver = init_solver ~closure mdf.Mdf.index in
-  let timer = Util.Timer.create "Algo.Depsolver.listcheck" in
-  Util.Timer.start timer;
-  let failed = ref 0 in
-  let size = Array.length mdf.Mdf.index in
-  Util.Progress.set_total progressbar_univcheck size ;
-  let tested = Array.make size false in
-  let check = pkgcheck callback solver failed tested in
-  List.iter check idlist ;
-  Util.Timer.stop timer !failed
-;;
-
-(** [univcheck ?callback (mdf,solver)] check if all packages known by 
-    the solver are installable. XXX
-
-    @param mdf package index 
-    @param solver dependency solver
-    @return the number of packages that cannot be installed
-*)
-let univcheck ?callback mdf =
-  let timer = Util.Timer.create "Algo.Depsolver.univcheck" in
-  Util.Timer.start timer;
-  let solver = init_solver mdf.Mdf.index in
-  let failed = ref 0 in
-  let size = Array.length mdf.Mdf.index in
-  let tested = Array.make size false in
-  Util.Progress.set_total progressbar_univcheck size ;
-  let check = pkgcheck callback solver failed tested in
-  for i = 0 to (Array.length mdf.Mdf.index) - 1 do check i done;
-  Util.Timer.stop timer !failed
-;;

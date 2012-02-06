@@ -13,7 +13,6 @@
 (** Apt command line parsing *)
 
 open ExtLib
-open Format822
 open Common
 
 let debug fmt = Util.make_debug "Debian.Apt" fmt
@@ -82,7 +81,7 @@ type apt_req =
   |Upgrade of string option
   |DistUpgrade of string option
 
-let parse_pkg_only s = `Pkg(parse_package s)
+let parse_pkg_only s = `Pkg(Packages.parse_name (Format822.dummy_loc,s))
 
 let distro_re = Str.regexp "^\\([^=/]*\\)*/[ \t]*\\(.*\\)$"
 let version_re = Str.regexp "^\\([^=]*\\)*=[ \t]*\\(.*\\)$"
@@ -90,13 +89,13 @@ let parse_pkg_req suite s =
   try 
     if Str.string_match distro_re s 0 then
       `PkgDst(
-        parse_package(Str.matched_group 1 s),
+        Packages.parse_name(Format822.dummy_loc,Str.matched_group 1 s),
         Str.matched_group 2 s
       )
     else if Str.string_match version_re s 0 then
       `PkgVer(
-        parse_package(Str.matched_group 1 s),
-        (* Packages.parse_version *)(Str.matched_group 2 s)
+        Packages.parse_name (Format822.dummy_loc,Str.matched_group 1 s),
+        Packages.parse_version (Format822.dummy_loc,Str.matched_group 2 s)
       )
     else begin match suite with
     |None -> parse_pkg_only s
@@ -112,7 +111,7 @@ let parse_request_apt s =
   if not (String.exists s "apt-get") then fatal "Not a valid apt-get command" ;
   let s = String.slice ~first:((String.find s "apt-get")) s in
   let suite = ref None in
-  (* XXX we parse a log of options, but we do not handle them ... *)
+  (* XXX we parse a lot of options, but we do not handle them ... *)
   let options = [
     ("-t", Arg.String (fun l -> suite := Some(l)), "");
     ("-s", Arg.Unit (fun _ -> ()), "");
@@ -143,7 +142,7 @@ let parse_request_aptitude s =
   if not (String.exists s "aptitude") then fatal "Not a valid aptitude command" ;
   let s = String.slice ~first:((String.find s "aptitude")) s in
   let suite = ref None in
-  (* XXX we parse a log of options, but we do not handle them ... *)
+  (* XXX we parse a lot of options, but we do not handle them ... *)
   let options = [
     ("-t", Arg.String (fun l -> suite := Some(l)), ""); (* default suite *)
     ("-s", Arg.Unit (fun _ -> ()), "");
@@ -207,12 +206,12 @@ let parse_pref_labels s =
   ) (Str.split comma_re s)
 
 let general_re = Str.regexp "^[ \t]*\\*[ \t]*$"
-let parse_pref_package s =
+let parse_pref_package (_,s) =
   if Str.string_match general_re s 0 then Pref.Star
-  else Pref.Package (parse_package s)
+  else Pref.Package (Packages.parse_name (Format822.dummy_loc,s))
 
 let pin_re = Str.regexp "^\\([A-Za-z]+\\)[ \t]+\\(.*\\)$"
-let parse_pin s =
+let parse_pin (_,s) =
   if Str.string_match pin_re s 0 then
     match Str.matched_group 1 s with
     |"release" -> Pref.Release (parse_pref_labels (Str.matched_group 2 s))
@@ -221,21 +220,23 @@ let parse_pin s =
     |s -> fatal "Unkwnon pin type %s" s
   else fatal "Unkwnon pin format %s" s
 
-let parse_priority s = int_of_string s
+let parse_preferences_stanza par =
+  {
+    Pref.package = 
+      Packages.parse_s ~err:"(MISSING PACKAGE)"
+      parse_pref_package "Package" par;
+    pin = Packages.parse_s ~err:"(MISSING PIN)" parse_pin "Pin" par;
+    pin_priority = Packages.parse_s ~err:"(MISSING Pin-Priority)"
+      Packages.parse_int "Pin-Priority" par;
+  }
 
-let parse_preferences_fields p =
-  let parse f field = f (single_line field (List.assoc field p)) in
-  try
-    let e = {
-        Pref.package = parse parse_pref_package "package";
-        pin = parse parse_pin "pin";
-        pin_priority = parse parse_priority "pin-priority";
-      }
-    in Some e
-  with Not_found -> None
+let rec preferences_parser stanza_parser acc p =
+  match Format822_parser.stanza_822 Format822_lexer.token_822 p.Format822.lexbuf with
+  |None -> acc
+  |Some stanza -> 
+      let st = stanza_parser stanza in
+      preferences_parser stanza_parser (st::acc) p
 
 (** parse the apt_preferences file *)
-let parse_preferences_in ch =
-  let parse_preferences_rec = parse_822_iter parse_preferences_fields in
-  parse_preferences_rec (start_from_channel ch)
-
+let parse_preferences_in ic =
+  Format822.parse_from_ch (preferences_parser parse_preferences_stanza []) ic
