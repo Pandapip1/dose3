@@ -1,3 +1,9 @@
+dose3 (2.9.10-1) UNRELEASEDy; urgency=low
+
+  * New upstream release
+
+ -- Ralf Treinen <treinen@debian.org>  Mon, 06 Feb 2012 15:13:14 +0100
+
 dose3 (2.9.8-1) experimental; urgency=low
 
   [ Stefano Zacchiroli ]
