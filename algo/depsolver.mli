@@ -20,13 +20,16 @@ type solver
 val load : ?check : bool -> Cudf.universe -> solver
 
 (** check if the given package can be installed in the universe *)
-val edos_install : solver -> Cudf.package -> Diagnostic.diagnosis
+val edos_install : Cudf.universe -> solver -> Cudf.package -> Diagnostic.diagnosis
 
 (** check if the give package list can be installed in the universe *)
-val edos_coinstall : solver -> Cudf.package list -> Diagnostic.diagnosis
+val edos_coinstall : Cudf.universe -> solver -> Cudf.package list -> Diagnostic.diagnosis
 
 (** remove uninstallable packages from the universe *)
 val trim : Cudf.universe -> Cudf.universe
+
+(** return the list of the broken packages *)
+val find_broken : Cudf.universe -> Cudf.package list
 
 (** [univcheck solver] check if all packages in the 
     universe associated with the solver can be installed.

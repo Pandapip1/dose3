@@ -11,14 +11,13 @@
 (*  library, see the COPYING file for more information.                               *)
 (**************************************************************************************)
 
-open Cudf
 open ExtLib
 open Common
 open Algo
 
-let debug fmt = Util.make_debug "Ceve" fmt
-let info fmt = Util.make_info "Ceve" fmt
-let warning fmt = Util.make_warning "Ceve" fmt
+let debug fmt = Util.make_debug __FILE__ fmt
+let info fmt = Util.make_info __FILE__ fmt
+let warning fmt = Util.make_warning __FILE__ fmt
 
 IFDEF HASOCAMLGRAPH THEN
   module DGraph = Defaultgraphs.SyntacticDependencyGraph
@@ -100,11 +99,11 @@ ELSE
 END
 ;;
 
-let nr_conflicts maps univ =
-begin
+let nr_conflicts univ =
+  let open Cudf in
   Cudf.fold_packages (fun acc p ->
-    let cfl = List.filter (fun x -> not (x =% p))
-      (List.flatten (List.rev_map maps.CudfAdd.who_provides p.conflicts)) in
+    let cfl = List.filter (fun x -> not(x =% p))
+      (List.flatten (List.rev_map (CudfAdd.who_provides univ) p.conflicts)) in
     debug "%s: %d conflicts" (Cudf_types_pp.string_of_pkgname p.package)
       (List.length cfl);
     List.iter (fun c ->
@@ -112,7 +111,7 @@ begin
     ) cfl;
     acc + (List.length cfl)
   ) 0 univ
-end;;
+;;
 
 let main () =
   let posargs = OptParse.OptParser.parse_argv Options.options in
@@ -184,7 +183,6 @@ let main () =
   let output ll =
     List.iter (fun l ->
       let u = Cudf.load_universe l in
-      let m = CudfAdd.build_maps u in
       let oc = Options.output_ch () in
       begin match OptParse.Opt.get Options.output_ty with
       |"dot" -> 
@@ -200,7 +198,7 @@ END
 IFDEF HASOCAMLGRAPH THEN
         Printf.fprintf oc "%d\t%d\t%d\n"
         (Cudf.universe_size u) (DGraph.G.nb_edges (DGraph.dependency_graph u))
-        (nr_conflicts m u)
+        (nr_conflicts u)
 ELSE
         failwith ("table not supported: needs ocamlgraph")
 END

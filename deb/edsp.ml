@@ -22,8 +22,8 @@ let fatal fmt = Util.make_fatal "Debian.Edsp" fmt
 
 type request = {
   request : string;
-  install : Format822.vpkg list;
-  remove : Format822.vpkg list;
+  install : Format822.vpkgreq list;
+  remove : Format822.vpkgreq list;
   autoremove : bool;
   upgrade : bool;
   distupgrade : bool;
@@ -42,82 +42,85 @@ let default_request = {
   preferences = ""
 }
 
-let parse_req s = 
-  match String.nsplit s "=" with
-  |[n] -> (n,None)
-  |[n;v] -> (n,Some("=",v))
+let parse_s = Packages.parse_s
+let parse_string (_,s) = s
+let parse_int_s (_,s) = string_of_int(int_of_string s)
+let parse_req s = Packages.lexbuf_wrapper Packages_parser.request_top s
+
+let parse_request_stanza par =
+  {
+    request = parse_s ~err:"(Empty REQUEST)" parse_string "Request" par;
+    install = parse_s ~opt:[] parse_req "Install" par;
+    remove = parse_s ~opt:[] parse_req "Remove" par;
+    upgrade = parse_s ~opt:false Packages.parse_bool "Upgrade" par;
+    distupgrade = parse_s ~opt:false Packages.parse_bool "Dist-Upgrade" par;
+    autoremove = parse_s ~opt:false Packages.parse_bool "Autoremove" par;
+    strict_pin = parse_s ~opt:true Packages.parse_bool "Strict-Pinning" par;
+    preferences = parse_s ~opt:"" Packages.parse_string "Preferences" par;
+  }
+;;
+
+(* parse and return a string -> for extra fields *)
+let parse_bool_s = function
+  |(_,("Yes"|"yes"|"true" |"True")) -> "true"
+  |(_,("No" |"no" |"false"|"False")) -> "false" (* this one usually is not there *)
+  |(_,s) -> raise (Format822.Type_error ("wrong value : "^ s))
+
+let parse_installed = parse_s parse_bool_s "Installed"
+let parse_hold = parse_s parse_bool_s "Hold"
+let parse_apt_id = parse_s ~err:"(MISSING APT-ID)" parse_string "APT-ID"
+let parse_apt_pin = parse_s ~err:"(MISSING APT-Pin)" parse_int_s "APT-Pin"
+let parse_automatic = parse_s parse_bool_s "APT-Automatic"
+let parse_candidate = parse_s parse_bool_s "APT-Candidate"
+let parse_section = parse_s parse_string "Section"
+
+(* (field,opt,err,multi,parsing function) *)
+let extras = [
+  ("Installed", Some parse_installed);
+  ("Hold", Some parse_hold);
+  ("APT-ID", Some parse_apt_id);
+  ("APT-Pin", Some parse_apt_pin);
+  ("APT-Candidate", Some parse_candidate);
+  ("APT-Automatic", Some parse_automatic);
+  ("Section", Some parse_section);
+  ]
+
+(* parse the entire file while filtering out unwanted stanzas *)
+let rec packages_parser ?(request=false) (req,acc) p =
+  let filter par = 
+    let match_field f p =
+      try 
+        begin match Packages.assoc f p with
+        |(_,("Yes"|"yes"|"True" |"true")) -> true
+        |(_,("No" |"no" |"False"|"false")) -> false
+        |_ -> false
+        end
+      with Not_found -> false
+    in
+    let inst () = match_field "Installed" par in 
+    let candidate () = match_field "APT-Candidate" par in
+    ((inst ()) || (candidate ()))
+  in
+  match Format822_parser.stanza_822 Format822_lexer.token_822 p.Format822.lexbuf with
+  |None -> (req,acc) (* end of file *)
+  |Some stanza when request = true -> 
+      let req = parse_request_stanza stanza in
+      packages_parser (req,acc) p
+  |Some stanza when req.strict_pin = true -> begin
+    match (Packages.parse_package_stanza (Some(filter)) None extras stanza) with
+    |None -> packages_parser (req,acc) p
+    |Some st -> packages_parser (req,st::acc) p
+  end
+  |Some stanza when req.strict_pin = false -> begin
+    match (Packages.parse_package_stanza None None extras stanza) with
+    |None -> assert false (* this is not possible in this branch *)
+    |Some st -> packages_parser (req,st::acc) p
+  end
   |_ -> assert false
 ;;
 
-let parse_s = Format822.parse_s
-let parse_conj _ s = Format822.list_parser ~sep:" " parse_req s
-
-let parse_request_stanza par =
-  let aux par =
-    Some {
-      request = parse_s ~err:"(Malformed REQUEST)" Packages.parse_string "Request" par;
-      install = parse_s ~opt:[] parse_conj "Install" par;
-      remove = parse_s ~opt:[] parse_conj "Remove" par;
-      upgrade = parse_s ~opt:false Packages.parse_bool "Upgrade" par;
-      distupgrade = parse_s ~opt:false Packages.parse_bool "Dist-Upgrade" par;
-      autoremove = parse_s ~opt:false Packages.parse_bool "Autoremove" par;
-      strict_pin = parse_s ~opt:true Packages.parse_bool "Strict-Pinning" par;
-      preferences = parse_s ~opt:"" Packages.parse_string "Preferences" par;
-    }
-  in Format822.parse_packages_fields aux par
-;;
-
-let parse_installed par = Packages.parse_s Packages.parse_bool_s "Installed" par ;;
-let parse_hold par = Packages.parse_s Packages.parse_bool_s "Hold" par ;;
-let parse_apt_id par = Packages.parse_s ~err:"(MISSING APT-ID)" Packages.parse_string "APT-ID" par ;;
-let parse_apt_pin par = Packages.parse_s ~err:"(MISSING APT-Pin)" Packages.parse_int_s "APT-Pin" par ;;
-let parse_automatic par = Packages.parse_s Packages.parse_bool_s "APT-Automatic" par ;;
-let parse_candidate par = Packages.parse_s Packages.parse_bool_s "APT-Candidate" par ;;
-let parse_section par = Packages.parse_s Packages.parse_string "Section" par ;;
-
-let input_raw_ch ch =
-  (* (field,opt,err,multi,parsing function) *)
-  let extras = [
-    ("Installed", parse_installed);
-    ("Hold", parse_hold);
-    ("APT-ID", parse_apt_id);
-    ("APT-Pin", parse_apt_pin);
-    ("APT-Candidate", parse_candidate);
-    ("APT-Automatic", parse_automatic);
-    ("Section", parse_section);
-    ]
-  in
-  let request = 
-    match Format822.parse_paragraph (Format822.start_from_channel ch) with 
-    |None -> fatal "empty request (empty document)"
-    |Some par -> 
-        match parse_request_stanza par with
-        |None -> fatal "empty request (document does not start with a request)"
-        |Some r -> r
-  in
-  (* XXX: not convinced that this is the correct level to put this filter *)
-  let pkglist = 
-    if request.strict_pin then
-      let filter pkg = 
-        let inst () =
-          try
-            Packages.parse_bool "Installed"
-            (Format822.assoc "Installed" pkg.Packages.extras)
-          with Not_found -> false
-        in
-        let candidate () =
-          try
-            let s = Format822.assoc "APT-Candidate" pkg.Packages.extras in
-            Packages.parse_bool "APT-Candidate" s
-          with Not_found -> false
-        in
-        (inst ()) || (candidate ())
-      in
-      Packages.parse_packages_in ~filter ~extras ch 
-    else
-      Packages.parse_packages_in ~extras ch
-  in
-  (request,pkglist)
+let input_raw_ch ic =
+  Format822.parse_from_ch (packages_parser ~request:true (default_request,[])) ic
 ;;
 
 let extras_tocudf =
@@ -134,8 +137,9 @@ let extras_tocudf =
 let tocudf tables pkg =
   let inst =
     try
-      Packages.parse_bool "Installed"
-      (Format822.assoc "Installed" pkg.Packages.extras)
+      let _loc = Format822.dummy_loc in
+      let v = Packages.assoc "Installed" pkg.Packages.extras in
+      Packages.parse_bool (_loc,v)
     with Not_found -> false
   in
   Debcudf.tocudf tables ~inst ~extras:extras_tocudf pkg 

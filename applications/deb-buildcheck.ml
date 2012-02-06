@@ -20,7 +20,10 @@ module Boilerplate = BoilerplateNoRpm
 
 module Options = struct
   open OptParse
-  let description = "Report the broken packages in a debian source list"
+  let description =
+    "Report the broken packages in a debian source list. \
+     You must provide a (list of) Debian Packages file(s) and \
+     a Debian Sources file in this order"
   let options = OptParser.make ~description
   include Boilerplate.MakeOptions(struct let options = options end)
 
@@ -33,7 +36,7 @@ module Options = struct
   let distribution = StdOpt.str_option ()
   let release = StdOpt.str_option ()
   let suite = StdOpt.str_option ()
-  let outfile = StdOpt.str_option ()
+  let dump = StdOpt.str_option ()
 
   open OptParser
   add options ~short_name:'e' ~long_name:"explain" ~help:"Explain the results" explain;
@@ -48,13 +51,13 @@ module Options = struct
   add options ~long_name:"suite" ~help:"Set the release name" suite;
   add options ~long_name:"arch" ~help:"Set the default architecture" architecture;
 
-  add options ~short_name:'o' ~long_name:"outfile" ~help:"output file" outfile;
+  add options ~long_name:"dump" ~help:"dump the cudf file" dump;
 end
 
-let debug fmt = Util.make_debug "Buildcheck" fmt
-let info fmt = Util.make_info "Buildcheck" fmt
-let warning fmt = Util.make_warning "Buildcheck" fmt
-let fatal fmt = Util.make_fatal "Buildcheck" fmt
+let debug fmt = Util.make_debug __FILE__ fmt
+let info fmt = Util.make_info __FILE__ fmt
+let warning fmt = Util.make_warning __FILE__ fmt
+let fatal fmt = Util.make_fatal __FILE__ fmt
 
 let timer = Util.Timer.create "Solver"
 
@@ -66,10 +69,23 @@ let main () =
   if not(OptParse.Opt.is_set Options.architecture) then 
     fatal "--arch must be specified";
 
-  let pkglist = Deb.input_raw [List.hd posargs] in
-  let srclist = 
-    let l = Src.input_raw (List.tl posargs) in
-    Src.sources2packages (OptParse.Opt.get Options.architecture) l 
+  let pkglist, srclist =
+    match posargs with
+    |[] | [_] -> fatal 
+      "You must provide a list of Debian Packages files and \
+       a Debian Sources file"
+    |l -> 
+        begin match List.rev l with
+        |h::t ->
+          let srclist =
+            let archs = [OptParse.Opt.get Options.architecture] in
+            let l = Src.input_raw [h] in
+            Src.sources2packages archs l
+          in
+          let pkglist = Deb.input_raw t in
+          (pkglist,srclist)
+        |_ -> failwith "Impossible"
+        end
   in
   let tables = Debcudf.init_tables (srclist @ pkglist) in
  
@@ -80,12 +96,12 @@ let main () =
       List.filter_map (fun k ->
         try Some(k,Cudf.lookup_package_property pkg k)
         with Not_found -> None
-      ) ["architecture";"source";"sourceversion"]
+      ) ["architecture";"source";"sourcenumber"]
     in (p,v,l)
   in
 
-  let sl = List.map (fun pkg -> Debcudf.tocudf tables pkg) srclist in
-  let l = List.fold_left (fun acc pkg -> (Debcudf.tocudf tables pkg)::acc) sl pkglist in
+  let sl = List.map (fun pkg -> Debcudf.tocudf ~extras:[] tables pkg) srclist in
+  let l = List.fold_left (fun acc pkg -> (Debcudf.tocudf ~extras:[] tables pkg)::acc) sl pkglist in
 
   let universe = Cudf.load_universe l in
   let universe_size = Cudf.universe_size universe in
@@ -94,13 +110,8 @@ let main () =
   let success = OptParse.Opt.get Options.successes in
   let explain = OptParse.Opt.get Options.explain in
   let summary = OptParse.Opt.get Options.summary in
-  let fmt =
-    if OptParse.Opt.is_set Options.outfile then
-      let oc = open_out (OptParse.Opt.get Options.outfile) in
-      Format.formatter_of_out_channel oc
-    else
-      Format.std_formatter
-  in
+  let fmt = Format.std_formatter in
+
   let results = Diagnostic.default_result universe_size in
 
   if OptParse.Opt.is_set Options.distribution then
@@ -132,6 +143,12 @@ let main () =
 
   if summary then
     Format.fprintf fmt "@[%a@]@." (Diagnostic.pp_summary ~pp ()) results;
+
+  if OptParse.Opt.is_set Options.dump then begin
+    let oc = open_out (OptParse.Opt.get Options.dump) in
+    info "Dumping Cudf file";
+    Cudf_printer.pp_universe oc universe
+  end
 
 ;;
 

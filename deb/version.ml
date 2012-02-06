@@ -1,83 +1,228 @@
-(**************************************************************************)
-(*  Copyright (C) 2009  Jaap Boender <jaap.boender@pps.jussieu.fr>        *)
-(*                                                                        *)
-(*  This library is free software: you can redistribute it and/or modify  *)
-(*  it under the terms of the GNU Lesser General Public License as        *)
-(*  published by the Free Software Foundation, either version 3 of the    *)
-(*  License, or (at your option) any later version.  A special linking    *)
-(*  exception to the GNU Lesser General Public License applies to this    *)
-(*  library, see the COPYING file for more information.                   *)
-(**************************************************************************)
-
-let fatal fmt = Common.Util.make_fatal "Debian.Version" fmt
-let info fmt = Common.Util.make_info "Debian.Version" fmt
-
-(* cannibalized from ocamldeb *)
+(******************************************************************************)
+(*  This file is part of the Dose library http://www.irill.org/software/dose  *)
+(*                                                                            *)
+(*  Copyright (C) 2011 Ralf Treinen <ralf.treinen@pps.jussieu.fr>             *)
+(*                                                                            *)
+(*  This library is free software: you can redistribute it and/or modify      *)
+(*  it under the terms of the GNU Lesser General Public License as            *)
+(*  published by the Free Software Foundation, either version 3 of the        *)
+(*  License, or (at your option) any later version.  A special linking        *)
+(*  exception to the GNU Lesser General Public License applies to this        *)
+(*  library, see the COPYING file for more information.                       *)
+(*                                                                            *)
+(*  Work developed with the support of the Mancoosi Project                   *)
+(*  http://www.mancoosi.org                                                   *)
+(*                                                                            *)
+(******************************************************************************)
 
 let is_digit = function
   | '0'..'9' -> true
   | _ -> false
 ;;
 
-let first_matching_char_from i f w =
+(* [skip_while_from i f w] yields the index of the leftmost character
+ * in the string [s], starting from [i], that does not satisfy the
+ * predicate [f], or [length w] if no such index exists.  *)
+let skip_while_from i f w =
   let m = String.length w in
   let rec loop i =
-    if i = m then
-      raise Not_found
-    else
-      if f w.[i] then
-        i
-      else
-        loop (i + 1)
-  in
-  loop i
+    if i = m then i
+    else if f w.[i] then loop (i + 1) else i
+  in loop i
 ;;
 
-let first_matching_char = first_matching_char_from 0;;
-
-let longest_matching_prefix f w =
-  try
-    let i = first_matching_char (fun c -> not (f c)) w in
-    String.sub w 0 i, String.sub w i (String.length w - i)
-  with
-  | Not_found -> (w,"")
-;;
-
+(* splits a version into (epoch,rest), without the separating ':'. The
+ * epoch is delimited by the leftmost occurrence of ':' in x, and is ""
+ * in case there is no ':' in x.  *)
 let extract_epoch x =
   try
     let ci = String.index x ':' in
-    if ci < String.length x - 1 then
-      let epoch = String.sub x 0 ci
-      and rest = String.sub x (ci + 1) (String.length x - ci - 1)
-      in
-      (epoch,rest)
-    else
-      ("",x)
+    let epoch = String.sub x 0 ci
+    and rest = String.sub x (ci + 1) (String.length x - ci - 1)
+    in (epoch,rest)
   with
-  | Not_found -> ("",x)
+    | Not_found -> ("",x)
 ;;
 
-let extract_string c x =
+(* splits a version into (prefix,revision). The revision starts on the
+ * right-most occurrence of '-', or is empty in case the version does
+ * not contain '-'.  *)
+let extract_revision x =
   try
-    let di = String.rindex x c in
-    if di < String.length x - 1 then
-      let before = String.sub x 0 di in
-      let after = String.sub x (di + 1) (String.length x - di - 1) in
-      (before,after)
-    else
-      (x,"")
+    let di = String.rindex x '-' in
+    let before = String.sub x 0 di in
+    let after = String.sub x (di+1) (String.length x - di -1) in
+    (before,after)
   with
-  | Not_found -> (x,"")
+    | Not_found -> (x,"")
 ;;
 
-let extract_revision s = extract_string '-' s
-let extract_binnmu s = extract_string '+' s
+(* character comparison uses a modified character ordering: '~' first,
+   then letters, then anything else *)
+let compare_chars c1 c2 = match c1 with
+  | '~' -> (match c2 with
+      | '~' -> 0
+      | _ -> -1)
+  | 'a'..'z'|'A'..'Z' -> (match c2 with
+      | '~' -> 1
+      | 'a'..'z'|'A'..'Z' -> Char.compare c1 c2
+      | _ -> -1)
+  | _ -> (match c2 with
+      | '~'|'a'..'z'|'A'..'Z' -> 1
+      | _ -> Char.compare c1 c2)
+;;
 
-let split s =
-  let (epoch,rest) = extract_epoch s in
-  let (rest,binnmu) = extract_binnmu rest in
-  let (upstream,revision) = extract_revision rest in
-  (epoch,upstream,revision,binnmu)
+(* return the first index of x, starting from xi, of a nun-null
+ * character in x.  or (length x) in case x contains only 0's starting
+ * from xi on.  *)
+let skip_zeros x xi = skip_while_from xi (fun c -> c = '0') x;;
+
+(* compare versions chunks, that is parts of version strings that are
+ * epoch, upstream version, or revisision. Alternates string comparison
+ * and numerical comaprison.  *)
+let compare_chunks x y =
+  (* x and y may be empty *)
+  let xl = String.length x
+  and yl = String.length y
+  in
+  let rec loop_lexical xi yi =
+    assert (xi <= xl && yi <= yl);
+    match (xi=xl,yi=yl) with (* which of x and y is exhausted? *)
+      | true,true -> 0 
+      | true,false -> 
+	(* if y continues numerically than we have to continue by
+	 * comparing numerically. In this case the x part is
+	 * interpreted as 0 (since empty). If the y part consists
+	 * only of 0's then both parts are equal, otherwise the y
+	 * part is larger. If y continues non-numerically then y is
+	 * larger anyway, so we only have to skip 0's in the y part
+	 * and check whether this exhausts the y part.  *)
+	let ys = skip_zeros y yi in
+	if ys = yl then 0 else if y.[ys]='~' then 1 else -1
+      | false,true -> (* symmetric to the preceding case *)
+	let xs = skip_zeros x xi in
+	if xs = xl then 0 else if x.[xs]='~' then -1 else 1
+      | false,false -> (* which of x and y continues numerically? *)
+	match (is_digit x.[xi], is_digit y.[yi]) with 
+	  | true,true ->
+	    (* both continue numerically. Skip leading zeros in the
+	     * remaining parts, and then continue by
+	     * comparing numerically. *)
+	    compare_numerical (skip_zeros x xi) (skip_zeros y yi)
+	  | true,false -> (* '~' is smaller than any numeric part *)
+	    if y.[yi]='~' then 1 else -1
+	  | false,true -> (* '~' is smaller than any numeric part *)
+	    if x.[xi]='~' then -1 else 1
+	  | false,false -> (* continue comparing lexically *)
+	    let comp = compare_chars x.[xi] y.[yi]
+	    in if comp = 0 then loop_lexical (xi+1) (yi+1) else comp
+  and compare_numerical xi yi =
+    assert (xi = xl || (xi < xl && x.[xi] <> '0'));
+    (* leading zeros have been stripped *) 
+    assert (yi = yl || (yi < yl && y.[yi] <> '0'));
+    (* leading zeros have been stripped *) 
+    let xn = skip_while_from xi is_digit x (* length of numerical part *)
+    and yn = skip_while_from yi is_digit y (* length of numerical part *)
+    in 
+    let comp = compare (xn-xi) (yn-yi)
+    in if comp = 0
+      then (* both numerical parts have same length: compare digit by digit *)
+	loop_numerical xi yi yn
+      else
+	(* if one numerical part is longer than the other we have found the
+	 * answer since leading 0 have been striped when switching
+	 * to numerical comparison.  *)
+	comp
+  and loop_numerical xi yi yn =
+    assert (xi <= xl && yi <= yn && yn <= yl);
+    (* invariant: the two numerical parts that remain to compare are
+       of the same length *)
+    if yi=yn
+    then
+      (* both numerical parts are exhausted, we switch to lexical
+	 comparison *)
+      loop_lexical xi yi
+    else
+      (* both numerical parts are not exhausted, we continue comparing
+	 digit by digit *)
+      let comp = Char.compare x.[xi] y.[yi] 
+      in if comp = 0 then loop_numerical (xi+1) (yi+1) yn else comp
+  in loop_lexical 0 0
+;;
+
+let compare (x : string) (y : string) =
+  let normalize_comp_result x = if x=0 then 0 else if x < 0 then -1 else 1
+  in
+  if x = y then 0
+  else
+    let (e1,rest1) = extract_epoch x 
+    and (e2,rest2) = extract_epoch y in
+    let e_comp = compare_chunks e1 e2 in 
+    if e_comp <> 0 then normalize_comp_result e_comp
+    else
+      let (u1,r1) = extract_revision rest1
+      and (u2,r2) = extract_revision rest2 in
+      let u_comp = compare_chunks u1 u2 in
+      if u_comp <> 0 then normalize_comp_result u_comp
+      else normalize_comp_result (compare_chunks r1 r2)
+;;
+
+let equal (x : string) (y : string) =
+  if x = y then true else (compare x y) = 0
+;;
+
+(************** splitting and recomposing version strings *******************)
+
+type version_analysis =
+  | Native of string*string*string
+    (* epoch,upstream,binnmu *)
+  | NonNative of string*string*string*string
+    (* epoch,upstream,revision,binnmu *)
+;;
+
+let extract_binnmu v =
+  let binnmu_regexp = Pcre.regexp "^(.*)\\+(b[\\d]+)$"
+  in
+  try
+    let subs = Pcre.extract ~rex:binnmu_regexp v
+    in (subs.(1),subs.(2))
+  with Not_found -> (v,"")
+;;
+
+let decompose v =
+  let epoch,rest = extract_epoch v in
+  let upstream_complete,revision_complete = extract_revision rest in
+  if revision_complete = ""
+  then let upstream,binnmu = extract_binnmu upstream_complete in
+       Native(epoch,upstream,binnmu)
+  else let revision,binnmu = extract_binnmu revision_complete in
+       NonNative(epoch,upstream_complete,revision,binnmu)
+;;
+
+let compose = function 
+  | Native("",upstream,"") -> upstream
+  | Native(epoch,upstream,"") -> epoch^":"^upstream
+  | Native("",upstream,binnmu) -> upstream^"+"^binnmu
+  | Native(epoch,upstream,binnmu) -> epoch^":"^upstream^"+"^binnmu
+  | NonNative("",upstream,revision,"") -> upstream^"-"^revision
+  | NonNative(epoch,upstream,revision,"") -> epoch^":"^upstream^"-"^revision
+  | NonNative("",upstream,revision,binnmu) -> upstream^"-"^revision^"+"^binnmu
+  | NonNative(epoch,upstream,revision,binnmu) ->
+    epoch^":"^upstream^"-"^revision^"+"^binnmu
+;;
+
+let strip_epoch_binnmu v =
+  match decompose v with
+    | Native(_,upstream,_) -> upstream
+    | NonNative(_,upstream,revision,_) -> upstream^"-"^revision
+;;
+
+(****************************************************************************)
+(* for the deprecated interface  *)
+ 
+let split s = match decompose s with
+    | Native(e,u,b) -> (e,u,"",b)
+    | NonNative(e,u,r,b) -> (e,u,r,b)
 ;;
 
 let concat = function
@@ -91,130 +236,6 @@ let concat = function
   |(e,u,r,b) -> Printf.sprintf "%s:%s-%s+%s" e u r b (* 1:1.1-1+b1 *)
 ;;
 
-let normalize s = 
-  let (e,u,r,b) = split s in
-  concat ("",u,r,"")
-;; 
+let normalize = strip_epoch_binnmu
 
-let ( ** ) x y = if x = 0 then y else x;;
-let ( *** ) x y = if x = 0 then y () else x;;
-let ( ~~~ ) f x = not (f x)
 
-let order = function
-  | `C '~' -> (0,'~')
-  | `C('0'..'9' as c) -> (1,c)
-  | `E -> (2,'\000')
-  | `C('a'..'z'|'A'..'Z' as c) -> (3,c)
-  | `C(c) -> (4,c)
-;;
-
-let compare_couples (x1,x2) (y1,y2) = (compare x1 y1) ** (compare x2 y2);;
-
-let compare_special x y =
-  let m = String.length x
-  and n = String.length y
-  in
-  let rec loop i =
-    let cx = if i >= m then `E else `C(x.[i])
-    and cy = if i >= n then `E else `C(y.[i])
-    in
-    (compare_couples (order cx) (order cy)) ***
-    (fun () ->
-      if i > m or i > n then
-        0
-      else
-        loop (i + 1))
-  in
-  loop 0
-;;
-
-(* -1 : x < y *)
-(** According to APT's behaviour, 5.002 and 5.2 are equivalent version numbers.  This means that
-  * the Debian ordering is not a proper order on strings but a preorder.  This means that it is
-  * not possible to use version string-indexed hashtables, as we may get duplicate entries.
-  *)
-
-let compare_numeric_decimal x y =
-  let m = String.length x
-  and n = String.length y
-  in
-  let rec loop1 i j =
-    if i < m && x.[i] = '0' then
-      loop1 (i + 1) j
-    else
-      if j < n && y.[j] = '0' then
-        loop1 i (j + 1)
-      else
-        if i = m && j = n then
-          0
-        else
-          loop2 i j
-  and loop2 i j =
-    if i = m then
-      if j = n then
-        0
-      else
-        (* x is finished, but y is not *)
-        -1
-    else
-      if j = n then
-        (* x is not finished, but y is *)
-        1
-      else
-        if m - i < n - j then -1
-        else if m - i > n - j then 1
-        else
-          if x.[i] < y.[j] then -1
-          else if x.[i] > y.[j] then 1
-          else
-              loop2 (i + 1) (j + 1)
-  in
-  loop1 0 0
-;;
-(* ***)
-
-let rec compare_chunks x y =
-  if x = y then 0
-  else
-    let x1,x2 = longest_matching_prefix (~~~ is_digit) x
-    and y1,y2 = longest_matching_prefix (~~~ is_digit) y
-    in
-    let c = compare_special x1 y1 in
-    if c <> 0 then
-      c
-    else
-      let (x21,x22) = longest_matching_prefix is_digit x2
-      and (y21,y22) = longest_matching_prefix is_digit y2
-      in
-      let c = compare_numeric_decimal x21 y21 in
-      if c <> 0 then
-        c
-      else
-        compare_chunks x22 y22
-;;
-
-let compare x1 x2 =
-  let (e1,u1,r1,b1) = split x1
-  and (e2,u2,r2,b2) = split x2
-  in
-  (compare_numeric_decimal e1 e2) ***
-    (fun () -> (compare_chunks u1 u2) ***
-      (fun () -> (compare_chunks r1 r2) ***
-        (fun () -> (compare_chunks b1 b2)))
-    )
-;;
-
-let compare (x : string) (y : string) =
-  if x = y then 0
-  else
-    let (e1,rest1) = extract_epoch x in
-    let (e2,rest2) = extract_epoch y in
-    (compare_numeric_decimal e1 e2) ***
-      (fun () ->
-        let (u1,r1) = extract_revision rest1 in
-        let (u2,r2) = extract_revision rest2 in
-        (compare_chunks u1 u2) ***
-          (fun () -> compare_chunks r1 r2))
-
-let equal (x : string) (y : string) =
-  if x = y then true else (compare x y) = 0

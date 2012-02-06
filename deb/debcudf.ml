@@ -16,10 +16,10 @@ open ExtLib
 open Common
 open Packages
 
-let debug fmt = Util.make_debug "Debian.Debcudf" fmt
-let info fmt = Util.make_info "Debian.Debcudf" fmt
-let warning fmt = Util.make_warning "Debian.Debcudf" fmt
-let fatal fmt = Util.make_fatal "Debian.Debcudf" fmt
+let debug fmt = Util.make_debug __FILE__ fmt
+let info fmt = Util.make_info __FILE__ fmt
+let warning fmt = Util.make_warning __FILE__ fmt
+let fatal fmt = Util.make_fatal __FILE__ fmt
 
 type tables = {
   virtual_table : unit Util.StringHashtbl.t;
@@ -148,7 +148,7 @@ let get_real_version tables (package,cudfversion) =
     |l ->
         begin
           let v = List.fold_left min "999999:999999" l in
-          warning "version %s is equivalent to (%s)" v (String.concat "," l);
+          debug "version %s is equivalent to (%s)" v (String.concat "," l);
           v
         end
   with Not_found ->
@@ -162,8 +162,7 @@ let loadl tables l =
       |None ->
           if (Util.StringHashtbl.mem tables.virtual_table name) &&
           (Util.StringHashtbl.mem tables.versioned_table name) then
-            [(encname^"--virtual", None);
-             (encname, None)]
+            [(encname, None);(encname^"--virtual", None)]
           else
             [(encname, None)]
       |Some(op,v) ->
@@ -207,27 +206,30 @@ let preamble =
     ("architecture",(`String None));
     ("priority",(`String (Some "")));
     ("source",(`String (Some ""))) ;
-    ("sourceversion",(`String (Some ""))) ]
+    ("sourcenumber",(`String (Some "")));
+    ("sourceversion",(`Int (Some 1))) ;
+    ]
   in
   CudfAdd.add_properties Cudf.default_preamble l
 
-let add_extra extras tables pkg =
+let add_extra_default extras tables pkg =
   let number = ("number",`String pkg.version) in
   let architecture = ("architecture",`String pkg.architecture) in
   let priority = ("priority",`String pkg.priority) in
-  let (source,sourceversion) =
+  let (source,sourcenumber,sourceversion) =
     let (n,v) =
       match pkg.source with
       |("",_) -> (pkg.name,pkg.version)
       |(n,None) -> (n,pkg.version)
       |(n,Some v) -> (n,v)
     in
-    ("source",`String n), ("sourceversion", `String v)
+    let cv = get_cudf_version tables ("",v) in
+    ("source",`String n), ("sourcenumber", `String v), ("sourceversion", `Int cv)
   in
   let l =
     List.filter_map (fun (debprop, (cudfprop,v)) ->
       try 
-        let s = Format822.assoc debprop pkg.extras in
+        let s = Packages.assoc debprop pkg.extras in
         let typ = Cudf_types.type_of_typedecl v in
         Some (cudfprop, Cudf_types_pp.parse_value typ s)
       with Not_found -> None
@@ -238,10 +240,11 @@ let add_extra extras tables pkg =
   List.filter_map (function
     |(_,`Vpkglist []) -> None
     |(_,`Vpkgformula []) -> None
+    |(_,`String "") -> None
     |e -> Some e
   )
   [priority; architecture; number;
-   source; sourceversion; recommends; replaces]@ l
+  source; sourcenumber; sourceversion; recommends; replaces]@ l
 ;;
 
 let add_essential = function
@@ -252,22 +255,27 @@ let add_inst inst pkg =
   if inst then true 
   else
     try
-      match String.nsplit (Format822.assoc "Status" pkg.extras) " " with
+      match String.nsplit (Packages.assoc "Status" pkg.extras) " " with
       |[_;_;"installed"] -> true
       | _ -> false
     with Not_found -> false
 
-let tocudf tables ?(extras=[]) ?(inst=false) pkg =
-    { Cudf.default_package with
-      Cudf.package = CudfAdd.encode pkg.name ;
-      Cudf.version = get_cudf_version tables (pkg.name,pkg.version) ;
-      Cudf.keep = add_essential pkg.essential;
-      Cudf.depends = loadll tables (pkg.pre_depends @ pkg.depends);
-      Cudf.conflicts = loadlc tables pkg.name (pkg.breaks @ pkg.conflicts) ;
-      Cudf.provides = loadlp tables pkg.provides ;
-      Cudf.installed = add_inst inst pkg;
-      Cudf.pkg_extra = add_extra extras tables pkg ;
-    }
+let add_extra extras tables pkg =
+  match extras with
+  |None -> []
+  |Some el -> add_extra_default el tables pkg
+
+let tocudf tables ?extras ?(inst=false) pkg =
+  { Cudf.default_package with
+    Cudf.package = CudfAdd.encode pkg.name ;
+    Cudf.version = get_cudf_version tables (pkg.name,pkg.version) ;
+    Cudf.keep = add_essential pkg.essential;
+    Cudf.depends = loadll tables (pkg.pre_depends @ pkg.depends);
+    Cudf.conflicts = loadlc tables pkg.name (pkg.breaks @ pkg.conflicts) ;
+    Cudf.provides = loadlp tables pkg.provides ;
+    Cudf.installed = add_inst inst pkg;
+    Cudf.pkg_extra = add_extra extras tables pkg ;
+  }
 
 let lltocudf = loadll
 let ltocudf = loadl

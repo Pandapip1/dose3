@@ -14,12 +14,11 @@
 
 open ExtLib
 open Common
-open Mdf
 
 type reason =
   |Dependency of (int * Cudf_types.vpkg list * int list)
   |Missing of (int * Cudf_types.vpkg list)
-  |Conflict of (int * int)
+  |Conflict of (int * int * Cudf_types.vpkg)
 
 type result =
   |Success of (?all:bool -> unit -> int list)

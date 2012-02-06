@@ -53,6 +53,8 @@ module type Messages = sig
 
   (** return the list of all labels known to the module *)
   val avalaible : unit -> label list
+
+  val is_enabled : label -> bool
 end
 
 (** Debug, Info and Warning messages are printed immediately on stderr. 
@@ -100,7 +102,7 @@ module Progress : sig
     
   (** [create "barname"] : create new a progress bar labelled "barname". 
       The progress bar is disabled by default *)
-  val create: ?enabled:bool -> ?total:int -> label -> t
+  val create: ?enabled:bool -> ?total:int -> ?unbounded:bool -> label -> t
 
   (** [enable "barname"] : enable the progress bar with label "barname" *)
   val enable : label -> unit

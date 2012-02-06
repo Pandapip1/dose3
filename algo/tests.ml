@@ -14,20 +14,22 @@ open ExtLib
 open OUnit
 open Common
 module S = CudfAdd.Cudf_set
+let test_dir = "tests/algo"
 
-let f_legacy = "tests/legacy.cudf"
-let f_legacy_sol = "tests/legacy-sol.cudf"
-let f_dependency = "tests/dependency.cudf"
+let f_legacy = Filename.concat test_dir "legacy.cudf"
+let f_legacy_sol = Filename.concat test_dir "legacy-sol.cudf"
+let f_dependency = Filename.concat test_dir "dependency.cudf"
 (* let f_conj_dependency = "tests/conj_dependency.cudf" *)
-let f_cone = "tests/cone.cudf"
-let f_engine_conflicts = "tests/engine-conflicts.cudf"
-let f_strongdeps_simple = "tests/strongdep-simple.cudf"
-let f_strongdeps_conflict = "tests/strongdep-conflict.cudf"
-let f_strongdeps_cycle = "tests/strongdep-cycle.cudf"
-let f_strongdeps_conj = "tests/strongdep-conj.cudf"
-let f_strongcfl_simple = "tests/strongcfl-simple.cudf"
-let f_strongcfl_triangle = "tests/strongcfl-triangle.cudf"
-let f_selfprovide = "tests/selfprovide.cudf"
+let f_cone = Filename.concat test_dir "cone.cudf"
+let f_engine_conflicts = Filename.concat test_dir "engine-conflicts.cudf"
+let f_strongdeps_simple = Filename.concat test_dir "strongdep-simple.cudf"
+let f_strongdeps_conflict = Filename.concat test_dir "strongdep-conflict.cudf"
+let f_strongdeps_cycle = Filename.concat test_dir "strongdep-cycle.cudf"
+let f_strongdeps_conj = Filename.concat test_dir "strongdep-conj.cudf"
+let f_strongcfl_simple = Filename.concat test_dir "strongcfl-simple.cudf"
+let f_strongcfl_triangle = Filename.concat test_dir "strongcfl-triangle.cudf"
+let f_selfprovide = Filename.concat test_dir "selfprovide.cudf"
+let f_debian = Filename.concat test_dir "debian.cudf" 
 
 let (universe,request) =
   let (_,univ,request) = Cudf_parser.parse_from_file f_legacy in
@@ -47,7 +49,7 @@ let solver = Depsolver.load universe ;;
 let test_install =
   "install" >:: (fun _ ->
     let bicycle = Cudf.lookup_package universe ("bicycle", 7) in
-    let d = Depsolver.edos_install solver bicycle in
+    let d = Depsolver.edos_install universe solver bicycle in
     match d.Diagnostic.result with
     |Diagnostic.Success _ -> assert_bool "pass" true
     |Diagnostic.Failure _ -> assert_failure "fail"
@@ -57,7 +59,7 @@ let test_coinstall =
   "coinstall" >:: (fun _ -> 
     let electric_engine1 = Cudf.lookup_package universe ("electric-engine",1) in
     let electric_engine2 = Cudf.lookup_package universe ("electric-engine",2) in
-    let d = Depsolver.edos_coinstall solver [electric_engine1;electric_engine2] in
+    let d = Depsolver.edos_coinstall universe solver [electric_engine1;electric_engine2] in
     match d.Diagnostic.result with
     |Diagnostic.Success f -> assert_failure "fail"
     |Diagnostic.Failure f -> assert_bool "pass" true
@@ -66,7 +68,6 @@ let test_coinstall =
 (* debian testing 18/11/2009 *)
 let test_distribcheck =
   "distribcheck" >:: (fun _ -> 
-    let f_debian = "tests/debian.cudf" in
     let universe =
       let (_,pl,_) = Cudf_parser.parse_from_file f_debian in
       Cudf.load_universe pl
@@ -87,7 +88,6 @@ let test_selfprovide =
 
 let test_trim =
   "trim" >:: (fun _ ->
-    let f_debian = "tests/debian.cudf" in
     let universe =
       let (_,pl,_) = Cudf_parser.parse_from_file f_debian in
       Cudf.load_universe pl
@@ -112,7 +112,7 @@ let test_conjunctive_dependency_closure =
 (*      print_endline (CudfAdd.print_package pkg);
       List.iter (fun pkg -> print_endline (CudfAdd.print_package pkg)) dcl;
       print_newline (); *)
-      let d = Depsolver.edos_coinstall solver (dcl) in
+      let d = Depsolver.edos_coinstall universe solver (dcl) in
       match d.Diagnostic.result with
       |Diagnostic.Success _ -> assert_bool "pass" true
       |Diagnostic.Failure _ -> Diagnostic.printf ~explain:true d; assert_failure "fail"

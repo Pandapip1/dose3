@@ -17,10 +17,10 @@ open Common
 open Debian
 module Boilerplate = BoilerplateNoRpm
 
-let info fmt = Util.make_info "apt-get backend" fmt
-let warning fmt = Util.make_warning "apt-get backend" fmt
-let debug fmt = Util.make_debug "apt-get backend" fmt
-let fatal fmt = Util.make_fatal "apt-get backend" fmt
+let info fmt = Util.make_info "apt-cudf backend" fmt
+let warning fmt = Util.make_warning "apt-cudf backend" fmt
+let debug fmt = Util.make_debug "apt-cudf backend" fmt
+let fatal fmt = Util.make_fatal "apt-cudf backend" fmt
 
 module Options = struct
   open OptParse
@@ -57,21 +57,21 @@ let print_progress ?i msg =
     Format.printf "Message: %s@." msg
 ;;
 
-(* XXX : Multi-arch Hack *)
-let norm s = 
-  try Str.string_before s (String.index s ':') 
-  with Not_found -> s
-;;
-
 let make_request tables universe request = 
-  let constr cs = 
-    match CudfAdd.cudfop cs with
-    |None -> None
-    |Some (c,v) -> Some (c,Debian.Debcudf.get_cudf_version tables ("",v))
-  in
-  let select_packages l =
-    List.map (fun (n,c) -> 
-      (norm n,constr c)
+  (*** XXX a here is the option architecture *)
+  (* always specify the version of the packages on the request *)
+  let select_packages l = 
+    List.map (fun (n,a,c) -> 
+      let candidate = 
+        try
+          List.find (fun pkg -> 
+            try (Cudf.lookup_package_property pkg "apt-candidate") = "true"
+            with Not_found -> false
+          ) (Cudf.lookup_packages universe n)
+        with Not_found -> 
+          print_error "Package %s does not have a suitable candidate" n
+      in
+      (n,Some(`Eq,candidate.Cudf.version))
     ) l 
   in
   if request.Edsp.upgrade || request.Edsp.distupgrade then
@@ -105,7 +105,7 @@ let solver_dir =
 let pp_pkg fmt (s,univ) = 
   let p = CudfAdd.Cudf_set.choose s in
   let pkg = Hashtbl.find univ (p.Cudf.package,p.Cudf.version) in
-  let apt_id = Debian.Format822.assoc "APT-ID" pkg.Packages.extras in
+  let apt_id = Debian.Packages.assoc "APT-ID" pkg.Packages.extras in
   Format.fprintf fmt "%s\n" apt_id;
   Format.fprintf fmt "Package: %s\n" pkg.Packages.name;
   Format.fprintf fmt "Version: %s\n" pkg.Packages.version;
@@ -128,7 +128,6 @@ let pp_pkg_list fmt (l,univ) =
 let pp_pkg_list_tran fmt (l,univ) =
   pp_pkg_list fmt (List.map snd l,univ)
 ;;
-
 
 (* TODO: add a configuration file to define trendy and paranoid ? *)
 let choose_criteria ?(criteria=None) request = 
@@ -161,17 +160,17 @@ let parse_solver_spec filename =
     done;
     close_in ic
     with
-      | Sys_error _ -> fatal "cannot parse CUDF solver specification %s" filename
+      | Sys_error _ -> print_error "cannot parse CUDF solver specification %s" filename
       | End_of_file -> ()
       | Scanf.Scan_failure err ->
-        fatal "parse error while reading CUDF solver specification %s: %s"
+        print_error "parse error while reading CUDF solver specification %s: %s"
 	  filename err
   end;
   if !exec = "" || !version = "" then
-    fatal "incomplete CUDF solver specification %s" filename;
+    print_error "incomplete CUDF solver specification %s" filename;
   if not (String.exists !exec "$in" && String.exists !exec "$out"
           && String.exists !exec "$pref") then
-    fatal
+    print_error
       "Incomplete solver specification %s: one or more of $in, $out, $pref is missing in exec line"
       filename;
   (!exec,!version)
@@ -193,6 +192,7 @@ let mktmpdir tmp_pattern =
   ignore (Unix.close_process_in ic);
   path
 
+(* XXX this function scares me... what if I manage to create a path = "/" *)
 let rmtmpdir path =
   if String.exists path "apt-cudf" then (* safe guard, sort of *)
     ignore (Unix.system (Printf.sprintf "rm -rf %s" path))
@@ -215,7 +215,7 @@ let main () =
   let exec_pat =
     if OptParse.Opt.is_set Options.solver then
       let f = OptParse.Opt.get Options.solver in
-      Filename.concat solver_dir f
+      fst (parse_solver_spec (Filename.concat solver_dir f))
     else
       let f = Filename.basename(Sys.argv.(0)) in
       fst (parse_solver_spec (Filename.concat solver_dir f))
@@ -272,7 +272,7 @@ let main () =
   let cmdline_criteria = OptParse.Opt.opt (Options.criteria) in
   let criteria = choose_criteria ~criteria:cmdline_criteria request in
   let cmd = interpolate_solver_pat exec_pat solver_in solver_out criteria in
-  (* Printf.eprintf "CMD %s\n%!" cmd; *)
+  Printf.eprintf "CMD %s\n%!" cmd;
 
   let env = Unix.environment () in
   let (cin,cout,cerr) = Unix.open_process_full cmd env in
@@ -322,7 +322,8 @@ let main () =
           sol
         else []
       in
-      let diff = CudfDiff.diff universe (Cudf.load_universe sol) in
+      let soluniv = Cudf.load_universe sol in
+      let diff = CudfDiff.diff universe soluniv in
       let empty = ref true in
       Hashtbl.iter (fun pkgname s ->
         let inst = s.CudfDiff.installed in
@@ -338,7 +339,8 @@ let main () =
         end
         |false,false -> begin
             empty := false;
-            Format.printf "Remove: %a@." pp_pkg (rem,univ);
+(* Do not remove a package that just needs upgrading! *)
+(*            Format.printf "Remove: %a@." pp_pkg (rem,univ); *)
             Format.printf "Install: %a@." pp_pkg (inst,univ)
         end
         |true,true -> ()

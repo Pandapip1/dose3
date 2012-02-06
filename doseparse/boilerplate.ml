@@ -15,10 +15,10 @@
 open ExtLib
 open Common
 
-let debug fmt = Util.make_debug "Boilerplate" fmt
-let info fmt = Util.make_info "Boilerplate" fmt
-let warning fmt = Util.make_warning "Boilerplate" fmt
-let fatal fmt = Util.make_fatal "Boilerplate" fmt
+let debug fmt = Util.make_debug __FILE__ fmt
+let info fmt = Util.make_info __FILE__ fmt
+let warning fmt = Util.make_warning __FILE__ fmt
+let fatal fmt = Util.make_fatal __FILE__ fmt
 
 (*************************************************************)
 (* Options *)
@@ -75,6 +75,14 @@ let pkglist_option ?default ?(metavar = "PKGLST") () =
   parse_pkg (fun _ s -> Printf.sprintf "invalid package list '%s'" s)
 ;;
 
+let incr_str_list ?(default=Some []) ?(metavar = "STR") =
+  let acc = ref [] in 
+  let coerce s = acc := s :: !acc ; !acc in
+  fun () ->
+  OptParse.Opt.value_option metavar default coerce 
+  (fun _ s -> Printf.sprintf "Invalid String '%s'" s)
+;;
+
 (* *************************************** *)
 
 module MakeOptions(O : Ot) = struct
@@ -118,70 +126,76 @@ let enable_timers verbose l =
 
 (*************************************************************)
 
-let argv_ f l =
-  let a = Array.of_list l in
-  if Array.length a = 0 then
-    fatal "No input file specified"
-  else f a
-
-let argv1 l = argv_ (fun a -> a.(0)) l
-let argv2 l = argv_ (fun a -> (a.(0),a.(1))) l
-let argv3 l = argv_ (fun a -> (a.(0),a.(1),a.(2))) l
-
 (** read a debian Packages file - compressed or not *)
-let read_deb ?(extras=[]) s =
-  let ch = Input.open_file s in
-  let l = Debian.Packages.parse_packages_in ~extras ch in
+let read_deb ?filter ?(extras=[]) fname =
+  let ch = Input.open_file fname in
+  let l = Debian.Packages.input_raw_ch ?filter ~extras ch in
   let _ = Input.close_ch ch in
   l
 
-(** transform a list of debian control stanza into a cudf packages list *)
-let deb_load_list ?(extras=[]) ?(status=[]) l =
-  let l = Debian.Packages.merge status l in
-  let tables = Debian.Debcudf.init_tables l in
-  let pkglist = List.map (Debian.Debcudf.tocudf ~extras tables) l in
+(* fll = file list list
+ * dll = deb packages list list 
+ * cll = cudf package list list
+ *)
+let deb_load_list ?(extras=[]) ?(status=[]) dll =
+  let pkglist = List.flatten dll in
+  let pkglist = if status = [] then pkglist else Debian.Packages.merge status pkglist in
+  let tables = Debian.Debcudf.init_tables pkglist in
   let from_cudf (p,i) = (p,Debian.Debcudf.get_real_version tables (p,i)) in
   let to_cudf (p,v) = (p,Debian.Debcudf.get_cudf_version tables (p,v)) in
-  (pkglist,from_cudf,to_cudf)
-
+  let cll = 
+    List.map (fun l ->
+      List.map (Debian.Debcudf.tocudf ~extras tables) l
+    ) dll
+  in
+  (cll,from_cudf,to_cudf)
+      
 let pp_versions_table fmt (from_cudf, pkglist) =
   List.iter (fun pkg ->
     let (p,v) = from_cudf (pkg.Cudf.package,pkg.Cudf.version) in
     Format.fprintf fmt "%s=%d=%s@." p pkg.Cudf.version v
   ) pkglist
 
-(** transform a list of debian control stanza into a cudf packages list *)
-let eclipse_load_list ?(extras=[]) ?(status=[]) l =
-  let tables = Eclipse.Eclipsecudf.init_tables l in
-  let pkglist = List.map (Eclipse.Eclipsecudf.tocudf ~extras tables) l in
-  let from_cudf (p,i) = (p,Eclipse.Eclipsecudf.get_real_version tables (p,i)) in
-  let to_cudf (p,v) = (p,Eclipse.Eclipsecudf.get_cudf_version tables (p,v)) in
-  (pkglist,from_cudf,to_cudf)
-
+let eclipse_load_list ?(extras=[]) dll =
+  let pkglist = List.flatten dll in
+  let tables = Eclipse.Eclipsecudf.init_tables pkglist in
+  let from_cudf (p,i) = (p, Eclipse.Eclipsecudf.get_real_version tables (p,i)) in
+  let to_cudf (p,v) = (p, Eclipse.Eclipsecudf.get_cudf_version tables (p,v)) in
+  let cll = 
+    List.map (fun l ->
+      List.map (Eclipse.Eclipsecudf.tocudf ~extras tables) l
+    ) dll
+  in
+  (cll,from_cudf,to_cudf)
+ 
 (** transform a list of debian control stanza into a cudf universe *)
 let deb_load_universe ?(extras=[]) l =
-  let (l,f,t) = deb_load_list ~extras l in
-  (Cudf.load_universe l, f, t)
+  let (cll,f,t) = deb_load_list ~extras [l] in
+  (Cudf.load_universe (List.flatten cll), f, t)
 
 (* XXX double minded ... this code is kinda similar to the code in rpmcudf 
  * refactor or not refactor ? *)
 (** transform a list of rpm control stanza into a cudf packages list *)
-let rpm_load_list l =
+let rpm_load_list dll =
 IFDEF HASRPM THEN
-  let tables =  Rpm.Rpmcudf.init_tables l in
-  let pkglist = List.map (Rpm.Rpmcudf.tocudf tables) l in
+  let tables =  Rpm.Rpmcudf.init_tables (List.flatten dll) in
+  let cll = 
+    List.map (fun l -> 
+      List.map (Rpm.Rpmcudf.tocudf tables) l 
+    ) dll
+  in
   (* Rpm.Rpmcudf.clear tables; *)
   let from_cudf (p,i) = (p,string_of_int i) in
   let to_cudf (p,v) = (p,Rpm.Rpmcudf.get_cudf_version tables (p,v)) in
-  (pkglist,from_cudf,to_cudf)
+  (cll,from_cudf,to_cudf)
 ELSE
   failwith "librpm not available. re-configure with --with-rpm"
 END
 
 (** transform a list of rpm control stanza into a cudf universe *)
 let rpm_load_universe l =
-  let (l,f,t) = rpm_load_list l in
-  (Cudf.load_universe l, f, t)
+  let (cll,f,t) = rpm_load_list [l] in
+  (Cudf.load_universe (List.flatten cll), f, t)
 
 (** parse a cudf file and return a triple (preamble,package list,request
     option). If the package is not valid fails and exit *)
@@ -218,85 +232,92 @@ let cudf_load_list file =
   let _, pkglist, _ = parse_cudf file in
   let from_cudf (p,i) = (p,string_of_int i) in
   let to_cudf (p,v) = (p,int_of_string v) in
-  (pkglist,from_cudf,to_cudf)
+  ([pkglist],from_cudf,to_cudf)
 
 let cudf_load_universe file =
   let (l,f,t) = cudf_load_list file in
-  (Cudf.load_universe l, f, t)
-
-(* Check that all uris are of type that is an instance of scheme *)
-(* If yes return that instance of scheme, and the list of pathes *)
-(* in uris.                                                      *)
-let rec filter opt_scheme acc uris =
-  match uris,opt_scheme with
-  |[],None -> fatal "No input provided"
-  |[],Some real_scheme -> (real_scheme,acc)
-  |uri::tail, _ ->
-    begin match Input.parse_uri uri, opt_scheme with
-    (* XXX add support !
-    |(Url.Cudf,(_,_,_,_,"-"),_) as p, None when tail = [] -> ("cudfstdin",[p])
-    |(Url.Cudf,(_,_,_,_,"-"),_), _ when tail <> [] -> fatal "Only one cudf stdin input allowed"
-    *)
-
-    |(Url.Cudf,_,_) as p, None when tail = [] -> (Url.Cudf,[p])
-    |(Url.Cudf,_,_), _ when tail <> [] -> fatal "Only one cudf input allowed"
-
-    |(Url.Deb,(_,_,_,_,"-"),_), None when tail = [] && acc = []-> (Url.Deb,[]) (* stdin *)
-    |(Url.Deb,(_,_,_,_,"-"),_), _ when tail <> [] || acc <> [] -> fatal "Only one deb stdin input allowed"
-
-    |((Url.Pgsql|Url.Sqlite) as dbtype,_,_) as p, None when tail = [] && acc = [] -> (dbtype,[p])
-    |((Url.Pgsql|Url.Sqlite),_,_), None when tail <> [] || acc <> [] -> fatal "Only one db input allowed"
-
-    |(t,_,_) as p, None -> filter (Some t) (p::acc) tail
-    |(t,_,_) as p, Some i when t = i -> filter (Some t) (p::acc) tail
-
-    |(t,_,_),_ -> fatal "You cannot mix different input types";
-    end
+  (Cudf.load_universe (List.hd l), f, t)
 
 (** return the name of the file *)
 let unpack (_,(_,_,_,_,file),_) = file
 
+(* Check that all uris are of type that is an instance of scheme *)
+(* If yes return that instance of scheme, and the list of paths  *)
+(* in uris.                                                      *)
 (** parse a list of uris of the same type and return a cudf packages list *)
-let parse_input ?(default_arch=None) ?(extras=[]) uris =
-  match filter None [] uris with
-  |(Url.Cudf,[(Url.Cudf,(_,_,_,_,file),_)]) ->
-      cudf_load_list file
-  |(Url.Deb, []) ->
-      let l = Debian.Packages.input_raw_ch ~default_arch (IO.input_channel stdin) in
-      deb_load_list ~extras l
-  |(Url.Deb, l) ->
-      let filelist = List.map unpack l in
-      let l = Debian.Packages.input_raw ~default_arch filelist in
-      deb_load_list ~extras l
-  |(Url.Eclipse, l) ->
-      let filelist = List.map unpack l in
-      let l = Eclipse.Packages.input_raw filelist in
-      eclipse_load_list ~extras l
-  |(Url.Pgsql|Url.Sqlite), [((Url.Pgsql|Url.Sqlite) as dbtype,info,(Some query))] ->
-IFDEF HASDB THEN
-        let db = Db.Backend.init_database dbtype info (Idbr.parse_query query) in
-        let l = Db.Backend.load_selection db (`All) in
-        deb_load_list ~extras l
-ELSE
-    fatal "%s Not supported. re-configure with --with-??" (Url.scheme_to_string dbtype)
-END
-  |(Url.Hdlist, l) -> 
+let parse_input ?default_arch ?(extras=[]) (urilist : string list list) =
+  let default = match List.flatten urilist with
+    |uri::_ -> let (p,_,_) = Input.parse_uri uri in Some p
+    |_ -> None
+  in
+  let filelist =
+    List.map (fun uris ->
+      List.filter_map (fun uri ->
+        let (t,_,_) as p = Input.parse_uri uri in
+        if Some t = default then Some p else None
+      ) uris
+    ) urilist
+  in
+  match default, filelist with
+  |None,_ -> fatal "No input specified"
+  |Some Url.Cudf,[[p]] when (unpack p) = "-" -> fatal "no stdin for cudf yet"
+  |Some Url.Cudf,[[p]] -> cudf_load_list (unpack p)
+  |Some Url.Cudf, _ -> fatal "only one cudf"
+
+  |Some Url.Deb,ll ->
+      let dll = 
+        List.map (fun l ->
+          let filelist = List.map unpack l in
+          Debian.Packages.input_raw ?default_arch filelist
+        ) ll 
+      in
+      deb_load_list ~extras dll
+
+  |Some Url.Eclipse, ll ->
+      let dll = 
+        List.map (fun l ->
+          let filelist = List.map unpack l in
+          Eclipse.Packages.input_raw filelist
+        ) ll 
+      in
+      eclipse_load_list ~extras dll
+
+  |Some Url.Hdlist, ll -> 
 IFDEF HASRPM THEN
-      let filelist = List.map unpack l in
-      let l = Rpm.Packages.Hdlists.input_raw filelist in
-      rpm_load_list l
+      let dll = 
+        List.map (fun l ->
+          let filelist = List.map unpack l in
+          Rpm.Packages.Hdlists.input_raw filelist
+        ) ll 
+      in
+      rpm_load_list dll
 ELSE
     fatal "hdlist Not supported. re-configure with --with-rpm"
 END
-  |(Url.Synthesis, l) -> 
+
+  |Some Url.Synthesis, ll -> 
 IFDEF HASRPM THEN
-      let filelist = List.map unpack l in
-      let l = Rpm.Packages.Synthesis.input_raw filelist in
-      rpm_load_list l
+      let dll = 
+        List.map (fun l ->
+          let filelist = List.map unpack l in
+          Rpm.Packages.Synthesis.input_raw filelist
+        ) ll 
+      in
+      rpm_load_list dll
 ELSE
     fatal "synthesis input format not supported. re-configure with --with-rpm"
 END
-    |(s,_) -> fatal "%s Not supported" (Url.scheme_to_string s)
+(*
+  |Some (Url.Pgsql|Url.Sqlite), [((Url.Pgsql|Url.Sqlite) as dbtype,info,(Some query))] ->
+IFDEF HASDB THEN
+      let db = Db.Backend.init_database dbtype info (Idbr.parse_query query) in
+      let l = Db.Backend.load_selection db (`All) in
+      deb_load_list ~extras [l]
+ELSE
+    fatal "%s Not supported. re-configure with --with-??" (Url.scheme_to_string dbtype)
+END
+*)
+    |Some s,_ -> fatal "%s Not supported" (Url.scheme_to_string s)
 ;;
 
 let supported_formats () =
@@ -319,46 +340,30 @@ END
 ;;
 
 (** parse and merge a list of files into a cudf package list *)
-let load_list ?(default_arch=None) ?(extras=[]) uris =
+let load_list ?default_arch ?(extras=[]) urilist =
   info "Parsing and normalizing..." ;
   let timer = Util.Timer.create "Parsing and normalizing" in
   Util.Timer.start timer;
-  let u = parse_input ~default_arch ~extras uris in
+  let u = parse_input ?default_arch ~extras urilist in
   Util.Timer.stop timer u
 ;;
 
 (** parse and merge a list of files into a cudf universe *)
-let load_universe ?(default_arch=None) ?(extras=[]) uris =
+let load_universe ?default_arch ?(extras=[]) uris =
   info "Parsing and normalizing..." ;
   let timer = Util.Timer.create "Parsing and normalizing" in
   Util.Timer.start timer;
-  let (l,f,t) = parse_input ~default_arch ~extras uris in
-  let u = (Cudf.load_universe l, f, t) in
+  let (cll,f,t) = parse_input ?default_arch ~extras [uris] in
+  let u = (Cudf.load_universe (List.flatten cll), f, t) in
   Util.Timer.stop timer u
 ;;
 
-(*
-(* XXX to refactor in Borilerplate.ml *)
-let parse uri =
-  Printf.eprintf "Parsing and normalizing...%!" ;
-  let timer = Common.Util.Timer.create "Parsing and normalizing" in
-  Common.Util.Timer.start timer;
-  let pkglist =
-    match Input.parse_uri uri with
-    |("deb",(_,_,_,_,file),_) -> begin
-      let l = Debian.Packages.input_raw [file] in
-      let tables = Debian.Debcudf.init_tables l in
-      List.map (Debian.Debcudf.tocudf tables) l
-    end
-    |("cudf",(_,_,_,_,file),_) -> begin
-      let _, l, _ = Boilerplate.parse_cudf file in l
-    end
-    |_ -> failwith "Not supported"
-  in
-  ignore(Common.Util.Timer.stop timer ());
-  Printf.eprintf "done\n%!" ;
-  pkglist
+let if_application ?(alternatives=[]) filename main =
+  let open Filename in
+  let names = filename::alternatives in
+  let normalize f = chop_extension(basename f) in
+  let invoked_as = normalize(Sys.argv.(0)) in
+  if List.exists (fun f -> (normalize f) = invoked_as) names then
+    main ()
 ;;
-*)
-
 

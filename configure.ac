@@ -1,4 +1,4 @@
-AC_INIT(dose3, 2.9.8, pietro.abate@pps.jussieu.fr)
+AC_INIT(dose3, 2.9.10, pietro.abate@pps.jussieu.fr)
 
 AC_PROG_OCAML
 if test "$OCAMLC" = "no"; then
@@ -17,6 +17,22 @@ if test "$OCAMLFIND" = "no"; then
  AC_MSG_ERROR([You must install OCaml findlib (the ocamlfind command)])
 fi
 
+#defaults
+USE_RPM=use_
+LINK_RPM=link_
+HAS_RPM=no
+PKG_SQLITE=pkg_
+PKG_PGSQL=pkg_
+PKG_BZ2=pkg_
+PKG_ZIP=pkg_
+PKG_PARMAP=pkg_
+PKG_XML=pkg_
+PKG_CUDF=use_cudf
+PKG_OCAMLGRAPH=pkg_
+PKG_CURL=pkg_
+PKG_OUNIT=pkg_
+PKG_BENCHMARK=pkg_
+
 AC_ARG_WITH(libcudf,
         [ --without-libcudf ],
         HAS_LIBCUDF=no,
@@ -33,7 +49,6 @@ if test "$HAS_LIBCUDF" = "yes" ; then
   fi
 else
   AC_MSG_NOTICE([using local libcudf])
-  PKG_CUDF=use_cudf
 fi
 
 AC_CHECK_OCAML_PKG([extlib])
@@ -45,6 +60,22 @@ AC_CHECK_OCAML_PKG([pcre])
 if test "$OCAML_PKG_pcre" = "no"; then
  AC_MSG_ERROR([Please install OCaml findlib module 'pcre'.])
 fi
+
+AC_ARG_WITH(parmap,
+        [ --with-parmap ],
+        HAS_PARMAP=yes,
+        HAS_PARMAP=no)
+AC_SUBST(HAS_PARMAP)
+if test "$HAS_PARMAP" = "yes" ; then
+  AC_CHECK_OCAML_PKG([parmap])
+  if test "$OCAML_PKG_parmap" = "no"; then
+   AC_MSG_ERROR([Please install OCaml findlib module 'parmap'.])
+  fi
+  CONFIG_PARMAP="-DHASPARMAP"
+  PKG_PARMAP="package(parmap)"
+  PARMAP=parmap
+fi
+
 
 AC_ARG_WITH(zip,
         [ --with-zip ],
@@ -59,8 +90,6 @@ if test "$HAS_ZIP" = "yes" ; then
   CONFIG_ZIP="-DHASZIP"
   PKG_ZIP="package(zip)"
   ZIP=zip
-else
-  PKG_ZIP=pkg_
 fi
 
 AC_ARG_WITH(bz2,
@@ -76,26 +105,7 @@ if test "$HAS_BZ2" = "yes" ; then
   CONFIG_BZ2="-DHASBZ2"
   PKG_BZ2="package(bz2)"
   BZ2=bz2
-else
-  PKG_BZ2=pkg_
 fi
-                             
-AC_ARG_WITH(rpm,
-        [ --with-rpm ],
-        HAS_RPM=yes,
-        HAS_RPM=no)
-AC_SUBST(HAS_RPM)
-if test "$HAS_RPM" = "yes" ; then
-  AC_MSG_NOTICE([RPM support enabled])
-  AC_CHECK_HEADERS([rpm/rpmlib.h],,AC_MSG_ERROR([missing rpmlib.h]))
-  AC_CHECK_HEADERS([rpm/rpmio.h],,AC_MSG_ERROR([missing rpmio.h]))
-  AC_CHECK_HEADERS([rpm/rpmtypes.h],,AC_MSG_ERROR([missing rpmtypes.h]))
-  CONFIG_RPM="-DHASRPM"
-  USE_RPM=use_rpm
-else
-  USE_RPM=use_
-fi
-
 
 AC_ARG_WITH(sqlite,
         [ --with-sqlite ],
@@ -115,8 +125,6 @@ if test "$HAS_SQLITE" = "yes" ; then
   MLPACK_SQLITE=Sqlite
   CONFIG_DBBACKEND="-DSQLITE"
   CONFIG_DB="-DHASDB"
-else
-  PKG_SQLITE=pkg_
 fi
 
 AC_ARG_WITH(postgresql,
@@ -137,8 +145,6 @@ if test "$HAS_PGSQL" = "yes" ; then
   MLPACK_PGSQL=Pgsql
   CONFIG_DBBACKEND="$CONFIG_DBBACKEND -DPGSQL"
   CONFIG_DB="-DHASDB"
-else
-  PKG_PGSQL=pkg_
 fi
 
 AC_ARG_WITH(ocamlgraph,
@@ -152,14 +158,12 @@ if test "$HAS_OCAMLGRAPH" = "yes" ; then
    AC_MSG_ERROR([Please install OCaml findlib module 'ocamlgraph'.])
   fi
   TMPVERSION=`$OCAMLFIND query -format %v ocamlgraph`
-  if test $(echo "$TMPVERSION < 1.5" | bc) -eq 1; then
-      AC_MSG_ERROR([found ocamlgraph with version $TMPVERSION (<= 1.5 is required )])
-  fi
+#  if test $(echo "$TMPVERSION < 1.5" | bc) -eq 1; then
+#      AC_MSG_ERROR([found ocamlgraph with version $TMPVERSION (<= 1.5 is required )])
+#  fi
   PKG_OCAMLGRAPH="package(ocamlgraph)"
   MLPACK_OCAMLGRAPH="Defaultgraphs Statistics Dominators Strongdeps Strongdeps_int Strongconflicts Strongconflicts_int"
   CONFIG_OCAMLGRAPH="-DHASOCAMLGRAPH"
-else
-  PKG_OCAMLGRAPH=pkg_
 fi
 
 AC_ARG_WITH(curl,
@@ -173,8 +177,6 @@ if test "$HAS_CURL" = "yes" ; then
    AC_MSG_ERROR([Please install OCaml findlib module 'curl'.])
   fi
   PKG_CURL="package(curl)"
-else
-  PKG_CURL=pkg_
 fi
 
 AC_ARG_WITH(xml,
@@ -191,9 +193,7 @@ if test "$HAS_XML" = "yes" ; then
   if test "$OCAML_PKG_xml-light" = "no"; then
    AC_MSG_ERROR([Please install OCaml findlib module 'xml-light'.])
   fi
-  PKG_XML="pkg_expat, pkg_xml-light"
-else
-  PKG_XML=pkg_
+  PKG_XML="package(expat), package(xml-light)"
 fi
 
 AC_ARG_WITH(oUnit,
@@ -207,8 +207,6 @@ if test "$HAS_OUNIT" = "yes" ; then
    AC_MSG_ERROR([Please install OCaml findlib module 'oUnit'.])
   fi
   PKG_OUNIT="pkg_oUnit"
-else
-  PKG_OUNIT=pkg_
 fi
 
 AC_ARG_WITH(benchmark,
@@ -222,12 +220,53 @@ if test "$HAS_BENCHMARK" = "yes" ; then
    AC_MSG_ERROR([Please install OCaml findlib module 'benchmark'.])
   fi
   PKG_BENCHMARK="pkg_benchmark"
-else
-  PKG_BENCHMARK=pkg_
 fi
 
+AC_HEADER_STDC
 
-AC_SUBST(USE_RPM)
+RPMPATH="-I/usr/include/rpm"
+CFLAGS="$CFLAGS $RPMPATH"
+CPPFLAGS="$CPPFLAGS $RPMPATH"
+
+AC_ARG_WITH(rpm4,
+        [ --with-rpm4 ],
+        HAS_RPM4=yes,
+        HAS_RPM4=no)
+if test "$HAS_RPM4" = "yes" ; then
+  AC_MSG_NOTICE([RPM support enabled])
+  AC_CHECK_HEADERS([rpm/rpmio.h],,AC_MSG_ERROR([missing rpmio.h]))
+  AC_CHECK_HEADERS([rpm/rpmtypes.h],,AC_MSG_ERROR([missing rpmtypes.h]))
+  CONFIG_RPM="-DHASRPM"
+  USE_RPM="use_rpm, use_rpm4"
+  LINK_RPM="link_rpm4"
+  HAS_RPM=yes
+fi
+
+AC_ARG_WITH(rpm5,
+        [ --with-rpm5 ],
+        HAS_RPM5=yes,
+        HAS_RPM5=no)
+if test "$HAS_RPM5" = "yes"; then
+  AC_MSG_NOTICE([RPM 5 support enabled])
+  CFLAGS="-I/usr/include/rpm"
+  LDFLAG="-Lrpm -Lrpmio"
+  AC_CHECK_HEADERS([rpm/rpmio.h],,AC_MSG_ERROR([missing rpmio.h]))
+#  AC_CHECK_HEADERS([rpm/rpmgi.h],,AC_MSG_ERROR([missing rpmgi.h]))
+#  AC_CHECK_HEADERS([rpm/rpm46compat.h],,AC_MSG_ERROR([missing rpm46compat.h]))
+#  AC_CHECK_HEADERS([rpm/rpm4compat.h],,AC_MSG_ERROR([missing rpm4compat.h]))
+  CONFIG_RPM="-DHASRPM"
+  USE_RPM="use_rpm, use_rpm5"
+  LINK_RPM="link_rpm5"
+  HAS_RPM=yes
+fi
+
+#AC_CHECK_HEADERS([sched.h],,AC_MSG_ERROR([missing sched.h]))
+#AC_CHECK_DECLS([sched_setaffinity], [], [], [[
+#                #define _GNU_SOURCE 1
+#                #include <sched.h>
+#                ]])
+
+
 
 AC_SUBST(TAGS_PGSQL)
 AC_SUBST(PKG_PGSQL)
@@ -246,6 +285,10 @@ AC_SUBST(CONFIG_ZIP)
 AC_SUBST(PKG_ZIP)
 AC_SUBST(ZIP)
 
+AC_SUBST(CONFIG_PARMAP)
+AC_SUBST(PKG_PARMAP)
+AC_SUBST(PARMAP)
+
 AC_SUBST(CONFIG_BZ2)
 AC_SUBST(PKG_BZ2)
 AC_SUBST(BZ2)
@@ -253,6 +296,10 @@ AC_SUBST(BZ2)
 AC_SUBST(LINK_RPM)
 AC_SUBST(CONFIG_RPM)
 AC_SUBST(INCLUDE_RPM)
+AC_SUBST(USE_RPM)
+AC_SUBST(LINK_RPM)
+AC_SUBST(HAS_RPM)
+
 AC_SUBST(INCLUDE_CUDF)
 AC_SUBST(PKG_CUDF)
 
@@ -294,9 +341,6 @@ AC_CONFIG_FILES([
   db/db.mlpack
   algo/algo.mlpack
   common/versionInfo.ml
-  doc/manpages/buildcheck.1
-  doc/manpages/ceve.1
-  doc/manpages/distcheck.1
 ])
 AC_OUTPUT
 

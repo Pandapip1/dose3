@@ -3,18 +3,26 @@ include Makefile.config
 DIST_DIR = $(NAME)-$(VERSION)
 DIST_TARBALL = $(DIST_DIR).tar.gz
 
-OBFLAGS = -use-ocamlfind #-classic-display
+OBFLAGS := -j 10 -use-ocamlfind -classic-display
+#OBFLAGS := $(OBFLAGS) -tag debug -tag profile
+#OBFLAGS := $(OBFLAGS) -classic-display
 
-all: lib man
+realall: $(BYTELIBS) $(ALIBS) $(OPTLIBS) $(CMXSLIBS) man
+	$(OCAMLBUILD) $(OBFLAGS) $(TARGETS)
+
+fast: $(OPTLIBS)
+	$(OCAMLBUILD) $(OBFLAGS) $(TARGETS)
+
+apps:
 	$(OCAMLBUILD) $(OBFLAGS) $(TARGETS)
 
 DOSELIBS = _build/doselibs
 
-libcudf/cudf.%:
-	$(OCAMLBUILD) $(OBFLAGS) libcudf/cudf.$*
+cudf/cudf.%:
+	$(OCAMLBUILD) $(OBFLAGS) cudf/cudf.$*
 	@mkdir -p $(DOSELIBS)
-	@cp _build/libcudf/*.cmi $(DOSELIBS)
-	@for i in _build/libcudf/cudf.*; do \
+	@cp _build/cudf/*.cmi $(DOSELIBS)
+	@for i in _build/cudf/cudf.*; do \
 	  if [ -e $$i ]; then \
 	  cp $$i $(DOSELIBS) ; \
 	  rm -f $(DOSELIBS)/*.mlpack $(DOSELIBS)/*.cmx ; \
@@ -85,15 +93,24 @@ doseparse/boilerplateNoRpm.%:
 	  fi ; \
 	done
 
-lib: $(LIBS)
+POD = $(wildcard doc/manpages/*.pod)
+MAN = $(patsubst %.pod,%.1,$(POD))
+HTML = $(patsubst %.pod,%.html,$(POD))
 
-man: doc/manpages/apt-cudf.1
+man: $(MAN)
+html: $(HTML)
+	mkdir -p dose3.docdir/manpages
+	cp doc/manpages/*.html dose3.docdir/manpages
 
-doc/manpages/apt-cudf.1: doc/manpages/apt-cudf.pod
-	pod2man --section 8 --release "$(NAME) $(VERSION)" $< > $@
+doc/manpages/%.1: doc/manpages/%.pod
+	pod2man --section 1 --release "$(NAME) $(VERSION)" doc/manpages/$*.pod > $@
+
+doc/manpages/%.html: doc/manpages/%.pod
+	pod2html doc/manpages/$*.pod > $@
 
 clean:
 	$(OCAMLBUILD) -clean
+	@echo ""
 
 distclean: clean
 	rm -Rf Makefile.config aclocal.m4 config.log config.status autom4te.cache/
@@ -109,49 +126,46 @@ $(DOSELIBS)/%:
 
 test:
 	@for i in $(TESTS); do\
-		cd $$i ;\
 		echo "#######TESTING $$i" ;\
-		$(OCAMLBUILD) $(OBFLAGS) tests.$(OCAMLBEST) ;\
+		$(OCAMLBUILD) $(OBFLAGS) $$i/tests.$(OCAMLBEST) ;\
 		./tests.$(OCAMLBEST) ;\
-		cd .. ;\
 	done
 
 # stuff not not put in a distribution tarball
-DIST_EXCLUDE = libcudf $(wildcard */tests) experimental
+DIST_EXCLUDE = cudf tests $(wildcard */tests) experimental
 
+INSTALL_STUFF_ = META
+INSTALL_STUFF_ += $(wildcard _build/doselibs/*.cma _build/doselibs/*.cmi)
+INSTALL_STUFF_ += $(wildcard _build/doselibs/*.cmxa _build/doselibs/*.cmxs)
+INSTALL_STUFF_ += $(wildcard _build/doselibs/*.a)
+INSTALL_STUFF_ += $(wildcard _build/*/*.mli)
+INSTALL_STUFF_ += $(wildcard _build/rpm/*.so _build/rpm/*.a)
 
-INSTALL_STUFF = META
-INSTALL_STUFF += $(wildcard $(DOSELIBS)/*)
+exclude_cudf = $(wildcard _build/doselibs/*cudf* _build/cudf/*)
+INSTALL_STUFF = $(filter-out $(exclude_cudf), $(INSTALL_STUFF_))
 
-install:
-	# install libraries
+install: META installcudf
 	test -d $(LIBDIR) || mkdir -p $(LIBDIR)
-	$(INSTALL) -patch-version $(VERSION) $(NAME) $(INSTALL_STUFF)
 	test -d $(LIBDIR)/stublibs || mkdir -p $(LIBDIR)/stublibs
-	cp _build/rpm/dllrpm_stubs.so $(LIBDIR)/stublibs/
-
-        # eclipse and rpm to add ...
-	for f in algo common deb ; do \
-	  test -d  $(LIBDIR)/$(NAME)/$$f/ || mkdir -p  $(LIBDIR)/$(NAME)/$$f/ ; \
-	  cp -f _build/$$f/*.mli $(LIBDIR)/$(NAME)/$$f/ ;\
-	done
+	$(INSTALL) -patch-version $(VERSION) $(NAME) $(INSTALL_STUFF)
 
 	# install applications
-	test -d $(BINDIR) || mkdir -p $(BINDIR)
 	cd _build/applications ; \
+	install -d $(BINDIR) ; \
 	for f in $$(ls *.$(OCAMLBEST)) ; do \
-	  cp $$f $(BINDIR)/$${f%.$(OCAMLBEST)} ; \
+	  install -s $$f $(BINDIR)/$${f%.$(OCAMLBEST)} ; \
 	done
+	ln -s $(BINDIR)/distcheck $(BINDIR)/debcheck
+	ln -s $(BINDIR)/distcheck $(BINDIR)/rpmcheck
+	ln -s $(BINDIR)/distcheck $(BINDIR)/eclipsecheck
 
-uninstall:
-	rm -Rf $(LIBDIR)/dose3
-	rm $(LIBDIR)/stublibs/dllrpm_stubs.so
+uninstall: uninstallcudf
+	$(OCAMLFIND) remove -destdir $(LIBDIR) $(NAME)
 
 	for f in $$(ls *.$(OCAMLBEST)) ; do \
-	  if [ -f $(BINDIR)/$${f%.$(OCAMLBEST)} ]; then \
-	    rm $(BINDIR)/$${f%.$(OCAMLBEST)} ; \
-	  fi \
+	  rm -f $(BINDIR)/$${f%.$(OCAMLBEST)} ; \
 	done
+	rm -f $(BINDIR)/debcheck $(BINDIR)/rpmcheck $(BINDIR)/eclipsecheck
 
 dist: ./$(DIST_TARBALL)
 ./$(DIST_TARBALL):
@@ -168,6 +182,8 @@ dist: ./$(DIST_TARBALL)
 	@echo "Distribution tarball: ./$(DIST_TARBALL)"
 
 doc:
-	$(OCAMLBUILD) $(OBFLAGS) dose3.docdir/index.html
+	$(OCAMLBUILD) $(OBFLAGS) dose3.docdir/index.html dose3.docdir/index.dot
+	dot -Grotate=0 -Tsvg -o dose3.docdir/index.svg dose3.docdir/index.dot
+	$(MAKE) html
 
 .PHONY: all opt clean top-level headers test tags install uninstall dist doc

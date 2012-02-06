@@ -13,6 +13,12 @@
 open OUnit
 open Common
 
+let test_dir = "tests/common"
+
+(* XXX this file should not be in the algo test directory, but in a more
+ * central location *)
+let f_legacy = "tests/algo/legacy.cudf"
+
 let test_deb_local =
   "deb local" >:: (fun _ ->
     let (protocol,(userOpt,passOpt,hostOpt,portOpt,path),queryOpt) =
@@ -88,10 +94,6 @@ let parse_uri =
     (* test_pgsql; *)
   ]
 
-(* XXX this file should not be in the algo test directory, but in a more
- * central location *)
-let f_legacy = "../algo/tests/legacy.cudf"
-
 module S = CudfAdd.Cudf_set
 
 let (universe,request) =
@@ -109,8 +111,8 @@ let electric_engine2 = Cudf.lookup_package universe ("electric-engine",2)
 
 let test_who_conflicts =
   "who_conflict" >:: (fun _ ->
-    let maps = CudfAdd.build_maps universe in
-    let l = maps.CudfAdd.who_conflicts electric_engine2 in
+    let conflicts = CudfAdd.init_conflicts universe in
+    let l = CudfAdd.who_conflicts conflicts universe electric_engine2 in
     let engine_conflicts_set = toset 
       [ ("electric-engine",1);
         ("gasoline-engine",1);
@@ -122,8 +124,7 @@ let test_who_conflicts =
 
 let test_who_provides =
   "who_provides" >:: (fun _ ->
-    let maps = CudfAdd.build_maps universe in
-    let l = maps.CudfAdd.who_provides ("electric-engine",None) in
+    let l = CudfAdd.who_provides universe ("electric-engine",None) in
     let engine_provides_set = toset 
       [ ("electric-engine",1);
         ("electric-engine",2); ]

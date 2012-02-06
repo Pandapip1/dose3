@@ -14,25 +14,27 @@ open ExtLib
 open Debian
 open Common
 open Algo
-open Diagnostic
 
 module Options = struct
   open OptParse
-  let description = "Report the broken packages in a package list"
+  let description = "Report the broken packages in a Packages list"
   let options = OptParser.make ~description
   include Boilerplate.MakeOptions(struct let options = options end)
 
   let successes = StdOpt.store_true ()
   let failures = StdOpt.store_true ()
   let explain = StdOpt.store_true ()
+  let summary = StdOpt.store_true ()
   let uuid = StdOpt.store_true ()
+  let latest = StdOpt.store_true ()
   let checkonly = Boilerplate.vpkglist_option ()
   let architecture = StdOpt.str_option ()
   let distribution = StdOpt.str_option ()
   let release = StdOpt.str_option ()
   let suite = StdOpt.str_option ()
-  let summary = StdOpt.store_true ()
   let outfile = StdOpt.str_option ()
+  let background = Boilerplate.incr_str_list ()
+  let foreground = Boilerplate.incr_str_list ()
 
   open OptParser
   add options ~short_name:'e' ~long_name:"explain" ~help:"Explain the results" explain;
@@ -42,19 +44,27 @@ module Options = struct
   add options ~long_name:"checkonly" ~help:"Check only these package" checkonly;
   add options ~long_name:"summary" ~help:"Print a detailed summary" summary;
 
+  add options ~long_name:"latest" ~help:"Check only the latest version of each package" latest;
+  add options ~short_name:'u' ~long_name:"uid" ~help:"Generate a unique identifier for the output document" uuid;
+
   add options ~long_name:"distrib" ~help:"Set the distribution" distribution;
   add options ~long_name:"release" ~help:"Set the release name" release;
   add options ~long_name:"suite" ~help:"Set the release name" suite;
   add options ~long_name:"arch" ~help:"Set the default architecture" architecture;
-  add options ~short_name:'u' ~long_name:"uid" ~help:"Generate a unique identifier for the output document" uuid;
+
+  add options ~long_name:"fg" 
+  ~help:"Additional Packages lists that are checked and used for resolving dependencies (can be repeated)" foreground;
+
+  add options ~long_name:"bg" 
+  ~help:"Additional Packages lists that are NOT checked but used for resolving dependencies (can be repeated)" background;
 
   add options ~short_name:'o' ~long_name:"outfile" ~help:"output file" outfile;
 end
 
-let debug fmt = Util.make_debug "Distcheck" fmt
-let info fmt = Util.make_info "Distcheck" fmt
-let warning fmt = Util.make_warning "Distcheck" fmt
-let fatal fmt = Util.make_fatal "Distcheck" fmt
+let debug fmt = Util.make_debug __FILE__ fmt
+let info fmt = Util.make_info __FILE__ fmt
+let warning fmt = Util.make_warning __FILE__ fmt
+let fatal fmt = Util.make_fatal __FILE__ fmt
 
 let timer = Util.Timer.create "Solver" 
 
@@ -70,20 +80,45 @@ let main () =
   in
   Boilerplate.enable_debug (OptParse.Opt.get Options.verbose);
   Boilerplate.enable_timers (OptParse.Opt.get Options.timers) ["Solver"];
+  Boilerplate.enable_bars (OptParse.Opt.get Options.progress)
+    ["Depsolver_int.univcheck";"Depsolver_int.init_solver"] ;
   let default_arch = OptParse.Opt.opt Options.architecture in
-  let (universe,from_cudf,to_cudf) = Boilerplate.load_universe ~default_arch posargs in
+  let fg = posargs @ (OptParse.Opt.get Options.foreground) in
+  let bg = OptParse.Opt.get Options.background in
+  let (pkgll, from_cudf,to_cudf) = Boilerplate.load_list ~default_arch [fg;bg] in
+  let (fg_pkglist, bg_pkglist) = match pkgll with [fg;bg] -> (fg,bg) | _ -> assert false in
+  let fg_pkglist = 
+    if OptParse.Opt.get Options.latest then
+      let h = Hashtbl.create (List.length fg_pkglist) in
+      List.iter (fun p ->
+        try
+          let q = Hashtbl.find h p.Cudf.package in
+          if (CudfAdd.compare p q) > 0 then
+            Hashtbl.replace h p.Cudf.package p
+          else ()
+        with Not_found -> Hashtbl.add h p.Cudf.package p
+      ) fg_pkglist;
+      Hashtbl.fold (fun _ v acc -> v::acc) h []
+    else
+      fg_pkglist
+  in
+  let universe = 
+    let s = CudfAdd.to_set (fg_pkglist @ bg_pkglist) in
+    Cudf.load_universe (CudfAdd.Cudf_set.elements s) 
+  in
   let universe_size = Cudf.universe_size universe in
-  let pkglist = 
-    if OptParse.Opt.is_set Options.checkonly then 
-        List.flatten (
-          List.map (function 
-            |(p,None) -> Cudf.lookup_packages universe p
-            |(p,Some(c,v)) ->
-                let filter = Some(c,snd(to_cudf (p,v))) in
-                Cudf.lookup_packages ~filter universe p
-          ) (OptParse.Opt.get Options.checkonly)
-        )
-    else []
+  let checklist = 
+    if OptParse.Opt.is_set Options.checkonly then begin
+      info "--checkonly specified, consider all packages as background packages";
+      List.flatten (
+        List.map (function 
+          |(p,None) -> Cudf.lookup_packages universe p
+          |(p,Some(c,v)) ->
+              let filter = Some(c,snd(to_cudf (p,v))) in
+              Cudf.lookup_packages ~filter universe p
+        ) (OptParse.Opt.get Options.checkonly)
+      )
+    end else []
   in
   let pp pkg =
     let (p,v) = from_cudf (pkg.Cudf.package,pkg.Cudf.version) in 
@@ -91,7 +126,7 @@ let main () =
       List.filter_map (fun k ->
         try Some(k,Cudf.lookup_package_property pkg k)
         with Not_found -> None
-      ) ["architecture";"source";"sourceversion"]
+      ) ["architecture";"source";"sourcenumber"]
     in (p,v,l)
   in
   info "Solving..." ;
@@ -127,18 +162,26 @@ let main () =
   Util.Timer.start timer;
   let i =
     if OptParse.Opt.is_set Options.checkonly then 
-      Depsolver.listcheck ~callback universe pkglist
-    else
-      Depsolver.univcheck ~callback universe 
+      Depsolver.listcheck ~callback universe checklist
+    else begin
+      if bg_pkglist = [] then
+        Depsolver.univcheck ~callback universe 
+      else
+        Depsolver.listcheck ~callback universe fg_pkglist
+    end
   in
   ignore(Util.Timer.stop timer ());
 
   if failure || success then Format.fprintf fmt "@]@.";
  
-  let nb = universe_size in
-  let nf = List.length pkglist in
+  let n1 = List.length checklist in
+  let n2 = List.length fg_pkglist in
+  let n3 = List.length bg_pkglist in
+  let nf = if n1 != 0 then n1 else n2 in
+  let nb = if n1 != 0 then n2 + n3 else n3 in
   Format.fprintf fmt "background-packages: %d@." nb;
-  Format.fprintf fmt "foreground-packages: %d@." (if nf = 0 then nb else nf);
+  Format.fprintf fmt "foreground-packages: %d@." nf;
+  Format.fprintf fmt "total-packages: %d@." universe_size;
   Format.fprintf fmt "broken-packages: %d@." i;
  
   if summary then 

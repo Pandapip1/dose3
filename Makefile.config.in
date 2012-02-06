@@ -6,15 +6,21 @@ CPPFLAGS=@CPPFLAGS@
 LDFLAGS=@LDFLAGS@
 
 OCAMLFIND=@OCAMLFIND@
-DESTDIR=@prefix@
-LIBDIR=$(DESTDIR)@OCAMLLIB@
-BINDIR=$(DESTDIR)/usr/bin
+
+DESTDIR =
 ifeq ($(DESTDIR),)
-  INSTALL=$(OCAMLFIND) install
-  UNINSTALL=$(OCAMLFIND) remove
+exec_prefix=@prefix@
+BINDIR=@bindir@
+LIBDIR=$(shell ocamlfind printconf destdir)
+
+INSTALL=$(OCAMLFIND) install -destdir $(LIBDIR)
+UNINSTALL=$(OCAMLFIND) remove -destdir $(LIBDIR)
 else
-  INSTALL=$(OCAMLFIND) install -destdir $(LIBDIR)
-  UNINSTALL=$(OCAMLFIND) remove -destdir $(LIBDIR)
+LIBDIR = $(DESTDIR)/$(shell ocamlc -where)
+BINDIR = $(DESTDIR)/usr/bin
+
+INSTALL = $(OCAMLFIND) install -destdir $(LIBDIR)
+UNINSTALL = $(OCAMLFIND) remove -destdir $(LIBDIR)
 endif
 
 ifeq ("@OCAML_OS_TYPE@","freebsd")
@@ -22,56 +28,67 @@ ifeq ("@OCAML_OS_TYPE@","freebsd")
 endif
 
 OCAMLBUILD=@OCAMLBUILD@
-#ocamlbest
 ifeq ("@OCAMLBEST@","opt")
   OCAMLBEST=native
-  OCAMLLIBBEST=cmxa
 else
   OCAMLBEST=byte
-  OCAMLLIBBEST=cma
 endif
 
-LIBS=
 TARGETS= \
-                 applications/distcheck.$(OCAMLBEST) \
-                 applications/deb-buildcheck.$(OCAMLBEST) \
-                 applications/ceve.$(OCAMLBEST) \
-                 applications/apt-cudf.$(OCAMLBEST) \
+   applications/distcheck.$(OCAMLBEST) \
+   applications/deb-buildcheck.$(OCAMLBEST) \
+   applications/ceve.$(OCAMLBEST) \
+   applications/apt-cudf.$(OCAMLBEST) \
+   applications/outdated.$(OCAMLBEST) \
+   applications/challenged.$(OCAMLBEST) \
+
+BYTELIBS=
+OPTLIBS=
+CMXSLIBS=
+CMXSLIBS=
+ALIBS=
 
 ifeq ("@HAS_LIBCUDF@","no")
-  LIBS += libcudf/cudf.$(OCAMLLIBBEST) libcudf/cudf.a
+  BYTELIBS += cudf/cudf.cma cudf/cudf.a
   ifeq ("@OCAMLBEST@","opt")
-    LIBS += libcudf/cudf.cma
+    OPTLIBS += cudf/cudf.cmxa
+    CMXSLIBS += cudf/cudf.cmxs
   endif
 endif
 
-LIBS += common/common.$(OCAMLLIBBEST) common/common.a
-LIBS += deb/debian.$(OCAMLLIBBEST) deb/debian.a
-LIBS += rpm/rpm.$(OCAMLLIBBEST) rpm/rpm.a
-LIBS += eclipse/eclipse.$(OCAMLLIBBEST) eclipse/eclipse.a
-LIBS += algo/algo.$(OCAMLLIBBEST) algo/algo.a
-LIBS += doseparse/boilerplateNoRpm.$(OCAMLLIBBEST) doseparse/boilerplateNoRpm.a
-LIBS += doseparse/boilerplate.$(OCAMLLIBBEST) doseparse/boilerplate.a
+#AH I hate hacks !
+all: realall
 
-#we always compile bytecode libraries
+ifeq ("@HAS_LIBCUDF@","no")
+installcudf:
+	$(MAKE) -C cudf all @OCAMLBEST@ install
+uninstallcudf:
+	$(MAKE) -C cudf uninstall
+else
+installcudf:
+uninstallcudf:
+endif
+
+BYTELIBS += common/common.cma deb/debian.cma rpm/rpm.cma eclipse/eclipse.cma algo/algo.cma doseparse/boilerplateNoRpm.cma doseparse/boilerplate.cma
+
 ifeq ("@OCAMLBEST@","opt")
-  LIBS += common/common.cma
-  LIBS += deb/debian.cma
-  LIBS += rpm/rpm.cma
-  LIBS += eclipse/eclipse.cma
-  LIBS += algo/algo.cma
-  LIBS += doseparse/boilerplate.cma
+  OPTLIBS += $(BYTELIBS:%.cma=%.cmxa) 
+  CMXSLIBS += $(BYTELIBS:%.cma=%.cmxs)
 endif
 
 #rpm support
 ifeq ("@HAS_RPM@","yes")
-  LIBS += rpm/rpm.$(OCAMLLIBBEST) rpm/rpm.a
+  BYTELIBS += rpm/rpm.cma rpm/rpm.a
+  ifeq ("@OCAMLBEST@","opt")
+    OPTLIBS += rpm/rpm.cmxa
+    CMXSLIBS += rpm/rpm.cmxs
+  endif
 endif
 
 #database support
 ifeq ("@HAS_DB@","yes") 
   EXPERIMENTAL += experimental/db-cudf.$(OCAMLBEST)
-  LIBS += db/db.$(OCAMLLIBBEST)
+  BYTELIBS += db/db.cma
 #  TEST_DB=db
 endif
 
@@ -98,3 +115,5 @@ endif
 ifeq ("@HAS_OUNIT@","yes")
   TESTS= common deb algo $(TEST_DB) $(TEST_RPM)
 endif
+
+ALIBS = $(BYTELIBS:%.cma=%.a)
