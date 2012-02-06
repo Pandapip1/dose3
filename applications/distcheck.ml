@@ -72,10 +72,10 @@ let main () =
   let posargs =
     let args = OptParse.OptParser.parse_argv Options.options in
     match Filename.basename(Sys.argv.(0)),args with
-    |("debcheck"|"dose3-debcheck"),[] -> ["deb://-"]
-    |("debcheck"|"dose3-debcheck"),l -> List.map ((^) "deb://") l
+    |("debcheck"|"edos-debcheck"),[] -> ["deb://-"]
+    |("debcheck"|"edos-debcheck"),l -> List.map ((^) "deb://") l
     |"eclipsecheck",l -> List.map ((^) "eclipse://") l
-    |("rpmcheck"|"dose3-rpmcheck"),l -> List.map ((^) "synth://") l
+    |("rpmcheck"|"edos-rpmcheck"),l -> List.map ((^) "synth://") l
     |_,_ -> args
   in
   Boilerplate.enable_debug (OptParse.Opt.get Options.verbose);
