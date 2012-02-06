@@ -18,7 +18,7 @@ Vcs-Git: git://git.debian.org/git/pkg-ocaml-maint/packages/dose3.git
 
 Package: libdose3-ocaml-dev
 Architecture: any
-Depends: ${misc:Depends}, ${ocaml:Depends}
+Depends: ${misc:Depends}, ${ocaml:Depends}, ${shlibs:Depends}
 Provides: ${ocaml:Provides}
 Description: OCaml libraries for package dependencies (development files)
  Dose3 is a framework consisting of several OCaml libraries for analysing
@@ -110,7 +110,7 @@ Description: Parses package dependencies as set of constraints
 Package: apt-cudf
 Section: admin
 Architecture: any
-Depends: cudf-solver,
+Depends: aspcud | cudf-solver,
  ${ocaml:Depends}, ${misc:Depends}, ${shlibs:Depends}
 Description: CUDF solver integration for APT
  apt-cudf provides integration among the APT package manager and CUDF solvers,
