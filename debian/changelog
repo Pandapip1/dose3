@@ -7,8 +7,9 @@ dose3 (2.9.10-1) UNRELEASED; urgency=low
     - The apt-cudf package now depends first on aspcud before the virtual
       package cudf-solver
     - add ${shlibs:Depends} to dependencies of libdose3-ocaml-dev
-  
- -- Ralf Treinen <treinen@debian.org>  Mon, 06 Feb 2012 20:31:20 +0100
+    - Bump build-dependency on cudf to 0.6.2
+
+ -- Ralf Treinen <treinen@debian.org>  Mon, 06 Feb 2012 20:45:37 +0100
 
 dose3 (2.9.8-1) experimental; urgency=low
 
