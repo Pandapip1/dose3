@@ -3,8 +3,8 @@ Description: all binaries have prefix dose3-
 
 Index: dose3/doc/manpages/distcheck.pod
 ===================================================================
---- dose3.orig/doc/manpages/distcheck.pod	2012-02-06 15:27:40.000000000 +0100
-+++ dose3/doc/manpages/distcheck.pod	2012-02-06 16:39:59.000000000 +0100
+--- dose3.orig/doc/manpages/distcheck.pod	2012-02-06 20:01:28.000000000 +0100
++++ dose3/doc/manpages/distcheck.pod	2012-02-06 20:05:39.000000000 +0100
 @@ -1,19 +1,19 @@
  =head1 NAME
  
@@ -88,3 +88,21 @@ Index: dose3/doc/manpages/distcheck.pod
  project. The current version has been rewritten on the basis of the dose3
  library by Pietro Abate.
  
+Index: dose3/applications/distcheck.ml
+===================================================================
+--- dose3.orig/applications/distcheck.ml	2012-02-06 20:01:28.000000000 +0100
++++ dose3/applications/distcheck.ml	2012-02-06 20:06:09.000000000 +0100
+@@ -72,10 +72,10 @@
+   let posargs =
+     let args = OptParse.OptParser.parse_argv Options.options in
+     match Filename.basename(Sys.argv.(0)),args with
+-    |("debcheck"|"edos-debcheck"),[] -> ["deb://-"]
+-    |("debcheck"|"edos-debcheck"),l -> List.map ((^) "deb://") l
++    |("debcheck"|"dose3-debcheck"),[] -> ["deb://-"]
++    |("debcheck"|"dose3-debcheck"),l -> List.map ((^) "deb://") l
+     |"eclipsecheck",l -> List.map ((^) "eclipse://") l
+-    |("rpmcheck"|"edos-rpmcheck"),l -> List.map ((^) "synth://") l
++    |("rpmcheck"|"dose3-rpmcheck"),l -> List.map ((^) "synth://") l
+     |_,_ -> args
+   in
+   Boilerplate.enable_debug (OptParse.Opt.get Options.verbose);
