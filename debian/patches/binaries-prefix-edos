@@ -1,77 +1,90 @@
 Author: Ralf Treinen <treinen@debian.org>
-Description: In debian, the symlinks to distcheck for specific distribution
-  formats are named dose3-*.
+Description: all binaries have prefix dose3-
 
-Index: dose3/applications/distcheck.ml
+Index: dose3/doc/manpages/distcheck.pod
 ===================================================================
---- dose3.orig/applications/distcheck.ml	2011-05-15 18:53:29.000000000 +0200
-+++ dose3/applications/distcheck.ml	2011-05-15 18:54:36.000000000 +0200
-@@ -61,10 +61,10 @@
-   let posargs =
-     let args = OptParse.OptParser.parse_argv Options.options in
-     match Filename.basename(Sys.argv.(0)),args with
--    |("debcheck"|"edos-debcheck"),[] -> ["deb://-"]
--    |("debcheck"|"edos-debcheck"),l -> List.map ((^) "deb://") l
-+    |("debcheck"|"dose3-debcheck"),[] -> ["deb://-"]
-+    |("debcheck"|"dose3-debcheck"),l -> List.map ((^) "deb://") l
-     |"eclipsecheck",l -> List.map ((^) "eclipse://") l
--    |("rpmcheck"|"edos-rpmcheck"),l -> List.map ((^) "synth://") l
-+    |("rpmcheck"|"dose3-rpmcheck"),l -> List.map ((^) "synth://") l
-     |_,_ -> args
-   in
-   Boilerplate.enable_debug (OptParse.Opt.get Options.verbose);
-Index: dose3/doc/manpages/distcheck.1.in
-===================================================================
---- dose3.orig/doc/manpages/distcheck.1.in	2011-05-15 18:54:44.000000000 +0200
-+++ dose3/doc/manpages/distcheck.1.in	2011-05-15 18:58:24.000000000 +0200
-@@ -5,11 +5,11 @@
- .SH SYNOPSIS
- \fBdistcheck\fR [option] ... \fIuri\fR
- .br
--\fBdebcheck\fR [option] ... \fIfile\fR
-+\fBdose3-debcheck\fR [option] ... \fIfile\fR
- .br
--\fBrpmcheck\fR [option] ... \fIfile\fR
-+\fBdose3-rpmcheck\fR [option] ... \fIfile\fR
- .br
--\fBeclipsecheck\fR [option] ... \fIfile\fR
-+\fBdose3-eclipsecheck\fR [option] ... \fIfile\fR
+--- dose3.orig/doc/manpages/distcheck.pod	2012-02-06 15:27:40.000000000 +0100
++++ dose3/doc/manpages/distcheck.pod	2012-02-06 16:39:59.000000000 +0100
+@@ -1,19 +1,19 @@
+ =head1 NAME
  
- .SH DESCRIPTION
- .B distcheck
-@@ -44,7 +44,7 @@
- When invoked as \fItype\fBcheck\fR, the type of the repository is
- assumed to be \fItype\fR, and the input is simply given in form of a
- pathname of a file containing the repository.
--.B debcheck
-+.B dose3-debcheck
- accepts in addition 
- .B --
- as input specification, with the effect that input is taken from
-@@ -57,7 +57,7 @@
- separated by one blank line. For instance, the Packages files as found
- on a Debian mirror server, or in the directory
- \fI/var/lib/apt/lists/\fR of a Debian system, are suitable as input to
--\fBdebcheck\fR.
-+\fBdose3-debcheck\fR.
- .P
- Installability of packages is analyzed according to their
- \fBDepends\fR, \fBConflicts\fR, and \fBProvides\fR fields with their
-@@ -70,7 +70,7 @@
+-distcheck - check installability of packages according to metadata 
++dose3-distcheck - check installability of packages according to metadata 
  
- .SS RPM
- The input file can be either a \fIsynthesis\fR file or a \fIhdlist\fR
--file.  By default rpmcheck expects a synthesis file as input. To
-+file.  By default dose3-rpmcheck expects a synthesis file as input. To
- specify a hdlist file distcheck must be invoked with a file argument
- of the form hdlist://
+ =head1 SYNOPSIS
  
-@@ -115,7 +115,7 @@
- .SH EXAMPLE
- Check which packages in a particular distribution are not installable and why:
+ =over 
  
--  debcheck \-\-failures \-\-explain < Packages
-+  dose3-debcheck \-\-failures \-\-explain < Packages
+-=item B<distcheck> [option] ... I<uri> B<debcheck> [option] ... I<file> B<rpmcheck> [option] ... I<file> B<eclipsecheck> [option] ... I<file> 
++=item B<dose3-distcheck> [option] ... I<uri> B<dose3-debcheck> [option] ... I<file> B<dose3-rpmcheck> [option] ... I<file> B<dose3-eclipsecheck> [option] ... I<file> 
+ 
+ =back
+ =cut
+ 
+ =head1 DESCRIPTION
+ 
+-distcheck determines, for a set of package control stanzas, called the
++dose3-distcheck determines, for a set of package control stanzas, called the
+ repository, whether packages of the repository can be installed relative to the
+ repository according to the inter-package relationsships expressed in the
+ package control stanzas.  The exact set of relevant control fields and their
+@@ -28,13 +28,13 @@
+ =head1 Input Specification
+ 
+ Currently supported repository types are debian, rpm, and eclipse. The
+-B<distcheck> tool expects its input specifiation in the form I<type://pathname>
++B<dose3-distcheck> tool expects its input specifiation in the form I<type://pathname>
+ where I<type> is one of B<deb>, B<synthesis>, B<hdlist> or B<eclipse>, and
+ I<pathname> is the pathname of a file containing the input. The package
+ metadata found in that file must correspond to the I<type> given in the URI.
+ When invoked as I<typeB<check>>, the type of the repository is assumed to be
+ I<type>, and the input is simply given in form of a pathname of a file
+-containing the repository. B<debcheck> accepts in addition  B<--> as input
++containing the repository. B<dose3-debcheck> accepts in addition  B<--> as input
+ specification, with the effect that input is taken from standard input.	    
+ 
+ =head1 Input Formats
+@@ -46,7 +46,7 @@
+ The input file has to contain stanzas in the format
+ of L<deb-control(5)>, separated by one blank line. For instance, the Packages
+ files as found on a Debian mirror server, or in the directory I</var/lib/apt/lists/>
+-of a Debian system, are suitable as input to B<debcheck>. Installability of
++of a Debian system, are suitable as input to B<dose3-debcheck>. Installability of
+ packages is analyzed according to their B<Depends>, B<Conflicts>, and B<Provides>
+ fields with their meaning as of Debian policy version 3.9.0. B<Pre-depends> are
+ treated like B<Depends>, and B<Breaks> are treated like B<Conflicts>. In the case
+@@ -59,7 +59,7 @@
+ 
+ The input file can be either a I<synthesis> file or a I<hdlist> file.  By
+ default rpmcheck expects a synthesis file as input. To specify a hdlist file
+-distcheck must be invoked with a file argument of the form hdlist:// 
++dose3-distcheck must be invoked with a file argument of the form hdlist:// 
+ 
+ =cut
+ 
+@@ -122,7 +122,7 @@
+ 
+ Check which packages in a particular distribution are not installable and why: 
+ 
+-   debcheck --failures --explain < Packages 
++   dose3-debcheck --failures --explain < Packages 
  
  where Packages is the file pertaining to that distribution, as for instance
- found in the directory \fB/var/lib/apt/lists\fR.
+ found in the directory B</var/lib/apt/lists>. 
+@@ -131,14 +131,14 @@
+ 
+ =head1 NOTE
+ 
+-Distcheck is a complete reimplementation of edos-debcheck, written for the EDOS
++Dose3-istcheck is a complete reimplementation of edos-debcheck, written for the EDOS
+ project. 
+ 
+ =cut
+ 
+ =head1 AUTHOR
+ 
+-The first version of debcheck was written by Jerome Vouillon for the EDOS
++The first version of dose3-debcheck was written by Jerome Vouillon for the EDOS
+ project. The current version has been rewritten on the basis of the dose3
+ library by Pietro Abate.
+ 
