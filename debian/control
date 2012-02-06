@@ -9,7 +9,7 @@ Build-Depends: debhelper (>= 7.0.50~), dh-ocaml (>= 0.9~),
  libpcre-ocaml-dev,
  libextlib-ocaml-dev,
  libocamlgraph-ocaml-dev,
- libcudf-ocaml-dev (>= 0.6),
+ libcudf-ocaml-dev (>= 0.6.2),
  libzip-ocaml-dev, libbz2-ocaml-dev, librpm-dev (>= 4.8)
 Standards-Version: 3.9.2
 Homepage: http://www.mancoosi.org/software/
