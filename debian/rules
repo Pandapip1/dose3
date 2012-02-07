@@ -9,18 +9,20 @@ override_dh_auto_configure:
 override_dh_auto_install:
 	dh_auto_install
 	cd debian/tmp/usr/bin \
-		&& mv distcheck dose3-distcheck \
-		&& mv deb-buildcheck dose3-builddebcheck \
-		&& mv outdated edos-outdated \
-		&& mv challenged edos-challenged
+		&& mv distcheck dose-distcheck \
+		&& mv deb-buildcheck dose-builddebcheck \
+		&& mv outdated dose-outdated \
+		&& mv challenged dose-challenged
 
 override_dh_installman:
 	dh_installman
-	cd debian/dose3-distcheck/usr/share/man/man1 \
-		&& mv distcheck.1 dose3-distcheck.1
-	cd debian/edos-extra/usr/share/man/man1 \
-		&& mv outdated.1 edos-outdated.1 \
-		&& mv challenged.1 edos-challenged.1
+	cd debian/dose-distcheck/usr/share/man/man1 \
+		&& mv distcheck.1 dose-distcheck.1
+	cd debian/dose-extra/usr/share/man/man1 \
+		&& mv outdated.1 dose-outdated.1 \
+		&& mv challenged.1 dose-challenged.1
+	cd debian/dose-builddebcheck/usr/share/man/man1 \
+		&& mv buildcheck.1 dose-builddebcheck.1
 
 override_dh_auto_build:
 	dh_auto_build

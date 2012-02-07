@@ -2,8 +2,10 @@ dose3 (2.9.12-1) UNRELEASED; urgency=low
 
   * New upstream release
   * The ceve package has disapperaed, we have instead now a new package
-    edos-extra that contains all tools that do not deserve their own
+    dose-extra that contains all tools that do not deserve their own
     package (for the moment: ceve, outdated, challenged).
+  * Packages for distcheck and builddebcheck have prefix dose- now.
+    Binaries (except ceve and apt-cudf) also have prefix dose.
   * debian/rules:
     - configuration option --with-rpm has become --with-rpm4
     - upstream has fixed installation of algo.a, we can now remove our own

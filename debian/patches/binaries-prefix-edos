@@ -1,22 +1,31 @@
 Author: Ralf Treinen <treinen@debian.org>
-Description: all binaries have prefix dose3-
+Description: all binaries have prefix dose-
 
 Index: dose3/doc/manpages/distcheck.pod
 ===================================================================
---- dose3.orig/doc/manpages/distcheck.pod	2012-02-06 20:01:28.000000000 +0100
-+++ dose3/doc/manpages/distcheck.pod	2012-02-06 20:05:39.000000000 +0100
-@@ -1,19 +1,19 @@
+--- dose3.orig/doc/manpages/distcheck.pod	2012-02-07 18:36:35.000000000 +0100
++++ dose3/doc/manpages/distcheck.pod	2012-02-07 18:44:31.000000000 +0100
+@@ -1,25 +1,25 @@
  =head1 NAME
  
 -distcheck - check installability of packages according to metadata 
-+dose3-distcheck - check installability of packages according to metadata 
++dose-distcheck - check installability of packages according to metadata 
  
  =head1 SYNOPSIS
  
  =over 
  
--=item B<distcheck> [option] ... I<uri> B<debcheck> [option] ... I<file> B<rpmcheck> [option] ... I<file> B<eclipsecheck> [option] ... I<file> 
-+=item B<dose3-distcheck> [option] ... I<uri> B<dose3-debcheck> [option] ... I<file> B<dose3-rpmcheck> [option] ... I<file> B<dose3-eclipsecheck> [option] ... I<file> 
+-=item B<distcheck> [option] ... I<uri>
++=item B<dose-distcheck> [option] ... I<uri>
+ 
+-=item B<debcheck> [option] ... [I<file>]
++=item B<dose-debcheck> [option] ... [I<file>]
+ 
+-=item B<rpmcheck> [option] ... I<file>
++=item B<dose-rpmcheck> [option] ... I<file>
+ 
+-=item B<eclipsecheck> [option] ... I<file> 
++=item B<dose-eclipsecheck> [option] ... I<file> 
  
  =back
  =cut
@@ -24,85 +33,85 @@ Index: dose3/doc/manpages/distcheck.pod
  =head1 DESCRIPTION
  
 -distcheck determines, for a set of package control stanzas, called the
-+dose3-distcheck determines, for a set of package control stanzas, called the
++dose-distcheck determines, for a set of package control stanzas, called the
  repository, whether packages of the repository can be installed relative to the
  repository according to the inter-package relationsships expressed in the
  package control stanzas.  The exact set of relevant control fields and their
-@@ -28,13 +28,13 @@
+@@ -39,13 +39,13 @@
  =head1 Input Specification
  
  Currently supported repository types are debian, rpm, and eclipse. The
 -B<distcheck> tool expects its input specifiation in the form I<type://pathname>
-+B<dose3-distcheck> tool expects its input specifiation in the form I<type://pathname>
++B<dose-distcheck> tool expects its input specifiation in the form I<type://pathname>
  where I<type> is one of B<deb>, B<synthesis>, B<hdlist> or B<eclipse>, and
  I<pathname> is the pathname of a file containing the input. The package
  metadata found in that file must correspond to the I<type> given in the URI.
- When invoked as I<typeB<check>>, the type of the repository is assumed to be
+-When invoked as I<typeB<check>>, the type of the repository is assumed to be
++When invoked as B<dose->I<type>B<check>, the type of the repository is assumed to be
  I<type>, and the input is simply given in form of a pathname of a file
--containing the repository. B<debcheck> accepts in addition  B<--> as input
-+containing the repository. B<dose3-debcheck> accepts in addition  B<--> as input
- specification, with the effect that input is taken from standard input.	    
+-containing the repository. B<debcheck> reads package descriptions from
++containing the repository. B<dose-debcheck> reads package descriptions from
+ standard input in case no file argument is provided.
  
- =head1 Input Formats
-@@ -46,7 +46,7 @@
+ 
+@@ -58,7 +58,7 @@
  The input file has to contain stanzas in the format
  of L<deb-control(5)>, separated by one blank line. For instance, the Packages
  files as found on a Debian mirror server, or in the directory I</var/lib/apt/lists/>
 -of a Debian system, are suitable as input to B<debcheck>. Installability of
-+of a Debian system, are suitable as input to B<dose3-debcheck>. Installability of
++of a Debian system, are suitable as input to B<dose-debcheck>. Installability of
  packages is analyzed according to their B<Depends>, B<Conflicts>, and B<Provides>
  fields with their meaning as of Debian policy version 3.9.0. B<Pre-depends> are
  treated like B<Depends>, and B<Breaks> are treated like B<Conflicts>. In the case
-@@ -59,7 +59,7 @@
+@@ -71,7 +71,7 @@
  
  The input file can be either a I<synthesis> file or a I<hdlist> file.  By
  default rpmcheck expects a synthesis file as input. To specify a hdlist file
 -distcheck must be invoked with a file argument of the form hdlist:// 
-+dose3-distcheck must be invoked with a file argument of the form hdlist:// 
++dose-distcheck must be invoked with a file argument of the form hdlist:// 
  
  =cut
  
-@@ -122,7 +122,7 @@
+@@ -177,7 +177,7 @@
  
  Check which packages in a particular distribution are not installable and why: 
  
 -   debcheck --failures --explain < Packages 
-+   dose3-debcheck --failures --explain < Packages 
++   dose-debcheck --failures --explain < Packages 
  
  where Packages is the file pertaining to that distribution, as for instance
  found in the directory B</var/lib/apt/lists>. 
-@@ -131,14 +131,14 @@
+@@ -185,13 +185,13 @@
+ Check which packages in contrib are not installable when dependencies may
+ be satisfied from main:
+  
+-  debcheck --failures --bg=main_Packages contrib_Packages
++  dose-debcheck --failures --bg=main_Packages contrib_Packages
+ 
+ =cut
  
  =head1 NOTE
  
 -Distcheck is a complete reimplementation of edos-debcheck, written for the EDOS
-+Dose3-distcheck is a complete reimplementation of edos-debcheck, written for the EDOS
++Dose-distcheck is a complete reimplementation of edos-debcheck, written for the EDOS
  project. 
  
  =cut
- 
- =head1 AUTHOR
- 
--The first version of debcheck was written by Jerome Vouillon for the EDOS
-+The first version of dose3-debcheck was written by Jerome Vouillon for the EDOS
- project. The current version has been rewritten on the basis of the dose3
- library by Pietro Abate.
- 
 Index: dose3/applications/distcheck.ml
 ===================================================================
---- dose3.orig/applications/distcheck.ml	2012-02-06 20:01:28.000000000 +0100
-+++ dose3/applications/distcheck.ml	2012-02-06 20:06:09.000000000 +0100
-@@ -72,10 +72,10 @@
+--- dose3.orig/applications/distcheck.ml	2012-02-07 18:36:35.000000000 +0100
++++ dose3/applications/distcheck.ml	2012-02-07 18:45:09.000000000 +0100
+@@ -64,10 +64,10 @@
    let posargs =
      let args = OptParse.OptParser.parse_argv Options.options in
      match Filename.basename(Sys.argv.(0)),args with
 -    |("debcheck"|"edos-debcheck"),[] -> ["deb://-"]
 -    |("debcheck"|"edos-debcheck"),l -> List.map ((^) "deb://") l
-+    |("debcheck"|"dose3-debcheck"),[] -> ["deb://-"]
-+    |("debcheck"|"dose3-debcheck"),l -> List.map ((^) "deb://") l
++    |("debcheck"|"dose-debcheck"),[] -> ["deb://-"]
++    |("debcheck"|"dose-debcheck"),l -> List.map ((^) "deb://") l
      |"eclipsecheck",l -> List.map ((^) "eclipse://") l
 -    |("rpmcheck"|"edos-rpmcheck"),l -> List.map ((^) "synth://") l
-+    |("rpmcheck"|"dose3-rpmcheck"),l -> List.map ((^) "synth://") l
++    |("rpmcheck"|"dose-rpmcheck"),l -> List.map ((^) "synth://") l
      |_,_ -> args
    in
    Boilerplate.enable_debug (OptParse.Opt.get Options.verbose);

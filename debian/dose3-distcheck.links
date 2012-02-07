@@ -1,6 +1,0 @@
-usr/bin/dose3-distcheck usr/bin/dose3-debcheck
-usr/bin/dose3-distcheck usr/bin/dose3-rpmcheck
-usr/bin/dose3-distcheck usr/bin/dose3-eclipsecheck
-usr/share/man/man1/dose3-distcheck.1 usr/share/man/man1/dose3-debcheck.1
-usr/share/man/man1/dose3-distcheck.1 usr/share/man/man1/dose3-rpmcheck.1
-usr/share/man/man1/dose3-distcheck.1 usr/share/man/man1/dose3-eclipsecheck.1
