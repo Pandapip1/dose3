@@ -1,7 +1,7 @@
-dose3 (2.9.13-1) UNRELEASED; urgency=low
+dose3 (2.9.13-1) experimental; urgency=low
 
-  * New upstream release
-  * The ceve package has disapperaed, we have instead now a new package
+  * New upstream release - now almost ready for sid!
+  * The ceve package has disappeared, we have instead now a new package
     dose-extra that contains all tools that do not deserve their own
     package (for the moment: ceve, outdated, challenged).
   * Packages for distcheck and builddebcheck have prefix dose- now.
