@@ -1,6 +1,9 @@
 dose3 (2.9.10-1) UNRELEASED; urgency=low
 
   * New upstream release
+  * The ceve package has disapperaed, we have instaed now a new package
+    dose3-extra-tools that will contain all tols that do not deserve
+    their own package (for the moment: ceve and outdated).
   * debian/rules: configuration option --with-rpm has become --with-rpm4
   * debian/control:
     - The apt-cudf package now depends first on aspcud before the virtual
