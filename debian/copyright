@@ -3,10 +3,6 @@ Thu Jul  8 20:58:21 CEST 2010.
 
 It was downloaded from <http://gforge.info.ucl.ac.be/frs/?group_id=35>
 
-File: deb/version.ml
-Copyright: © 2009 Jaap Boender
-License: LGPL-3+
-
 File: deb/format822.ml
 Copyright: © 2005-2009 Jérôme Vouillion, Stefano Zacchiroli, Pietro Abate
 License: LGPL-3+
@@ -23,17 +19,16 @@ File: common/util.ml
 Copyright: © 2009 Alain Frish, Pietro Abate
 License: LGPL-3+
 
-File: common/url.ml
-Copyright: © 2001,2002 b8_bavard, b8_fee_carabine, INRIA
-License: LGPL-2+
+File: common/url.ml common/url.mli deb/version.ml
+Copyright: © 2011 Ralf Treinen
+License: LGPL-3+
 
 File: debian/update-cudf-solvers
 Copyright: © 2011 Stefano Zacchiroli
 License: LGPL-3+
 
 File: debian/*
-Copyright: © 2011 Ralf Treinen
-           © 2011 Stefano Zacchiroli
+Copyright: © 2011 Ralf Treinen, Stefano Zacchiroli
 License: LGPL-3+
 
 File: *

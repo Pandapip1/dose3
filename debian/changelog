@@ -20,8 +20,9 @@ dose3 (2.9.13-1) UNRELEASED; urgency=low
       dependency graph of modules in the documentation.
   * generate documentation with ocamldoc (make doc) and install it in the
     libdose3-ocaml-dev package. Add an doc-base entry for the documentation.
+  * debian/copyright: update (files common/url.ml, deb/version.ml)
 
- -- Ralf Treinen <treinen@debian.org>  Tue, 07 Feb 2012 14:32:14 +0100
+ -- Ralf Treinen <treinen@debian.org>  Tue, 07 Feb 2012 21:41:12 +0100
 
 dose3 (2.9.8-1) experimental; urgency=low
 
