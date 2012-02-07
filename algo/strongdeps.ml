@@ -24,14 +24,12 @@ let warning fmt = Util.make_warning "StrongDeps" fmt
     [l] wrt the universe [u] *)
 let strongdeps ?(transitive=true) universe pkglist =
   let idlist = List.map (CudfAdd.vartoint universe) pkglist in
-  let g = Strongdeps_int.strongdeps ~transitive universe idlist in
-  Defaultgraphs.intcudf universe g
+  Strongdeps_int.strongdeps ~transitive universe idlist
 
 (** [strongdeps_univ u] build the strong dependency graph of 
     all packages in the universe [u] *)
 let strongdeps_univ ?(transitive=true) universe =
-  let g = Strongdeps_int.strongdeps_univ ~transitive universe in
-  Defaultgraphs.intcudf universe g
+  Strongdeps_int.strongdeps_univ ~transitive universe
 
 (** compute the impact set of the node [q], that is the list of all 
     packages [p] that strong depends on [q] *)
@@ -39,20 +37,20 @@ let impactset graph q =
   let module G = Defaultgraphs.PackageGraph.G in
   G.fold_pred (fun p acc -> p :: acc ) graph q []
 
-(** compute the (transitive closure of) the conjunctive dependency graph *)
+(** compute the conjunctive dependency graph *)
 let conjdeps_univ universe =
   let g = Defaultgraphs.IntPkgGraph.G.create () in
-  for id=0 to (Cudf.universe_size universe) - 1 do
+  for id = 0 to (Cudf.universe_size universe) - 1 do
     Defaultgraphs.IntPkgGraph.conjdepgraph_int g universe id
   done;
-  Defaultgraphs.intcudf universe g
+  g
 
-(** compute the transitive closure of the conjunctive dependency graph 
-    considering only packages in [pkglist] *)
+(** compute the conjunctive dependency graph considering only packages 
+    in [pkglist] *)
 let conjdeps universe pkglist =
   let idlist = List.map (CudfAdd.vartoint universe) pkglist in
   let g = Defaultgraphs.IntPkgGraph.G.create () in
   List.iter (fun id ->
     Defaultgraphs.IntPkgGraph.conjdepgraph_int g universe id
   ) idlist ;
-  Defaultgraphs.intcudf universe g
+  g
