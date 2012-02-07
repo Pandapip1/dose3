@@ -13,8 +13,10 @@ dose3 (2.9.10-1) UNRELEASED; urgency=low
       package cudf-solver
     - add ${shlibs:Depends} to dependencies of libdose3-ocaml-dev
     - Bump build-dependency on cudf to 0.6.2
+    - Added build-dependency on perl needed for building the manpages
+      using pod2man.
 
- -- Ralf Treinen <treinen@debian.org>  Mon, 06 Feb 2012 20:45:37 +0100
+ -- Ralf Treinen <treinen@debian.org>  Tue, 07 Feb 2012 13:53:42 +0100
 
 dose3 (2.9.8-1) experimental; urgency=low
 
