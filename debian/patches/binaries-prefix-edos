@@ -76,7 +76,7 @@ Index: dose3/doc/manpages/distcheck.pod
  =head1 NOTE
  
 -Distcheck is a complete reimplementation of edos-debcheck, written for the EDOS
-+Dose3-istcheck is a complete reimplementation of edos-debcheck, written for the EDOS
++Dose3-distcheck is a complete reimplementation of edos-debcheck, written for the EDOS
  project. 
  
  =cut
