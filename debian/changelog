@@ -4,7 +4,10 @@ dose3 (2.9.10-1) UNRELEASED; urgency=low
   * The ceve package has disapperaed, we have instead now a new package
     edos-extra that contains all tools that do not deserve their own
     package (for the moment: ceve, outdated, challenged).
-  * debian/rules: configuration option --with-rpm has become --with-rpm4
+  * debian/rules:
+    - configuration option --with-rpm has become --with-rpm4
+    - upstream has fixed installation of algo.a, we can now remove our own
+      hack in override_auto_install.
   * debian/control:
     - The apt-cudf package now depends first on aspcud before the virtual
       package cudf-solver
