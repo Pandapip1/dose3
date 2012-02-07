@@ -11,7 +11,8 @@ override_dh_auto_install:
 	cd debian/tmp/usr/bin \
 		&& mv distcheck dose3-distcheck \
 		&& mv deb-buildcheck dose3-builddebcheck \
-		&& mv outdated edos-outdated
+		&& mv outdated edos-outdated \
+		&& mv challenged edos-challenged
 # this should be fixed upstream:
 	for d in _build/algo/algo.o _build/algo/algo.a; do \
 	    if [ -f $$d ]; then cp $$d debian/tmp/usr/lib/ocaml/dose3; fi;\
@@ -21,6 +22,9 @@ override_dh_installman:
 	dh_installman
 	cd debian/dose3-distcheck/usr/share/man/man1 \
 		&& mv distcheck.1 dose3-distcheck.1
+	cd debian/edos-extra-tools/usr/share/man/man1 \
+		&& mv outdated.1 edos-outdated.1 \
+		&& mv challenged.1 edos-challenged.1
 
 override_dh_auto_build:
 	dh_auto_build
