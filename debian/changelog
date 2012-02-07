@@ -1,4 +1,4 @@
-dose3 (2.9.12-1) UNRELEASED; urgency=low
+dose3 (2.9.13-1) UNRELEASED; urgency=low
 
   * New upstream release
   * The ceve package has disapperaed, we have instead now a new package
