@@ -64,12 +64,9 @@ Description: Checks whether dependencies of packages can be satisfied
  This software checks for every package of a distribution whether it
  is possible to satisfy its dependencies and conflicts within this
  distribution. It comes in several versions:
-  - dose3-debcheck for Debian packages
-  - dose3-rpmcheck for rpm packages
-  - dose3-eclipsecheck for OSGi plugins
- NOTE: This is an experimental package which will eventually replace
- edos-distcheck. Until then, the name of the package or of the binaries,
- as well as command line options and output format, are subject to change.
+  - dose-debcheck for Debian packages
+  - dose-rpmcheck for rpm packages
+  - dose-eclipsecheck for OSGi plugins
 
 Package: dose-builddebcheck
 Section: devel
@@ -80,10 +77,6 @@ Description: Checks whether build-dependencies can be satisfied
  and a collection of binary package stanzas of debian packages, whether
  the build-dependencies of each source package can be satisfied by the
  binary packages.
- .
- NOTE: This is an experimental package which will eventually replace
- edos-distcheck. Until then, the name of the package or of the binary,
- as well as command line options and output format, are subject to change.
 
 Package: dose-extra
 Section: devel
@@ -92,15 +85,18 @@ Provides: ceve
 Conflicts: ceve (<< 2.9.10)
 Replaces: ceve
 Depends: ${ocaml:Depends}, ${misc:Depends}, ${shlibs:Depends}
-Description: Extra QA tools from Edos and Mancoosi
+Description: Extra QA tools from the Dose3-library
  This package contains extra tools for analyzing meta-data of software 
  packages:
  - ceve, a general metadata parser supporting different input formats
    (debian, rpm, and others) and different output formats.
- - outdated, a debian-specific tool for finding packages that are not
+ - dose-outdated, a debian-specific tool for finding packages that are not
    installable with respect to a package repository, and that can only be
    made installable again by fixing the package itself.
- The tools dose3-distcheck and dose3-builddebcheck are packaged in their
+ - dose-challenged, a debian-specific tool for checking which packages
+   will certianly become uninstallable when some existing package is upgraded
+   to a newer version.
+ The tools dose-distcheck and dose-builddebcheck are packaged in their
  own resepective packages.
 
 Package: apt-cudf
