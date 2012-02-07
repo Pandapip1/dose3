@@ -14,7 +14,8 @@ dose3 (2.9.10-1) UNRELEASED; urgency=low
     - add ${shlibs:Depends} to dependencies of libdose3-ocaml-dev
     - Bump build-dependency on cudf to 0.6.2
     - Added build-dependency on perl needed for building the manpages
-      using pod2man.
+      using pod2man, and on graphviz which is needed to build the
+      dependency graph of modules in the documentation.
   * generate documentation with ocamldoc (make doc) and install it in the
     libdose3-ocaml-dev package. Add an doc-base entry for the documentation.
 
