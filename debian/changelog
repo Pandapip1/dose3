@@ -15,8 +15,8 @@ dose3 (2.9.10-1) UNRELEASED; urgency=low
     - Bump build-dependency on cudf to 0.6.2
     - Added build-dependency on perl needed for building the manpages
       using pod2man.
-  * generate documentation with ocamldoc (make doc) and install in the
-    libdose3-ocaml-dev package.
+  * generate documentation with ocamldoc (make doc) and install it in the
+    libdose3-ocaml-dev package. Add an doc-base entry for the documentation.
 
  -- Ralf Treinen <treinen@debian.org>  Tue, 07 Feb 2012 14:32:14 +0100
 
