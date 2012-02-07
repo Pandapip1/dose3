@@ -22,7 +22,7 @@ override_dh_installman:
 	dh_installman
 	cd debian/dose3-distcheck/usr/share/man/man1 \
 		&& mv distcheck.1 dose3-distcheck.1
-	cd debian/edos-extra-tools/usr/share/man/man1 \
+	cd debian/edos-extra/usr/share/man/man1 \
 		&& mv outdated.1 edos-outdated.1 \
 		&& mv challenged.1 edos-challenged.1
 
