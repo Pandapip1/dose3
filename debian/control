@@ -84,7 +84,7 @@ Description: Checks whether build-dependencies can be satisfied
  edos-distcheck. Until then, the name of the package or of the binary,
  as well as command line options and output format, are subject to change.
 
-Package: dose3-extra-tools
+Package: edos-extra-tools
 Section: devel
 Architecture: any
 Provides: ceve
