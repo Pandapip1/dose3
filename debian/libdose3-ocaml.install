@@ -1,1 +1,1 @@
-usr/lib/ocaml/stublibs/* usr/lib/ocaml/stublibs
+usr/lib/ocaml/stublibs/dll*stubs.so usr/lib/ocaml/stublibs
