@@ -3,8 +3,8 @@ Description: all binaries have prefix dose-
 
 Index: dose3/doc/manpages/distcheck.pod
 ===================================================================
---- dose3.orig/doc/manpages/distcheck.pod	2012-02-07 21:33:52.000000000 +0100
-+++ dose3/doc/manpages/distcheck.pod	2012-02-07 21:42:27.000000000 +0100
+--- dose3.orig/doc/manpages/distcheck.pod	2012-02-08 15:10:15.000000000 +0100
++++ dose3/doc/manpages/distcheck.pod	2012-02-08 15:12:54.000000000 +0100
 @@ -1,25 +1,25 @@
  =head1 NAME
  
@@ -99,8 +99,8 @@ Index: dose3/doc/manpages/distcheck.pod
  =cut
 Index: dose3/applications/distcheck.ml
 ===================================================================
---- dose3.orig/applications/distcheck.ml	2012-02-07 21:33:52.000000000 +0100
-+++ dose3/applications/distcheck.ml	2012-02-07 21:42:27.000000000 +0100
+--- dose3.orig/applications/distcheck.ml	2012-02-08 15:10:15.000000000 +0100
++++ dose3/applications/distcheck.ml	2012-02-08 15:12:54.000000000 +0100
 @@ -64,10 +64,10 @@
    let posargs =
      let args = OptParse.OptParser.parse_argv Options.options in
@@ -117,8 +117,8 @@ Index: dose3/applications/distcheck.ml
    Boilerplate.enable_debug (OptParse.Opt.get Options.verbose);
 Index: dose3/doc/manpages/buildcheck.pod
 ===================================================================
---- dose3.orig/doc/manpages/buildcheck.pod	2012-02-07 21:33:52.000000000 +0100
-+++ dose3/doc/manpages/buildcheck.pod	2012-02-07 21:43:21.000000000 +0100
+--- dose3.orig/doc/manpages/buildcheck.pod	2012-02-08 15:10:15.000000000 +0100
++++ dose3/doc/manpages/buildcheck.pod	2012-02-08 15:12:54.000000000 +0100
 @@ -1,19 +1,19 @@
  =head1 NAME
  
@@ -169,8 +169,8 @@ Index: dose3/doc/manpages/buildcheck.pod
  <http://www.mancoosi.org> is the home page of the Mancoosi project. 
 Index: dose3/doc/manpages/outdated.pod
 ===================================================================
---- dose3.orig/doc/manpages/outdated.pod	2012-02-07 21:33:52.000000000 +0100
-+++ dose3/doc/manpages/outdated.pod	2012-02-07 21:44:44.000000000 +0100
+--- dose3.orig/doc/manpages/outdated.pod	2012-02-08 15:10:15.000000000 +0100
++++ dose3/doc/manpages/outdated.pod	2012-02-08 15:12:54.000000000 +0100
 @@ -1,16 +1,16 @@
  =head1 NAME
  
@@ -213,8 +213,8 @@ Index: dose3/doc/manpages/outdated.pod
   
 Index: dose3/doc/manpages/challenged.pod
 ===================================================================
---- dose3.orig/doc/manpages/challenged.pod	2012-02-07 21:33:52.000000000 +0100
-+++ dose3/doc/manpages/challenged.pod	2012-02-07 21:46:23.000000000 +0100
+--- dose3.orig/doc/manpages/challenged.pod	2012-02-08 15:10:15.000000000 +0100
++++ dose3/doc/manpages/challenged.pod	2012-02-08 15:12:54.000000000 +0100
 @@ -1,19 +1,19 @@
  =head1 NAME
  
@@ -264,4 +264,30 @@ Index: dose3/doc/manpages/challenged.pod
 +L<B<dose-outdated>(1)B<>> 
  
  <http://www.mancoosi.org> is the home page of the Mancoosi project.
+ 
+Index: dose3/doc/manpages/ceve.pod
+===================================================================
+--- dose3.orig/doc/manpages/ceve.pod	2012-02-08 15:10:15.000000000 +0100
++++ dose3/doc/manpages/ceve.pod	2012-02-08 15:13:31.000000000 +0100
+@@ -1,18 +1,18 @@
+ =head1 NAME
+ 
+-ceve - parse package metadata 
++dose-ceve - parse package metadata 
+ 
+ =head1 SYNOPSIS
+ 
+ =over 
+ 
+-=item B<ceve> [-h] [-v] [-e I<pkgspec>] [-c I<pkgspec>] [-r I<pkgspec>] [--depth=I<n>]I<> [-t I<format>] [-o I<filename>] I<input-spec> 
++=item B<dose-ceve> [-h] [-v] [-e I<pkgspec>] [-c I<pkgspec>] [-r I<pkgspec>] [--depth=I<n>]I<> [-t I<format>] [-o I<filename>] I<input-spec> 
+ 
+ =back
+ 
+ =head1 DESCRIPTION
+ 
+-Ceve is a generalized metadata parser. It reads package specifications,
++Dose-ceve is a generalized metadata parser. It reads package specifications,
+ extracts package metadata from them, performs some manipulations, and outputs
+ the package metadata in one of several formats. 
  

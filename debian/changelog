@@ -1,3 +1,9 @@
+dose3 (2.9.13-2) experimental; urgency=low
+
+  * Rename ceve to dose-ceve (binary and manpage)
+
+ -- Ralf Treinen <treinen@debian.org>  Wed, 08 Feb 2012 15:12:41 +0100
+
 dose3 (2.9.13-1) experimental; urgency=low
 
   * New upstream release - now almost ready for sid!
