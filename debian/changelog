@@ -2,8 +2,10 @@ dose3 (2.9.13-2) experimental; urgency=low
 
   * Rename ceve to dose-ceve (binary and manpage)
   * package libdose3-ocaml: only install files dll*stubs.so
+  * Add debian/dose-distcheck.NEWS, tell about changed output format
+    and exit codes.
 
- -- Ralf Treinen <treinen@debian.org>  Wed, 08 Feb 2012 15:18:57 +0100
+ -- Ralf Treinen <treinen@debian.org>  Fri, 10 Feb 2012 11:55:12 +0100
 
 dose3 (2.9.13-1) experimental; urgency=low
 
