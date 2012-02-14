@@ -60,6 +60,7 @@ Package: dose-distcheck
 Section: devel
 Architecture: any
 Depends: ${ocaml:Depends}, ${misc:Depends}, ${shlibs:Depends}
+Conflicts: dose3-distcheck (<< 2.9.13)
 Description: Checks whether dependencies of packages can be satisfied
  This software checks for every package of a distribution whether it
  is possible to satisfy its dependencies and conflicts within this
@@ -72,6 +73,7 @@ Package: dose-builddebcheck
 Section: devel
 Architecture: any
 Depends: ${ocaml:Depends}, ${misc:Depends}, ${shlibs:Depends}
+Conflicts: dose3-builddebcheck (<< 2.9.13)
 Description: Checks whether build-dependencies can be satisfied
  This software checks, given a collection of source package stanzas
  and a collection of binary package stanzas of debian packages, whether
