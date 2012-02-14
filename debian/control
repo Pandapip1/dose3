@@ -103,7 +103,7 @@ Package: apt-cudf
 Section: admin
 Architecture: any
 Depends: aspcud | cudf-solver,
- ${ocaml:Depends}, ${misc:Depends}, ${shlibs:Depends}
+ ${ocaml:Depends}, ${perl:Depends}, ${misc:Depends}, ${shlibs:Depends}
 Description: CUDF solver integration for APT
  apt-cudf provides integration among the APT package manager and CUDF solvers,
  allowing APT to rely on external (CUDF-based) dependency solvers to plan
