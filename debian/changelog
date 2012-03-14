@@ -7,11 +7,13 @@ dose3 (2.9.13-2) UNRELEASED; urgency=low
     - dose-distcheck conflicts with dose3-distcheck
     - dose-builddebcheck conflicts with dose3-builddebcheck
   * Rename ceve to dose-ceve (binary and manpage)
+  * Standards-Version 3.9.3
+    - debian/copyright: machine readable format 1.0
   * package libdose3-ocaml: only install files dll*stubs.so
   * Add debian/dose-distcheck.NEWS, tell about changed output format
     and exit codes.
 
- -- Ralf Treinen <treinen@debian.org>  Wed, 14 Mar 2012 17:57:10 +0100
+ -- Ralf Treinen <treinen@debian.org>  Wed, 14 Mar 2012 18:13:41 +0100
 
 dose3 (2.9.13-1) experimental; urgency=low
 
