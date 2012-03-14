@@ -10,6 +10,10 @@ dose3 (2.9.13-2) UNRELEASED; urgency=low
   * Standards-Version 3.9.3
     - debian/copyright: machine readable format 1.0
   * package libdose3-ocaml: only install files dll*stubs.so
+  * build and install the debcheck primer:
+    - debian/control: add build-dependency on hevea
+    - debian/rules: compile the primer
+    - add debian/dose-distchecks.{docs, doc-base}
   * Add debian/dose-distcheck.NEWS, tell about changed output format
     and exit codes.
 
