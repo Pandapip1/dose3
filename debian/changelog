@@ -2,8 +2,8 @@ dose3 (2.9.13-2) UNRELEASED; urgency=low
 
   * debian/control: add {$perl:Depends} to dependencies of apt-cudf
     (closes: Bug#659834)
-  * debian/control: use conflicts to remove old versions of binary packages
-    from before the renaming:
+  * debian/control: use Conflicts and Removes to remove old versions of
+    binary packages from before the renaming:
     - dose-distcheck conflicts with dose3-distcheck
     - dose-builddebcheck conflicts with dose3-builddebcheck
   * Rename ceve to dose-ceve (binary and manpage)
@@ -11,7 +11,7 @@ dose3 (2.9.13-2) UNRELEASED; urgency=low
   * Add debian/dose-distcheck.NEWS, tell about changed output format
     and exit codes.
 
- -- Ralf Treinen <treinen@debian.org>  Tue, 14 Feb 2012 09:18:44 +0100
+ -- Ralf Treinen <treinen@debian.org>  Wed, 14 Mar 2012 17:57:10 +0100
 
 dose3 (2.9.13-1) experimental; urgency=low
 
