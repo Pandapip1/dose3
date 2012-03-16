@@ -13,7 +13,7 @@ dose3 (2.9.14-1) UNRELEASED; urgency=low
     - debian/copyright: machine readable format 1.0
   * package libdose3-ocaml: only install files dll*stubs.so
   * build and install the debcheck primer:
-    - debian/control: add build-dependency on hevea
+    - debian/control: add build-dependency on hevea, texlive-latex-base
     - debian/rules: compile the primer
     - add debian/dose-distchecks.{docs, doc-base}
   * Add debian/dose-distcheck.NEWS, tell about changed output format
