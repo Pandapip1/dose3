@@ -1,4 +1,4 @@
-dose3 (2.9.14-1) UNRELEASED; urgency=low
+dose3 (2.9.14-1) unstable; urgency=low
 
   * New upstream version
     - ported patch binaries-prefix-edos to the new upstream version
@@ -18,7 +18,7 @@ dose3 (2.9.14-1) UNRELEASED; urgency=low
     - debian/rules: compile the primer
     - add debian/dose-distchecks.{docs, doc-base}
 
- -- Ralf Treinen <treinen@debian.org>  Fri, 16 Mar 2012 12:14:03 +0100
+ -- Ralf Treinen <treinen@debian.org>  Fri, 16 Mar 2012 19:31:34 +0100
 
 dose3 (2.9.13-1) experimental; urgency=low
 
