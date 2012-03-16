@@ -27,6 +27,7 @@ type package = {
   architecture : string;
   multiarch : string;
   essential : bool;
+  build_essential : bool;
   priority : string;
   source : (Format822.name * Format822.version option) ;
   depends : Format822.vpkgformula ;
@@ -47,6 +48,7 @@ let default_package = {
   architecture = "";
   multiarch = "";
   essential = false;
+  build_essential = false;
   priority = "";
   depends = [];
   source = ("",None);
@@ -78,8 +80,9 @@ let parse_binarylist = lexbuf_wrapper Packages_parser.vpkglist_top
 
 (**************************************)
 
+(* assume n is lowercase *)
 let rec assoc (n : string) = function
-  |(k,v)::_ when (String.lowercase k) = (String.lowercase n) -> v
+  |(k,v)::_ when (String.lowercase k) = n -> v
   |(k,_)::t -> assoc n t
   |[] -> raise Not_found
 ;;
@@ -91,6 +94,7 @@ exception IgnorePackage of string
  * opt = None && err = Some s -> ParseError s :
  * opt = Some s -> return s *)
 let parse_s ?opt ?err ?(multi=false) f field par =
+  let field = String.lowercase field in
   try 
     let (_loc,s) = (assoc field par) in
     f (_loc,s) 
@@ -153,6 +157,7 @@ let parse_package_stanza filter default_arch extras par =
       source = parse_s ~opt:("",None) parse_source "Source" par;
 
       essential = parse_s ~opt:false parse_bool "Essential" par;
+      build_essential = parse_s ~opt:false parse_bool "Build-Essential" par;
       priority = parse_s ~opt:"" parse_string "Priority" par;
 
       depends = parse_s ~opt:[] ~multi:true parse_vpkgformula "Depends" par;
@@ -177,7 +182,7 @@ let parse_package_stanza filter default_arch extras par =
 
 let status_filter par =
   try
-    let (_,s) = (assoc "Status" par) in
+    let (_,s) = (assoc "status" par) in
     match String.nsplit s " " with
     |[_;_;"installed"] -> true
     |_ -> false
@@ -185,7 +190,7 @@ let status_filter par =
 
 let arch_filter archlist par =
   try
-    let (_,s) = (assoc "Architecture" par) in
+    let (_,s) = (assoc "architecture" par) in
     List.mem s archlist
   with Not_found -> false
 
@@ -201,8 +206,10 @@ let rec packages_parser stanza_parser acc p =
 
 let parse_packages_in ?filter ?(default_arch=None) ?(extras=[]) file ic =
   info "Parsing Packages file %s..." file;
-  let stanza_parser = parse_package_stanza filter default_arch extras in
-  Format822.parse_from_ch (packages_parser stanza_parser []) ic
+  try
+    let stanza_parser = parse_package_stanza filter default_arch extras in
+    Format822.parse_from_ch (packages_parser stanza_parser []) ic
+  with ParseError (field,errmsg) -> fatal "%s \n %s : %s" file field errmsg
 
 (**/**)
 let id p = (p.name,p.version,p.architecture)
@@ -210,7 +217,12 @@ let (>%) p1 p2 = Pervasives.compare (id p1) (id p2)
 module Set = struct
   include Set.Make(struct
     type t = package
-    let compare = (>%)
+    let compare x y =
+      let c = x >% y in 
+      if c = 0 then 
+        warning "the input contains two packages with the same name, version and architecture (%s,%s,%s). Only the latter will be considered."
+        x.name x.version x.architecture;
+      c
   end)
 end
 (**/**)

@@ -43,6 +43,7 @@ module GraphOper (G : Sig.I) = struct
 
   module O = Oper.I(G) 
 
+
 end
 
 (** syntactic dependency graph. Vertex are Cudf packages and
@@ -179,16 +180,11 @@ end
 
 (** Imperative bidirectional graph for dependecies. *)
 (** Imperative unidirectional graph for conflicts. *)
-module PackageGraph = struct
+module MakePackageGraph(V : Sig.COMPARABLE with type t = Cudf.package )(E : Sig.ORDERED_TYPE_DFT) = struct
 
-  module PkgV = struct
-      type t = Cudf.package
-      let compare = CudfAdd.compare
-      let hash = CudfAdd.hash
-      let equal = CudfAdd.equal
-  end
-
-  module G = Imperative.Digraph.ConcreteBidirectional(PkgV)
+  module PkgV = V
+  module PkgE = E
+  module G = Imperative.Digraph.ConcreteBidirectionalLabeled(PkgV)(PkgE)
   module UG = Imperative.Graph.Concrete(PkgV)
   module O = GraphOper(G)
   module S = Set.Make(PkgV)
@@ -209,27 +205,33 @@ module PackageGraph = struct
       let edge_attributes e = []
     end
   module Display = DisplayF(G)
-  
+  module D = Graph.Graphviz.Dot(Display)
+
   (** Build the dependency graph from the given cudf universe *)
-  let dependency_graph universe =
+  let dependency_graph ?(conjunctive=false) universe =
     let gr = G.create () in
     Cudf.iter_packages (fun pkg ->
-      List.iter (fun l ->
-        List.iter (G.add_edge gr pkg) 
-        (List.flatten (List.map (CudfAdd.who_provides universe) l))
+      G.add_vertex gr pkg;
+      List.iter (fun vpkgs ->
+        match CudfAdd.resolve_deps universe vpkgs with
+        |[p] -> G.add_edge gr pkg p
+        |l when not conjunctive -> List.iter (G.add_edge gr pkg) l
+        |_ -> ()
       ) pkg.Cudf.depends
     ) universe
     ;
     gr
 
   (** Build the dependency graph from the given list of packages *)
-  let dependency_graph_list universe pkglist =
+  let dependency_graph_list ?(conjunctive=false) universe pkglist =
     let gr = G.create () in
     List.iter (fun pkg ->
       G.add_vertex gr pkg;
-      List.iter (fun l ->
-        List.iter (G.add_edge gr pkg) 
-        (List.flatten (List.map (CudfAdd.who_provides universe) l))
+      List.iter (fun vpkgs ->
+        match CudfAdd.resolve_deps universe vpkgs with
+        |[p] -> G.add_edge gr pkg p
+        |l when not conjunctive -> List.iter (G.add_edge gr pkg) l
+        |_ -> ()
       ) pkg.Cudf.depends
     ) pkglist
     ;
@@ -270,37 +272,52 @@ module PackageGraph = struct
       if not(Hashtbl.mem mark v) then (cc graph mark v)::acc else acc
     ) graph []
 
-  module D = Graph.Graphviz.Dot(Display)
+  let out ?(dump=None) ?(dot=None) ?(detrans=false) pkggraph =
+    info "Dumping Graph : nodes %d , edges %d"
+    (G.nb_vertex pkggraph) (G.nb_edges pkggraph) ;
+    
+    if detrans then begin
+      O.transitive_reduction pkggraph;
+      debug "After transitive reduction : nodes %d , edges %d"
+      (G.nb_vertex pkggraph) (G.nb_edges pkggraph)
+    end ;
+
+    if dump <> None then begin
+      let f = Option.get dump in
+      debug "Saving marshal graph in %s\n" f ;
+      let oc = open_out f in
+      Marshal.to_channel oc ((detrans,pkggraph) :> (bool * G.t)) [];
+      close_out oc
+    end ;
+
+    if dot <> None then begin
+      let f = Option.get dot in
+      debug "Saving dot graph in %s\n" f ;
+      let oc = open_out f in
+      D.output_graph oc pkggraph;
+      close_out oc
+    end 
+
 end
 
 (******************************************************)
 
-(** Integer matrix graph. *)
-module MatrixGraph(Pr : sig val pr : int -> string end) = struct
-
-  module G = Imperative.Matrix.Digraph
-
-  module Display =
-    struct
-      include G
-      let vertex_name v = Printf.sprintf "\"%s\"" (Pr.pr v)
-
-      let graph_attributes = fun _ -> []
-      let get_subgraph = fun _ -> None
-
-      let default_edge_attributes = fun _ -> []
-      let default_vertex_attributes = fun _ -> []
-
-      let vertex_attributes v = []
-
-      let edge_attributes e = []
-    end
-  
-  module D = Graph.Graphviz.Dot(Display)
-  module S = Set.Make(struct type t = int let compare = Pervasives.compare end)
+module PkgV = struct
+    type t = Cudf.package
+    let compare = CudfAdd.compare
+    let hash = CudfAdd.hash
+    let equal = CudfAdd.equal
 end
 
-(******************************************************)
+module PkgE = struct
+  type t = float
+  let compare = Pervasives.compare
+  let hash = Hashtbl.hash
+  let equal = (=)
+  let default = 0.0
+end
+
+module PackageGraph = MakePackageGraph(PkgV)(PkgE)
 
 (** Integer Imperative Bidirectional Graph *)
 module IntPkgGraph = struct
@@ -403,44 +420,50 @@ module IntPkgGraph = struct
 
   (** Build the dependency graph from the given index. conjunctive and
       disjunctive dependencies are considered as equal *)
-  let dependency_graph universe =
+  let dependency_graph ?(conjunctive=false) universe =
     let size = Cudf.universe_size universe in
     let graph = G.create ~size () in
-    for id = 0 to size -1 do
+    Cudf.iteri_packages (fun id pkg ->
       G.add_vertex graph id;
-      let p = CudfAdd.inttovar universe id in
-      List.iter (fun l ->
-        let dl = List.flatten (List.map (CudfAdd.resolve_vpkg_int universe) l) in
-        List.iter (fun p -> if p <> id then G.add_edge graph id p) dl
-      ) p.Cudf.depends;
-    done;
+      List.iter (fun vpkgs ->
+        match CudfAdd.resolve_vpkgs_int universe vpkgs with
+        |[p] -> G.add_edge graph id p
+        |l when not conjunctive -> List.iter (G.add_edge graph id) l
+        |_ -> ()
+      ) pkg.Cudf.depends
+    ) universe;
     graph
 
-  let out ?(dump=None) ?(dot=None) ?(detrans=false) pkggraph =
-    info "Dumping Graph : nodes %d , edges %d"
-    (G.nb_vertex pkggraph) (G.nb_edges pkggraph) ;
-    
-    if detrans then begin
-      O.transitive_reduction pkggraph;
-      debug "After transitive reduction : nodes %d , edges %d"
-      (G.nb_vertex pkggraph) (G.nb_edges pkggraph)
-    end ;
-
-    if dump <> None then begin
-      let f = Option.get dump in
-      debug "Saving marshal graph in %s\n" f ;
-      let oc = open_out f in
-      Marshal.to_channel oc ((detrans,pkggraph) :> (bool * G.t)) [];
-      close_out oc
-    end ;
-
-    if dot <> None then begin
-      let f = Option.get dot in
-      debug "Saving dot graph in %s\n" f ;
-      let oc = open_out f in
-      D.output_graph oc pkggraph;
-      close_out oc
-    end 
+  let dependency_graph_list ?(conjunctive=false) universe idlist =
+    let queue = Queue.create () in
+    let graph = G.create () in
+    let visited = Hashtbl.create (2 * (List.length idlist)) in
+    List.iter (fun e -> Queue.add e queue) idlist;
+    while (Queue.length queue > 0) do
+      let id = Queue.take queue in
+      let pkg = Cudf.package_by_uid universe id in
+      if not(Hashtbl.mem visited id) then begin
+        G.add_vertex graph id;
+        Hashtbl.add visited id ();
+        List.iter (fun vpkgs ->
+          match CudfAdd.resolve_vpkgs_int universe vpkgs with
+          |[i] when not(Hashtbl.mem visited i) -> begin
+              Queue.add i queue;
+              G.add_edge graph id i
+          end
+          |dsj when not conjunctive ->
+            List.iter (fun i ->
+              if not(Hashtbl.mem visited i) then begin
+                Queue.add i queue;
+                G.add_edge graph id i
+              end
+            ) dsj
+          |_ -> ()
+        ) pkg.Cudf.depends
+      end
+    done;
+    graph
+;;
 
   let load pkglist filename =
     let timer = Util.Timer.create "Defaultgraph.StrongDepGraph.load" in
@@ -460,3 +483,43 @@ module IntPkgGraph = struct
     Util.Timer.stop timer sg
 
 end
+
+let intcudf universe intgraph =
+  let module PG = PackageGraph.G in
+  let module SG = IntPkgGraph.G in
+  let trasformtimer = Util.Timer.create "Defaultgraphs.intcudf" in
+  Util.Timer.start trasformtimer;
+  let size = 25000 in
+  let cudfgraph = PG.create ~size () in
+  SG.iter_edges (fun x y ->
+    let p = CudfAdd.inttovar universe x in
+    let q = CudfAdd.inttovar universe y in
+    PG.add_edge cudfgraph p q
+  ) intgraph ;
+  SG.iter_vertex (fun v ->
+    let p = CudfAdd.inttovar universe v in
+    PG.add_vertex cudfgraph p
+  ) intgraph ;
+  debug "cudfgraph: nodes %d , edges %d"
+  (PG.nb_vertex cudfgraph) (PG.nb_edges cudfgraph);
+  Util.Timer.stop trasformtimer cudfgraph
+
+(** transform a cudf graph into a integer graph *)
+let cudfint universe cudfgraph =
+  let module PG = PackageGraph.G in
+  let module SG = IntPkgGraph.G in
+  let trasformtimer = Util.Timer.create "DefaultGraphs.cudfint" in
+  Util.Timer.start trasformtimer;
+  let intgraph = SG.create () in
+  PG.iter_edges (fun x y ->
+    SG.add_edge intgraph
+    (CudfAdd.vartoint universe x)
+    (CudfAdd.vartoint universe y)
+  ) cudfgraph;
+  PG.iter_vertex (fun v ->
+    SG.add_vertex intgraph (CudfAdd.vartoint universe v)
+  ) cudfgraph;
+  debug "intcudf: nodes %d , edges %d"
+  (SG.nb_vertex intgraph) (SG.nb_edges intgraph);
+  Util.Timer.stop trasformtimer intgraph
+

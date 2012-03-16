@@ -1,7 +1,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%  Copyright (C) 2010, 2011 Pietro Abate <pietro.abate@pps.jussieu.fr>   %
+%  Copyright (C) 2010-2011  Pietro Abate <pietro.abate@pps.jussieu.fr>   %
 %                           Ralf Treinen <ralf.treinen@pps.jussieu.fr>   %
-%                           Unversité Paris-Diderot                     %
+%                           Unversité Paris-Diderot                      %
 %                                                                        %
 %  This documentation is free software: you can redistribute it and/or   %
 %  modify it under the terms of the GNU General Public License as        %
@@ -12,14 +12,21 @@
 \documentclass{article}
 \usepackage[utf8]{inputenc}
 \usepackage{hevea}
-\newcommand{\debcheck}{edos-debcheck}
+\usepackage{alltt}
+
+\newcommand{\debcheck}{dose-debcheck}
+\newcommand{\distcheck}{dose-distcheck}
+
+\input{version}
+
 \newenvironment{example}%
   {\par\begin{divstyle}{example}\par\textbf{Example:}}%
   {\end{divstyle}\par}
 \newstyle{.example}{border:solid black;background:\#eeddbb;padding:lex}
 
-\title{The EDOS-Debcheck Primer}
+\title{The Dose-Debcheck Primer}
 \author{Pietro Abate and Ralf Treinen}
+\date{\today}
 
 \begin{document}
 
@@ -28,9 +35,11 @@
 The \debcheck{} tool determines, for a set of package control stanzas,
 called \emph{the repository}, whether packages of the repository can
 be installed relative to the repository. Typically, the repository is
-a \texttt{Packages} file of a debian suite. The installability check
+a \texttt{Packages} file of a Debian suite. The installability check
 is by default performed for all package stanzas in the repository, but
 may be also be restricted to a subset of these.
+
+This primer applies to version \version{} of \debcheck. 
 
 \tableofcontents
 
@@ -38,10 +47,11 @@ may be also be restricted to a subset of these.
 \input{installability}
 \input{invocation}
 \input{output}
+\input{exit}
 \input{tricks}
 \input{credits}
+\input{reading}
 \input{copyright}
-% \input{reading}
 
 \bibliographystyle{alpha}
 \bibliography{mancoosi}

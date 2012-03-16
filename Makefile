@@ -80,7 +80,7 @@ doseparse/boilerplate.%:
 	@for i in _build/doseparse/boilerplate.*; do \
 	  if [ -e $$i ]; then \
 	  cp $$i $(DOSELIBS) ; \
-	  rm -f $(DOSELIBS)/*.mlpack $(DOSELIBS)/*.cmx ; \
+	  rm -f $(DOSELIBS)/*.mlpack $(DOSELIBS)/*.cmx $(DOSELIBS)/*.ml ; \
 	  fi ; \
 	done
 
@@ -103,7 +103,7 @@ html: $(HTML)
 	cp doc/manpages/*.html dose3.docdir/manpages
 
 doc/manpages/%.1: doc/manpages/%.pod
-	pod2man --section 1 --center="EDOS Tools" --release "$(NAME) $(VERSION)" doc/manpages/$*.pod > $@
+	pod2man --section 1 --center="DOSE Tools" --release "$(NAME) $(VERSION)" doc/manpages/$*.pod > $@
 
 doc/manpages/%.html: doc/manpages/%.pod
 	pod2html doc/manpages/$*.pod > $@
@@ -181,9 +181,10 @@ dist: ./$(DIST_TARBALL)
 	rm -rf ./$(DIST_DIR)
 	@echo "Distribution tarball: ./$(DIST_TARBALL)"
 
-doc:
+doc: fast
 	$(OCAMLBUILD) $(OBFLAGS) dose3.docdir/index.html dose3.docdir/index.dot
 	dot -Grotate=0 -Tsvg -o dose3.docdir/index.svg dose3.docdir/index.dot
+	$(MAKE) man
 	$(MAKE) html
 
 .PHONY: all opt clean top-level headers test tags install uninstall dist doc
