@@ -1,6 +1,7 @@
 dose3 (2.9.14-1) UNRELEASED; urgency=low
 
   * New upstream version
+    - ported patch binaries-prefix-edos to the new upstream version
   * debian/control: add {$perl:Depends} to dependencies of apt-cudf
     (closes: Bug#659834)
   * debian/control: use Conflicts and Removes to remove old versions of

@@ -3,8 +3,8 @@ Description: all binaries have prefix dose-
 
 Index: dose3/doc/manpages/distcheck.pod
 ===================================================================
---- dose3.orig/doc/manpages/distcheck.pod	2012-02-08 15:10:15.000000000 +0100
-+++ dose3/doc/manpages/distcheck.pod	2012-02-08 15:12:54.000000000 +0100
+--- dose3.orig/doc/manpages/distcheck.pod	2012-03-16 12:12:35.000000000 +0100
++++ dose3/doc/manpages/distcheck.pod	2012-03-16 13:10:25.000000000 +0100
 @@ -1,25 +1,25 @@
  =head1 NAME
  
@@ -21,11 +21,11 @@ Index: dose3/doc/manpages/distcheck.pod
 -=item B<debcheck> [option] ... [I<file>]
 +=item B<dose-debcheck> [option] ... [I<file>]
  
--=item B<rpmcheck> [option] ... I<file>
-+=item B<dose-rpmcheck> [option] ... I<file>
+-=item B<rpmcheck> [option] ... [I<file>]
++=item B<dose-rpmcheck> [option] ... [I<file>]
  
--=item B<eclipsecheck> [option] ... I<file> 
-+=item B<dose-eclipsecheck> [option] ... I<file> 
+-=item B<eclipsecheck> [option] ... [I<file>] 
++=item B<dose-eclipsecheck> [option] ... [I<file>] 
  
  =back
  =cut
@@ -37,24 +37,28 @@ Index: dose3/doc/manpages/distcheck.pod
  repository, whether packages of the repository can be installed relative to the
  repository according to the inter-package relationsships expressed in the
  package control stanzas.  The exact set of relevant control fields and their
-@@ -39,13 +39,13 @@
+@@ -39,17 +39,17 @@
  =head1 Input Specification
  
- Currently supported repository types are debian, rpm, and eclipse. The
--B<distcheck> tool expects its input specifiation in the form I<type://pathname>
-+B<dose-distcheck> tool expects its input specifiation in the form I<type://pathname>
- where I<type> is one of B<deb>, B<synthesis>, B<hdlist> or B<eclipse>, and
- I<pathname> is the pathname of a file containing the input. The package
- metadata found in that file must correspond to the I<type> given in the URI.
--When invoked as I<typeB<check>>, the type of the repository is assumed to be
-+When invoked as B<dose->I<type>B<check>, the type of the repository is assumed to be
- I<type>, and the input is simply given in form of a pathname of a file
--containing the repository. B<debcheck> reads package descriptions from
-+containing the repository. B<dose-debcheck> reads package descriptions from
- standard input in case no file argument is provided.
+ Currently supported input types are debian, rpm, and eclipse. The
+-B<distcheck> tool expects its input specifiations in the form
++B<dose-distcheck> tool expects its input specifiations in the form
+ I<type://pathname> where I<type> is one of B<deb>, B<synthesis>,
+ B<hdlist> or B<eclipse>, and I<pathname> is the pathname of a file
+ containing the input. The package metadata found in that file must
+ correspond to the I<type> given in the URI.
  
+-When invoked as I<typeB<check>> then the type of input is assumed to
++When invoked as I<B<dose->typeB<check>> then the type of input is assumed to
+ be I<type>, and repositories (in positional arguments or in the values of
+ options B<--fg> and B<--bg>) are simply given in form of a pathname of a file
+ containing the repository. If no positional argument is given then input is
+-read from standard input.  B<distcheck> also compressed files (.gz , .bz2) as
++read from standard input.  B<dose-distcheck> also compressed files (.gz , .bz2) as
+ positional arguments. Input read on standard input cannot be in compressed
+ form.
  
-@@ -58,7 +58,7 @@
+@@ -62,7 +62,7 @@
  The input file has to contain stanzas in the format
  of L<deb-control(5)>, separated by one blank line. For instance, the Packages
  files as found on a Debian mirror server, or in the directory I</var/lib/apt/lists/>
@@ -62,26 +66,19 @@ Index: dose3/doc/manpages/distcheck.pod
 +of a Debian system, are suitable as input to B<dose-debcheck>. Installability of
  packages is analyzed according to their B<Depends>, B<Conflicts>, and B<Provides>
  fields with their meaning as of Debian policy version 3.9.0. B<Pre-depends> are
- treated like B<Depends>, and B<Breaks> are treated like B<Conflicts>. In the case
-@@ -71,7 +71,7 @@
+ treated like B<Depends>, and B<Breaks> are treated like B<Conflicts>.
+@@ -80,8 +80,8 @@
+ =head2 Rpm
  
  The input file can be either a I<synthesis> file or a I<hdlist> file.  By
- default rpmcheck expects a synthesis file as input. To specify a hdlist file
+-default rpmcheck expects a synthesis file as input. To specify a hdlist file
 -distcheck must be invoked with a file argument of the form hdlist:// 
++default dose-rpmcheck expects a synthesis file as input. To specify a hdlist file
 +dose-distcheck must be invoked with a file argument of the form hdlist:// 
  
  =cut
  
-@@ -177,7 +177,7 @@
- 
- Check which packages in a particular distribution are not installable and why: 
- 
--   debcheck --failures --explain < Packages 
-+   dose-debcheck --failures --explain < Packages 
- 
- where Packages is the file pertaining to that distribution, as for instance
- found in the directory B</var/lib/apt/lists>. 
-@@ -185,13 +185,13 @@
+@@ -239,13 +239,13 @@
  Check which packages in contrib are not installable when dependencies may
  be satisfied from main:
   
@@ -97,28 +94,10 @@ Index: dose3/doc/manpages/distcheck.pod
  project. 
  
  =cut
-Index: dose3/applications/distcheck.ml
-===================================================================
---- dose3.orig/applications/distcheck.ml	2012-02-08 15:10:15.000000000 +0100
-+++ dose3/applications/distcheck.ml	2012-02-08 15:12:54.000000000 +0100
-@@ -64,10 +64,10 @@
-   let posargs =
-     let args = OptParse.OptParser.parse_argv Options.options in
-     match Filename.basename(Sys.argv.(0)),args with
--    |("debcheck"|"edos-debcheck"),[] -> ["deb://-"]
--    |("debcheck"|"edos-debcheck"),l -> List.map ((^) "deb://") l
-+    |("debcheck"|"dose-debcheck"),[] -> ["deb://-"]
-+    |("debcheck"|"dose-debcheck"),l -> List.map ((^) "deb://") l
-     |"eclipsecheck",l -> List.map ((^) "eclipse://") l
--    |("rpmcheck"|"edos-rpmcheck"),l -> List.map ((^) "synth://") l
-+    |("rpmcheck"|"dose-rpmcheck"),l -> List.map ((^) "synth://") l
-     |_,_ -> args
-   in
-   Boilerplate.enable_debug (OptParse.Opt.get Options.verbose);
 Index: dose3/doc/manpages/buildcheck.pod
 ===================================================================
---- dose3.orig/doc/manpages/buildcheck.pod	2012-02-08 15:10:15.000000000 +0100
-+++ dose3/doc/manpages/buildcheck.pod	2012-02-08 15:12:54.000000000 +0100
+--- dose3.orig/doc/manpages/buildcheck.pod	2012-03-16 12:12:35.000000000 +0100
++++ dose3/doc/manpages/buildcheck.pod	2012-03-16 12:17:33.000000000 +0100
 @@ -1,19 +1,19 @@
  =head1 NAME
  
@@ -142,23 +121,7 @@ Index: dose3/doc/manpages/buildcheck.pod
  stanzas, called the source repository, whether a build environment for the
  packages of the source repository can be installed by using packages from the
  binary repository. For this, only package meta-information is taken into
-@@ -85,13 +85,13 @@
- it is not possible to install a build environment on i386, assuming that
- the binary packages described in file Packages are available: 
- 
-- dose3-builddebcheck --architecture i386 --failures --explain Packages Sources 
-+ dose-builddebcheck --architecture i386 --failures --explain Packages Sources 
- 
- =cut
- 
- =head1 AUTHOR
- 
--The current version has been rewritten on the basis of the dose3 library by
-+The current version has been rewritten on the basis of the dose library by
- Pietro Abate; it replaces an earlier version that was  simply a wrapper for
- edos-distcheck.
- 
-@@ -99,7 +99,7 @@
+@@ -101,7 +101,7 @@
  
  =head1 SEE ALSO
  L<B<deb-control>(5)>, 
@@ -169,8 +132,8 @@ Index: dose3/doc/manpages/buildcheck.pod
  <http://www.mancoosi.org> is the home page of the Mancoosi project. 
 Index: dose3/doc/manpages/outdated.pod
 ===================================================================
---- dose3.orig/doc/manpages/outdated.pod	2012-02-08 15:10:15.000000000 +0100
-+++ dose3/doc/manpages/outdated.pod	2012-02-08 15:12:54.000000000 +0100
+--- dose3.orig/doc/manpages/outdated.pod	2012-03-16 12:12:35.000000000 +0100
++++ dose3/doc/manpages/outdated.pod	2012-03-16 13:11:27.000000000 +0100
 @@ -1,16 +1,16 @@
  =head1 NAME
  
@@ -191,12 +154,21 @@ Index: dose3/doc/manpages/outdated.pod
  are not installable with respect to that repository by the their inter-package
  relationships (dependencies, conflicts, ...), and that furthermore cannot
  become installable (in the current version) how matter how the rest of the
+@@ -28,7 +28,7 @@
+ 
+ =head1 Output Specification
+ 
+-The output of outdated is in the YAML format. 
++The output of dose-outdated is in the YAML format. 
+ 
+ =head1 OPTIONS
+ 
 @@ -74,7 +74,7 @@
  
  =head1 EXAMPLE
  
-- outdated -v --progress -f -e Packages.bz2 > result.yaml 
-+ dose-outdated -v --progress -f -e Packages.bz2 > result.yaml 
+- dose3-outdated -f -v /var/lib/apt/lists/ftp.fr.debian.org_debian_dists_sid_main_binary-amd64_Packages
++ dose-outdated -f -v /var/lib/apt/lists/ftp.fr.debian.org_debian_dists_sid_main_binary-amd64_Packages
  
  =cut
  
@@ -213,8 +185,8 @@ Index: dose3/doc/manpages/outdated.pod
   
 Index: dose3/doc/manpages/challenged.pod
 ===================================================================
---- dose3.orig/doc/manpages/challenged.pod	2012-02-08 15:10:15.000000000 +0100
-+++ dose3/doc/manpages/challenged.pod	2012-02-08 15:12:54.000000000 +0100
+--- dose3.orig/doc/manpages/challenged.pod	2012-03-16 12:12:35.000000000 +0100
++++ dose3/doc/manpages/challenged.pod	2012-03-16 13:12:05.000000000 +0100
 @@ -1,19 +1,19 @@
  =head1 NAME
  
@@ -242,15 +214,24 @@ Index: dose3/doc/manpages/challenged.pod
  
  =head1 Input Specification
  
--The input of outdated is a list of Debian Packages files 
-+The input of challenged is a list of Debian Packages files 
+-The input of challenged is a list of Debian Packages files 
++The input of dose-challenged is a list of Debian Packages files 
  
  =cut
  
  =head1 Output Specification
  
--The output of outdated is in the yaml format.
-+The output of challenged is in the yaml format.
+-The output of challenged is in the yaml format.
++The output of dose-challenged is in the yaml format.
+ 
+ =cut
+ 
+@@ -71,7 +71,7 @@
+ 
+ =head1 EXAMPLE
+ 
+-  challenged -v --progress Packages.bz2 > result.yaml 
++  dose-challenged -v --progress Packages.bz2 > result.yaml 
  
  =cut
  
@@ -267,8 +248,8 @@ Index: dose3/doc/manpages/challenged.pod
  
 Index: dose3/doc/manpages/ceve.pod
 ===================================================================
---- dose3.orig/doc/manpages/ceve.pod	2012-02-08 15:10:15.000000000 +0100
-+++ dose3/doc/manpages/ceve.pod	2012-02-08 15:13:31.000000000 +0100
+--- dose3.orig/doc/manpages/ceve.pod	2012-03-16 12:12:02.000000000 +0100
++++ dose3/doc/manpages/ceve.pod	2012-03-16 12:17:33.000000000 +0100
 @@ -1,18 +1,18 @@
  =head1 NAME
  
