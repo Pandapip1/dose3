@@ -1,7 +1,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%  Copyright (C) 2010, 2011 Pietro Abate <pietro.abate@pps.jussieu.fr>   %
+%  Copyright (C) 2010-2012  Pietro Abate <pietro.abate@pps.jussieu.fr>   %
 %                           Ralf Treinen <ralf.treinen@pps.jussieu.fr>   %
-%                           Unversité Paris-Diderot                     %
+%                           Unversité Paris-Diderot                      %
 %                                                                        %
 %  This documentation is free software: you can redistribute it and/or   %
 %  modify it under the terms of the GNU General Public License as        %
@@ -9,5 +9,16 @@
 %  License, or (at your option) any later version.                       %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\section{Further Reading}
-** Relation to CUDF 
+\section{Exit codes}
+
+Exit codes 0-63 indicate a normal termination of the program, codes
+64-127 indicate abnormal termination of the program (such as parse
+errors, I/O errors).
+
+In case of normal program termination:
+\begin{itemize}
+\item exit code 0 indicates that all foreground packages are found
+  installable;
+\item exit code 1 indicates that at least one foreground package is found
+  uninstallable.
+\end{itemize}

@@ -10,9 +10,9 @@ distcheck - check installability of packages according to metadata
 
 =item B<debcheck> [option] ... [I<file>]
 
-=item B<rpmcheck> [option] ... I<file>
+=item B<rpmcheck> [option] ... [I<file>]
 
-=item B<eclipsecheck> [option] ... I<file> 
+=item B<eclipsecheck> [option] ... [I<file>] 
 
 =back
 =cut
@@ -38,16 +38,20 @@ all packages are in the foreground.
 
 =head1 Input Specification
 
-Currently supported repository types are debian, rpm, and eclipse. The
-B<distcheck> tool expects its input specifiation in the form I<type://pathname>
-where I<type> is one of B<deb>, B<synthesis>, B<hdlist> or B<eclipse>, and
-I<pathname> is the pathname of a file containing the input. The package
-metadata found in that file must correspond to the I<type> given in the URI.
-When invoked as I<typeB<check>>, the type of the repository is assumed to be
-I<type>, and the input is simply given in form of a pathname of a file
-containing the repository. B<debcheck> reads package descriptions from
-standard input in case no file argument is provided.
+Currently supported input types are debian, rpm, and eclipse. The
+B<distcheck> tool expects its input specifiations in the form
+I<type://pathname> where I<type> is one of B<deb>, B<synthesis>,
+B<hdlist> or B<eclipse>, and I<pathname> is the pathname of a file
+containing the input. The package metadata found in that file must
+correspond to the I<type> given in the URI.
 
+When invoked as I<typeB<check>> then the type of input is assumed to
+be I<type>, and repositories (in positional arguments or in the values of
+options B<--fg> and B<--bg>) are simply given in form of a pathname of a file
+containing the repository. If no positional argument is given then input is
+read from standard input.  B<distcheck> also compressed files (.gz , .bz2) as
+positional arguments. Input read on standard input cannot be in compressed
+form.
 
 =head1 Input Formats
 
@@ -61,7 +65,13 @@ files as found on a Debian mirror server, or in the directory I</var/lib/apt/lis
 of a Debian system, are suitable as input to B<debcheck>. Installability of
 packages is analyzed according to their B<Depends>, B<Conflicts>, and B<Provides>
 fields with their meaning as of Debian policy version 3.9.0. B<Pre-depends> are
-treated like B<Depends>, and B<Breaks> are treated like B<Conflicts>. In the case
+treated like B<Depends>, and B<Breaks> are treated like B<Conflicts>.
+
+If the input contains several packages with the same values of name, version,
+and architecture than only the last of these is taken into account, and a
+warning is issued.
+
+In the case
 of Debian, it is not possible to install at the same time two packages
 with the same name but different versions. 
 
@@ -98,9 +108,35 @@ Add packages in I<file> to the background.
 
 =item B<--checkonly> I<package> [,I<package>] ... 
 
-Takes a comma-separated list of package names and constraints as argument. Only
-packages with names in this list are kept in the foreground, all other packages
-are pushed into the background. Ex: "libc6 , 2ping (= 1.2.3-1)"
+Takes a comma-separated list of package names, each of them possibly with a version
+constraint, as argument. The foreground is constituted of all packages
+that match any of the expressions, all other packages are pushed into
+the background. The initial distinction between foreground and background is
+ignored. This option must not be combined with B<--coinst>.
+
+Example: --checkonly "libc6 , 2ping (= 1.2.3-1)"
+
+=item B<--coinst>  I<package> [,I<package>] ... 
+
+Takes a comma-separated list of package names, each of them possibly with a version
+constraint, as argument. If this list consists of n expressions, then
+co-installability will be checked independently for each set of n
+packages where the i-th element of the set matches the i-th
+expression. The initial distinction between foreground and background
+is ignored. This option must not be combined with B<--checkonly>.
+
+Example: --coinst "a (>1), b"
+
+If we have package a in versions 1, 2 and 3, and package b in versions
+11 and 12, then this will check 4 pairs of packages for
+co-installability, namely (a=2,b=11), (a=2,b=12), (a=3,b=11) and
+(a=3,b=12).
+
+=back
+
+=head2 OPTIONS FOR FILTERING THE INPUT
+
+=over 8
 
 =item B<--arch=>I<name>
 
@@ -154,6 +190,10 @@ Send output to I<file>.
 Enable info / warnings / debug messages.
 This option may be repeated up to three times in order to increase verbosity.
 
+=item B<--quiet>
+
+Do not print warning messages
+
 =item B<--progress> 
 
 Show progress bars.
@@ -173,11 +213,25 @@ Show program version and exit.
 =back
 =cut
 
+=head1 EXIT CODES
+
+Exit codes 0-63 indicate a normal termination of the program, codes 64-127 indicate abnormal termination of the program (such as parse errors, I/O errors).
+
+In case of normal program termination:
+
+- exit code 0 indicates that all foreground packages are found installable;
+
+- exit code 1 indicates that at least one foreground package is found
+uninstallable.
+
 =head1 EXAMPLE
 
 Check which packages in a particular distribution are not installable and why: 
 
-   debcheck --failures --explain < Packages 
+ dose-distcheck -v -f -e \
+ --bg deb:///var/lib/apt/lists/ftp.fr.debian.org_debian_dists_sid_main_binary-amd64_Packages\
+ --bg deb:///var/lib/apt/lists/ftp.fr.debian.org_debian_dists_sid_non-free_binary-amd64_Packages\
+ --fg deb:///var/lib/apt/lists/ftp.fr.debian.org_debian_dists_sid_contrib_binary-amd64_Packages
 
 where Packages is the file pertaining to that distribution, as for instance
 found in the directory B</var/lib/apt/lists>. 

@@ -1,4 +1,4 @@
-AC_INIT(dose3, 2.9.13, pietro.abate@pps.jussieu.fr)
+AC_INIT(dose3, 2.9.14, pietro.abate@pps.jussieu.fr)
 
 AC_PROG_OCAML
 if test "$OCAMLC" = "no"; then
@@ -15,6 +15,15 @@ AC_PROG_FINDLIB
 AC_SUBST(OCAMLFIND)
 if test "$OCAMLFIND" = "no"; then
  AC_MSG_ERROR([You must install OCaml findlib (the ocamlfind command)])
+fi
+
+AC_ARG_WITH(bytecodeonly,
+        [ --with-bytecodeonly ],
+        OCAMLBEST=byte,
+        OCAMLBEST="$OCAMLBEST")
+if test "$OCAMLBEST" = "byte" ; then
+  OCAMLOPT=
+  AC_SUBST(OCAMLOPT)
 fi
 
 #defaults

@@ -83,12 +83,21 @@ let incr_str_list ?(default=Some []) ?(metavar = "STR") =
   (fun _ s -> Printf.sprintf "Invalid String '%s'" s)
 ;;
 
+let str_list ?(default=Some []) ?(metavar = "STRLST") =
+  let sep = "," in
+  let coerce str = ExtString.String.nsplit str sep in
+  fun () ->
+    OptParse.Opt.value_option metavar default coerce
+    (fun _ s -> Printf.sprintf "Invalid String '%s'" s)
+
+
 (* *************************************** *)
 
 module MakeOptions(O : Ot) = struct
   open OptParse ;;
 
   let verbose = StdOpt.incr_option ()
+  let quiet = StdOpt.store_true ()
   let progress = StdOpt.store_true ()
   let timers = StdOpt.store_true ()
   let options = O.options ~version:VersionInfo.version () ;;
@@ -97,23 +106,29 @@ module MakeOptions(O : Ot) = struct
   add options ~short_name:'v' ~long_name:"verbose" ~help:"print additional information" verbose;
   add options ~long_name:"progress" ~help:"print progress bars" progress;
   add options ~long_name:"timers" ~help:"print timing information" timers;
+  add options ~long_name:"quiet" ~help:"do no print any messages" quiet;
 
 end
 
 let enable_debug = function
-  |0 -> () (* quite : default *)
+  |0 -> () (* quiet : default *)
   |1 -> Util.Info.all_enabled ()
-  |2 ->
-      begin
-        Util.Info.all_enabled () ;
-        Util.Warning.all_enabled ()
-      end
   |_ ->
       begin
         Util.Info.all_enabled () ;
-        Util.Warning.all_enabled () ;
         Util.Debug.all_enabled ()
       end
+;;
+
+let all_quiet = function
+  |true ->
+      begin
+        Util.Info.all_disabled ();
+        Util.Warning.all_disabled ();
+        Util.Warning.all_disabled ();
+        List.iter Util.Progress.disable (Util.Progress.available ())
+      end
+  |false -> ()
 ;;
 
 let enable_bars verbose l =
@@ -235,7 +250,7 @@ let cudf_load_list file =
   let _, pkglist, _ = parse_cudf file in
   let from_cudf (p,i) = (p,string_of_int i) in
   let to_cudf (p,v) = (p,int_of_string v) in
-  (Cudf.default_preamble,[pkglist],from_cudf,to_cudf)
+  (Cudf.default_preamble,[pkglist;[]],from_cudf,to_cudf)
 
 let cudf_load_universe file =
   let (pr,l,f,t) = cudf_load_list file in
@@ -265,7 +280,12 @@ let parse_input ?default_arch ?(extras=[]) (urilist : string list list) =
   |None,_ -> fatal "No input specified"
   |Some Url.Cudf,[[p]] when (unpack p) = "-" -> fatal "no stdin for cudf yet"
   |Some Url.Cudf,[[p]] -> cudf_load_list (unpack p)
-  |Some Url.Cudf, _ -> fatal "only one cudf"
+  |Some Url.Cudf, l when (List.flatten l) = [] -> fatal "how do you know it's a cudf ?"
+  |Some Url.Cudf, l -> 
+      if List.length (List.flatten l) > 1 then
+        warning "more then one cudf speficied on the command line";
+      let p = List.hd (List.flatten l) in 
+      cudf_load_list (unpack p)
 
   |Some Url.Deb,ll ->
       let dll = 
