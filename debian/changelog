@@ -1,3 +1,11 @@
+dose3 (2.9.14-2) unstable; urgency=low
+
+  * patch dont-strip-bytecode: install must not try to strip executables
+    when compilation to bytecode. Fixes an FTBFS on architectures with
+    compilation to bytecode.
+
+ -- Ralf Treinen <treinen@debian.org>  Sat, 17 Mar 2012 19:24:48 +0100
+
 dose3 (2.9.14-1) unstable; urgency=low
 
   * New upstream version
