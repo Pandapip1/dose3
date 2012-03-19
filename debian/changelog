@@ -1,3 +1,9 @@
+dose3 (2.9.14-3) UNRELEASED; urgency=low
+
+  * fix a typo in long description of dose-extra
+
+ -- Ralf Treinen <treinen@debian.org>  Mon, 19 Mar 2012 14:57:12 +0100
+
 dose3 (2.9.14-2) unstable; urgency=low
 
   * patch dont-strip-bytecode: install must not try to strip executables

@@ -98,7 +98,7 @@ Description: Extra QA tools from the Dose3-library
     installable with respect to a package repository, and that can only be
     made installable again by fixing the package itself.
   - dose-challenged, a debian-specific tool for checking which packages
-    will certianly become uninstallable when some existing package is upgraded
+    will certainly become uninstallable when some existing package is upgraded
     to a newer version.
  The tools dose-distcheck and dose-builddebcheck are packaged in their
  own resepective packages.
