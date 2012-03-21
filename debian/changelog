@@ -1,8 +1,11 @@
-dose3 (2.9.14-3) UNRELEASED; urgency=low
+dose3 (2.9.14-3) unstable; urgency=low
 
   * fix a typo in long description of dose-extra
+  * put an empty directory /usr/lib/apt/solvers into the apt-cudf package
+    so that dpkg knows it has to remove it on package removal.
+    (closes: #664860)
 
- -- Ralf Treinen <treinen@debian.org>  Mon, 19 Mar 2012 14:57:12 +0100
+ -- Ralf Treinen <treinen@debian.org>  Wed, 21 Mar 2012 21:00:31 +0100
 
 dose3 (2.9.14-2) unstable; urgency=low
 
