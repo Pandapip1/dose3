@@ -1,3 +1,11 @@
+dose3 (2.9.15-1) UNRELEASED; urgency=low
+
+  * New upstream version. This version fixes a bug in the printing of
+    debian package versions (closes: #665378)
+  * Remove patch dont-strip-bytecode, now integrated by upstream.
+
+ -- Ralf Treinen <treinen@debian.org>  Fri, 30 Mar 2012 15:29:07 +0200
+
 dose3 (2.9.14-3) unstable; urgency=low
 
   * fix a typo in long description of dose-extra
