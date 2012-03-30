@@ -3,7 +3,7 @@ include Makefile.config
 DIST_DIR = $(NAME)-$(VERSION)
 DIST_TARBALL = $(DIST_DIR).tar.gz
 
-OBFLAGS := -j 10 -use-ocamlfind -classic-display
+OBFLAGS := -j 10 -classic-display
 #OBFLAGS := $(OBFLAGS) -tag debug -tag profile
 #OBFLAGS := $(OBFLAGS) -classic-display
 
@@ -153,7 +153,7 @@ install: META installcudf
 	cd _build/applications ; \
 	install -d $(BINDIR) ; \
 	for f in $$(ls *.$(OCAMLBEST)) ; do \
-	  install -s $$f $(BINDIR)/$${f%.$(OCAMLBEST)} ; \
+	  install $(INSTALLOPTS) $$f $(BINDIR)/$${f%.$(OCAMLBEST)} ; \
 	done
 	ln -s $(BINDIR)/distcheck $(BINDIR)/debcheck
 	ln -s $(BINDIR)/distcheck $(BINDIR)/rpmcheck
