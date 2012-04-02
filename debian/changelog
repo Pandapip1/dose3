@@ -1,4 +1,4 @@
-dose3 (2.9.15-1) UNRELEASED; urgency=low
+dose3 (2.9.15-1) unstable; urgency=low
 
   * New upstream version. This version fixes a bug in the printing of
     debian package versions (closes: #665378)
