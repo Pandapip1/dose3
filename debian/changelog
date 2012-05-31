@@ -5,8 +5,10 @@ dose3 (2.9.17-1) UNRELEASED; urgency=low
   * New file debian/apt-cudf.conf, install into /etc
   * debian/apt-cudf.manpages: install apt-cudf.conf
   * patch manpages-section5: apt-cudf.conf manpage is section 5 not 1
+  * debian/rules: deactivate dh_auto_test for now as the upstream tarball
+    does not contain the necessary data for the tests.
 
- -- Ralf Treinen <treinen@debian.org>  Thu, 31 May 2012 10:58:08 +0200
+ -- Ralf Treinen <treinen@debian.org>  Thu, 31 May 2012 15:18:19 +0200
 
 dose3 (2.9.15-1) unstable; urgency=low
 
