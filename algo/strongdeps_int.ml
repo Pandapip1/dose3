@@ -12,11 +12,8 @@
 
 (** Strong Dependencies *)
 
-open Graph
 open ExtLib
 open Common
-open CudfAdd
-open Defaultgraphs
 
 let mainbar = Util.Progress.create "Strongdeps_int.main"
 let conjbar = Util.Progress.create "Strongdeps_int.conj"
@@ -25,8 +22,8 @@ let conjtimer = Util.Timer.create "Strongdeps_int.conjdep"
 
 include Util.Logging(struct let label = __FILE__ end) ;;
 
-module G = IntPkgGraph.G
-module O = IntPkgGraph.O
+module G = Defaultgraphs.PackageGraph.G
+module O = Defaultgraphs.PackageGraph.O
 
 (** check if p strongly depends on q.
     We check if it is possible to install p without q.  *)
@@ -37,22 +34,24 @@ let strong_depends solver p q =
   let lit = Depsolver_int.S.lit_of_var (solver.Depsolver_int.map#vartoint q) false in
   Depsolver_int.S.add_rule solver.Depsolver_int.constraints [|lit|] [];
   match Depsolver_int.solve solver (Diagnostic_int.Sng p) with
-  |Diagnostic_int.Failure _ -> true
-  |Diagnostic_int.Success _ -> false
+  |Depsolver_int.Failure _ -> true
+  |Depsolver_int.Success _ -> false
 
 (** check if [p] strong depends on any packages in [l] *)
-let check_strong transitive graph solver p l =
+let check_strong univ transitive graph solver p l =
+  let pkg_p = CudfAdd.inttovar univ p in
   List.iter (fun q ->
+    let pkg_q = CudfAdd.inttovar univ q in
     if p <> q then
-      if not(G.mem_edge graph p q) then
+      if not(G.mem_edge graph pkg_p pkg_q) then
         if strong_depends solver p q then 
-          IntPkgGraph.add_edge transitive graph p q
+          Defaultgraphs.PackageGraph.add_edge ~transitive graph pkg_p pkg_q
   ) l
 
 (* true if at least one dependency is disjunctive *)
 let somedisj pool id = 
   let cudfpool = Depsolver_int.strip_cudf_pool pool in
-  let depends = fst(cudfpool.(id)) in
+  let (depends,_,_) = cudfpool.(id) in
   if List.length depends > 0 then
     try
       List.iter (function (_,[_]) -> () | _ -> raise Not_found) depends;
@@ -63,49 +62,49 @@ let somedisj pool id =
 (** [strongdeps l] build the strong dependency graph of l *)
 (* each package has a node in the graph, even if it does not have  
  * any strong dependencies *)
-let strongdeps_int ?(transitive=true) graph univ l =
+let strongdeps_int ?(transitive=true) graph univ pkglist =
   let cudfpool = Depsolver_int.init_pool_univ univ in
-  Util.Progress.set_total mainbar (List.length l);
+  Util.Progress.set_total mainbar (List.length pkglist);
   Util.Timer.start strongtimer;
-  List.iter (fun id ->
+  List.iter (fun pkg ->
     Util.Progress.progress mainbar;
-    G.add_vertex graph id;
+    G.add_vertex graph pkg;
+    let id = CudfAdd.vartoint univ pkg in
     if somedisj cudfpool id then begin 
       let closure = Depsolver_int.dependency_closure_cache cudfpool [id] in
       let solver = Depsolver_int.init_solver_closure cudfpool closure in
       match Depsolver_int.solve solver (Diagnostic_int.Sng id) with
-      |Diagnostic_int.Failure(_) -> ()
-      |Diagnostic_int.Success(f) ->
-          check_strong transitive graph solver id (f ())
+      |Depsolver_int.Failure(_) -> ()
+      |Depsolver_int.Success(f_int) ->
+          let l = List.map solver.Depsolver_int.map#inttovar (f_int ()) in
+          check_strong univ transitive graph solver id l
     end
-  ) l ;
+  ) pkglist ;
   Util.Progress.reset mainbar;
-  ignore (Util.Timer.stop strongtimer ());
-  debug "strong dep graph: %d nodes, %d edges\n" (G.nb_vertex graph) (G.nb_edges graph);
-  graph
+  debug "strong dep graph: %d nodes, %d edges" (G.nb_vertex graph) (G.nb_edges graph);
+  Util.Timer.stop strongtimer graph
 ;;
 
-module S = Set.Make (struct type t = int let compare = Pervasives.compare end)
-
-let strongdeps ?(transitive=true) univ closure =
+let strongdeps ?(transitive=true) univ pkglist =
+  let closure = Depsolver.dependency_closure univ pkglist in
   let size = Cudf.universe_size univ in
   let graph = G.create ~size () in
   Util.Progress.set_total conjbar size;
 
   Util.Timer.start conjtimer;
-  let l = 
-    List.fold_left (fun acc id ->
-      Util.Progress.progress conjbar;
-      IntPkgGraph.conjdepgraph_int ~transitive graph univ id;
-      id :: acc
-    ) [] closure
-  in
+  List.iter (fun pkg ->
+    Util.Progress.progress conjbar;
+    Defaultgraphs.PackageGraph.conjdepgraph_int ~transitive graph univ pkg
+  ) closure;
   Util.Progress.reset conjbar;
   Util.Timer.stop conjtimer ();
+
   debug "conj dep graph: nodes %d , edges %d" (G.nb_vertex graph) (G.nb_edges graph);
-  let g = strongdeps_int ~transitive graph univ l in
-  if not transitive then O.transitive_reduction g;
+  let g = strongdeps_int ~transitive graph univ pkglist in
+  (* because the graph might still be transitive *)
+  (* if not transitive then O.transitive_reduction g; *)
   g
+;;
 
 let strongdeps_univ ?(transitive=true) univ =
   let size = Cudf.universe_size univ in
@@ -115,36 +114,29 @@ let strongdeps_univ ?(transitive=true) univ =
   Util.Timer.start conjtimer;
   let l = 
     Cudf.fold_packages (fun acc pkg ->
-      let id = Cudf.uid_by_package univ pkg in
       Util.Progress.progress conjbar;
-      IntPkgGraph.conjdepgraph_int ~transitive graph univ id;
-      id :: acc
+      Defaultgraphs.PackageGraph.conjdepgraph_int ~transitive graph univ pkg;
+      pkg :: acc
     ) [] univ
   in
   Util.Progress.reset conjbar;
   Util.Timer.stop conjtimer ();
   debug "conj dep graph: nodes %d , edges %d" (G.nb_vertex graph) (G.nb_edges graph);
   let g = strongdeps_int ~transitive graph univ l in
-  if not transitive then O.transitive_reduction g;
+  (* because the graph might still be transitive *)
+  (* if not transitive then O.transitive_reduction g; *)
   g
+;;
 
 (** return the impact set (list) of the node [q] in [graph] *)
 (** invariant : we assume the graph is NOT detransitivitized *)
-let impactlist graph q =
-  G.fold_pred (fun p acc -> p :: acc ) graph q []
+let impactlist = Defaultgraphs.PackageGraph.pred_list
 
 (** return the list of strong dependencies of the node [q] in [graph] *)
 (** invariant : we assume the graph is NOT detransitivitized *)
-let stronglist graph q =
-  G.fold_succ (fun p acc -> p :: acc ) graph q []
+let stronglist = Defaultgraphs.PackageGraph.succ_list
 
-let impactset graph q =
-  if G.mem_vertex graph q then
-    G.fold_pred (fun p acc -> S.add p acc) graph q S.empty
-  else S.empty
+let impactset = Defaultgraphs.PackageGraph.pred_set
 
-let strongset graph q =
-  if G.mem_vertex graph q then
-    G.fold_succ (fun p acc -> S.add p acc) graph q S.empty
-  else S.empty
+let strongset = Defaultgraphs.PackageGraph.succ_set
 

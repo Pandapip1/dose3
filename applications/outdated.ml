@@ -30,7 +30,6 @@ module Options = struct
   include Boilerplate.MakeOptions(struct let options = options end)
 
   let explain = StdOpt.store_true ()
-  let architecture = StdOpt.str_option ()
   let checkonly = Boilerplate.pkglist_option ()
   let failure = StdOpt.store_true ()
   let explain = StdOpt.store_true ()
@@ -38,20 +37,16 @@ module Options = struct
   let dump = StdOpt.store_true ()
 
   open OptParser
-  add options ~short_name:'a' ~long_name:"architecture" 
-  ~help:"Set the default architecture" architecture;
- 
-  add options ~long_name:"checkonly" 
-  ~help:"Check only these package" checkonly;
+  add options ~long_name:"checkonly" ~help:"Check only these package" checkonly;
 
   add options ~short_name:'e' ~long_name:"explain" ~help:"Explain the results" explain;
   add options ~short_name:'f' ~long_name:"failure" ~help:"Show failure" failure;
 
-  add options ~short_name:'s' 
-  ~help:"Print summary of broken packages" summary;
+  add options ~short_name:'s' ~help:"Print summary of broken packages" summary;
 
-  add options ~long_name:"dump"
-  ~help:"Dump the cudf package list and exit" dump;
+  add options ~long_name:"dump" ~help:"Dump the cudf package list and exit" dump;
+
+  include Boilerplate.MakeDistribOptions(struct let options = options end);;
 
 end
 
@@ -107,8 +102,9 @@ let outdated
   ?(dump=false) 
   ?(failure=false) 
   ?(explain=false) 
-  ?(summary=false) 
-  ?(checklist=None) repository =
+  ?(summary=false)
+  ?(checklist=None) 
+  ?options repository =
 
   let worktable = Hashtbl.create 1024 in
   let version_acc = ref [] in
@@ -118,6 +114,7 @@ let outdated
   let realpackages = Hashtbl.create 1023 in
 
   let clusters = Debian.Debutil.cluster repository in
+
   (* for each cluster, I associate to it its discriminants,
    * cluster name and binary version *)
   let cluster_iter (sn,sv) l =
@@ -162,7 +159,7 @@ let outdated
   info "Total Names: %d" (Hashtbl.length worktable);
   info "Total versions: %d" (List.length versionlist);
 
-  let tables = Debian.Debcudf.init_tables ~step:2 ~versionlist repository in
+  let tables = Debian.Debcudf.init_tables ?options ~step:2 ~versionlist repository in
   let getv v = Debian.Debcudf.get_cudf_version tables ("",v) in
   let pkgset = 
     CudfAdd.to_set (
@@ -172,7 +169,7 @@ let outdated
         let acc0 = 
           (* by assumption all packages in a cluster are syncronized *)
           List.fold_left (fun l pkg ->
-            let p = Debian.Debcudf.tocudf ~extras:[] tables pkg in
+            let p = Debian.Debcudf.tocudf ?options tables pkg in
             (sync (sn,version,1) p)::l
           ) acc0 cluster
         in
@@ -180,7 +177,7 @@ let outdated
         List.fold_left (fun acc1 (target,equiv) ->
           incr sync_index;
           List.fold_left (fun acc2 pkg ->
-            let p = Debian.Debcudf.tocudf ~extras:[] tables pkg in
+            let p = Debian.Debcudf.tocudf tables pkg in
             let pv = p.Cudf.version in
 
             let target = Debian.Evolution.align pkg.Debian.Packages.version target in
@@ -219,7 +216,7 @@ let outdated
   let checklist =
     if Option.is_none checklist then []
     else
-      List.map (fun (p,v) ->
+      List.map (fun (p,_,v) ->
         Cudf.lookup_package universe (p,getv v)
       ) (Option.get checklist)
   in
@@ -269,9 +266,10 @@ let outdated
   in
   ignore(Util.Timer.stop timer ());
 
-  Format.fprintf fmt "total-packages: %d@," universe_size;
-  Format.fprintf fmt "total-broken: %d@," i;
-  Format.fprintf fmt "@]@.";
+  if failure then Format.fprintf fmt "@]@.";
+
+  Format.fprintf fmt "total-packages: %d@." universe_size;
+  Format.fprintf fmt "total-broken: %d@." i;
 
   if summary then
         Format.fprintf fmt "@[%a@]@." (Diagnostic.pp_summary ~pp ()) results;
@@ -281,10 +279,18 @@ let outdated
 
 let main () =
   let args = OptParse.OptParser.parse_argv Options.options in
+  let options = 
+    match Option.get (Options.set_options Url.Deb) with
+    |Boilerplate.Deb o -> o
+    |_ -> fatal "impossible"
+  in
+
   Boilerplate.enable_debug (OptParse.Opt.get Options.verbose);
   Boilerplate.enable_bars (OptParse.Opt.get Options.progress)
     ["Depsolver_int.univcheck";"Depsolver_int.init_solver"] ;
   Boilerplate.enable_timers (OptParse.Opt.get Options.timers) ["Solver"];
+  Boilerplate.all_quiet (OptParse.Opt.get Options.quiet);
+
 
   let checklist = OptParse.Opt.opt Options.checkonly in
   let failure = OptParse.Opt.get Options.failure in
@@ -292,9 +298,14 @@ let main () =
   let summary = OptParse.Opt.get Options.summary in
   let dump = OptParse.Opt.get Options.dump in
 
-  let default_arch = OptParse.Opt.opt Options.architecture in
-  let packagelist = Debian.Packages.input_raw ~default_arch args in
-  ignore(outdated ~summary ~failure ~explain ~dump ~checklist packagelist)
+  let archs =
+    if options.Debian.Debcudf.native <> "" then
+      options.Debian.Debcudf.native :: options.Debian.Debcudf.foreign
+    else []
+  in
+  let packagelist = Debian.Packages.input_raw ~archs args in
+
+  ignore(outdated ~summary ~failure ~explain ~dump ~checklist ~options packagelist)
 ;;
 
 Boilerplate.if_application

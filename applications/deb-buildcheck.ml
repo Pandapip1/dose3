@@ -46,6 +46,9 @@ module Options = struct
   add options ~long_name:"arch" ~help:"Set the default architecture" architecture;
 
   add options ~long_name:"dump" ~help:"dump the cudf file" dump;
+
+  include Boilerplate.MakeDistribOptions(struct let options = options end);;
+
 end
 
 include Util.Logging(struct let label = __FILE__ end) ;;
@@ -59,6 +62,8 @@ let main () =
 
   if not(OptParse.Opt.is_set Options.architecture) then 
     fatal "--arch must be specified";
+
+  let options = Options.set_options (Input.guess_format [posargs]) in
 
   let pkglist, srclist =
     match posargs with
@@ -90,9 +95,8 @@ let main () =
       ) ["architecture";"source";"sourcenumber"]
     in (p,v,l)
   in
-
-  let sl = List.map (fun pkg -> Debcudf.tocudf ~extras:[] tables pkg) srclist in
-  let l = List.fold_left (fun acc pkg -> (Debcudf.tocudf ~extras:[] tables pkg)::acc) sl pkglist in
+  let sl = List.map (fun pkg -> Debcudf.tocudf tables pkg) srclist in
+  let l = List.fold_left (fun acc pkg -> (Debcudf.tocudf tables pkg)::acc) sl pkglist in
 
   let universe = Cudf.load_universe l in
   let universe_size = Cudf.universe_size universe in

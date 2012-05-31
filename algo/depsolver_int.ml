@@ -12,7 +12,8 @@
 
 (** Dependency solver. Low Level API *)
 
-(** Implementation of the EDOS algorithms (and more). This module respect the cudf semantic. *)
+(** Implementation of the EDOS algorithms (and more).
+ *  This module respects the cudf semantic. *)
 
 open ExtLib
 open Common
@@ -77,8 +78,12 @@ type solver = {
 
 type pool_t =
   ((Cudf_types.vpkg list * S.var list) list * 
-   (Cudf_types.vpkg * S.var list) list) array
+   (Cudf_types.vpkg * S.var list) list * bool) array
 and pool = SolverPool of pool_t | CudfPool of pool_t
+
+type result =
+  |Success of (unit -> int list)
+  |Failure of (unit -> Diagnostic_int.reason list)
 
 (* two functions to make sure we alway manipulate the correct data type *)
 let strip_solver_pool = function SolverPool p -> p | _ -> assert false
@@ -100,7 +105,7 @@ let init_pool_univ univ =
           (vpkg, CudfAdd.resolve_vpkg_int univ vpkg)
         ) pkg.Cudf.conflicts
       in
-      (dll,cl)
+      (dll,cl,pkg.Cudf.keep = `Keep_package)
     )
   in CudfPool pool
 ;;
@@ -112,7 +117,7 @@ let init_solver_pool map pool closure =
   let solverpool = 
     Array.init (List.length closure) (fun sid ->
       let uid = map#inttovar sid in
-      let (dll,cl) = cudfpool.(uid) in
+      let (dll,cl,e) = cudfpool.(uid) in
       let sdll = 
         List.map (fun (vpkgs,uidl) ->
           (vpkgs,List.map map#vartoint uidl)
@@ -136,7 +141,7 @@ let init_solver_pool map pool closure =
           (vpkg, l)
         ) cl 
       in
-      (sdll,scl)
+      (sdll,scl,e)
     )
   in SolverPool solverpool
 ;;
@@ -196,10 +201,11 @@ let init_solver_cache ?(buffer=false) pool =
   Util.Progress.set_total progressbar_init size ;
   let constraints = S.initialize_problem ~buffer size in
 
-  Array.iteri (fun id (dll,cl) ->
+  Array.iteri (fun id (dll,cl,essential) ->
     Util.Progress.progress progressbar_init;
     exec_depends constraints id dll;
     exec_conflicts constraints id cl;
+    if essential then S.add_rule constraints [|S.lit_of_var id true|] [];
   ) pool;
     
   Hashtbl.clear conflicts;
@@ -247,8 +253,8 @@ let solve solver request =
   S.reset solver.constraints;
 
   let result solve collect var =
-    if solve solver.constraints var then begin
-      let get_assignent ?(all=false) () =
+    if solve solver.constraints var then
+      let get_assignent () =
         let a = S.assignment solver.constraints in
         let size = Array.length a in
         let rec aux (i,acc) =
@@ -261,11 +267,10 @@ let solve solver request =
         in
         aux (0,[])
       in
-      Diagnostic_int.Success(get_assignent)
-    end
+      Success(get_assignent)
     else
       let get_reasons () = collect solver.constraints var in
-      Diagnostic_int.Failure(get_reasons)
+      Failure(get_reasons)
   in
 
   match request with
@@ -277,12 +282,15 @@ let solve solver request =
 
 let pkgcheck callback solver failed tested id =
   let memo (tested,failed) res = 
-    begin
-      match res with
-      |Diagnostic_int.Success(f_int) ->
-          List.iter (fun i -> Array.unsafe_set tested i true) (f_int ())
-      |Diagnostic_int.Failure _  -> incr failed
-    end ; res
+    match res with
+    |Success(f_int) -> begin
+        List.iter (fun i -> Array.unsafe_set tested i true) (f_int ());
+        Diagnostic_int.Success(fun ?all () -> f_int ())
+    end
+    |Failure r -> begin
+        incr failed;
+        Diagnostic_int.Failure(r)
+    end
   in
   let req = Diagnostic_int.Sng id in
   let res =
@@ -300,8 +308,8 @@ let pkgcheck callback solver failed tested id =
       let f ?(all=false) () =
         if all then begin
           match solve solver req with
-          |Diagnostic_int.Success(f_int) -> f_int ()
-          |Diagnostic_int.Failure _ -> assert false (* impossible *)
+          |Success(f_int) -> List.map solver.map#inttovar (f_int ())
+          |Failure _ -> assert false (* impossible *)
         end else []
       in Diagnostic_int.Success(f) 
     end
@@ -382,6 +390,7 @@ let dependency_closure_cache ?(maxdepth=max_int) ?(conjunctive=false) pool idlis
     let (id,level) = Queue.take queue in
     if not(Hashtbl.mem visited id) && level < maxdepth then begin
       Hashtbl.add visited id ();
+      let (l,_,_) = cudfpool.(id) in
       List.iter (function
         |(_,[i]) when conjunctive = true ->
           if not(Hashtbl.mem visited i) then
@@ -393,7 +402,7 @@ let dependency_closure_cache ?(maxdepth=max_int) ?(conjunctive=false) pool idlis
                 Queue.add (i,level+1) queue
           ) dsj
         |_ -> ()
-      ) (fst(cudfpool.(id)))
+      ) l
     end
   done;
   Hashtbl.fold (fun k _ l -> k::l) visited []
@@ -403,12 +412,14 @@ let dependency_closure_cache ?(maxdepth=max_int) ?(conjunctive=false) pool idlis
 
     @param maxdepth the maximum cone depth (infinite by default)
     @param conjunctive consider only conjunctive dependencies (false by default)
-    @param index the package universe
-    @param l a subset of [index]
+    @param universe the package universe
+    @param pkglist a subset of [universe]
 *)
-let dependency_closure ?(maxdepth=max_int) ?(conjunctive=false) univ idlist =
-  let pool = init_pool_univ univ in
-  dependency_closure_cache ~maxdepth ~conjunctive pool idlist
+let dependency_closure ?(maxdepth=max_int) ?(conjunctive=false) universe pkglist =
+  let pool = init_pool_univ universe in
+  let idlist = List.map (CudfAdd.vartoint universe) pkglist in
+  let l = dependency_closure_cache ~maxdepth ~conjunctive pool idlist in
+  List.map (CudfAdd.inttovar universe) l
 ;;
 
 (*    XXX : elements in idlist should be included only if because
@@ -420,7 +431,7 @@ let dependency_closure ?(maxdepth=max_int) ?(conjunctive=false) univ idlist =
     @param index the package universe
     @param idlist a subset of [index]
 
-    This function has in a memoization strategy.
+    This function use a memoization strategy.
 *)
 let reverse_dependency_closure ?(maxdepth=max_int) reverse =
   let h = Hashtbl.create (Array.length reverse) in

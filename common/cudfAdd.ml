@@ -10,26 +10,21 @@
 (*  library, see the COPYING file for more information.                               *)
 (**************************************************************************************)
 
+
+(* Remember the original hashtable module from Ocaml standard library,
+    whose name will be overriden by opening Extlib. *)
 module OCAMLHashtbl = Hashtbl
-module OCAMLSet = Set
 
 open ExtLib
 
+(* Include internal debugging functions for this module (debug, info, warning, fatal). *)
 include Util.Logging(struct let label = __FILE__ end) ;;
 
-(* the id of a package *)
-let id pkg = (pkg.Cudf.package,pkg.Cudf.version)
-
-(** compare two cudf packages only using name and version *)
+let equal = Cudf.(=%)
 let compare = Cudf.(<%)
 
-(** has a cudf package only using name and version *)
 let hash p = Hashtbl.hash (p.Cudf.package,p.Cudf.version)
 
-(** two cudf packages are equal if name and version are the same *)
-let equal = Cudf.(=%)
-
-(** specialized Hash table for cudf packages *)
 module Cudf_hashtbl =
   OCAMLHashtbl.Make(struct
     type t = Cudf.package
@@ -37,53 +32,101 @@ module Cudf_hashtbl =
     let hash = hash
   end)
 
-(** specialized Set for cudf packages *)
 module Cudf_set =
-  OCAMLSet.Make(struct
+  Set.Make(struct
     type t = Cudf.package
     let compare = compare
   end)
 
 let to_set l = List.fold_right Cudf_set.add l Cudf_set.empty
 
-(** additional functions on Cudf data type.  *)
+
+(* encode - decode *)
+
+(* Specialized hashtable for encoding strings efficiently. *)
+module EncodingHashtable =
+  OCAMLHashtbl.Make(struct
+    type t = string
+    let equal = (=)
+    let hash = fun s -> Char.code (s.[0])
+  end)
+
+(* Specialized hashtable for decoding strings efficiently. *)
+module DecodingHashtable =
+  OCAMLHashtbl.Make(struct
+    type t = string
+    let equal = (=)
+    let hash = (fun s -> (Char.code s.[1]) * 1000 + (Char.code s.[2]) )
+  end)
+
+
+(*  "hex_char char" returns the ASCII code of the given character
+    in the hexadecimal form, prefixed with the '%' sign.
+    e.g. hex_char '+' = "%2b" *)
+let hex_char char = Printf.sprintf "%%%02x" (Char.code char);;
+
+(* "init_hashtables" initializes the two given hashtables to contain:
+
+    - enc_ht: Precomputed results of applying the function "hex_char"
+    to all possible ASCII chars.
+    e.g. EncodingHashtable.find enc_ht "+" = "%2b"
+
+    - dec_ht: An inversion of enc_ht.
+    e.g. DecodingHashtable.find dec_ht "%2b" = "+" 
+*)
+let init_hashtables enc_ht dec_ht =
+
+  (* "all_ascii_chars" is a list containing characters with 
+     all possible ASCII codes (i.e. between 0 and 255). *)
+  let all_ascii_chars = 
+    (*  "all_numbers_from_to first last" generates a list of
+	all integers between the first one and the last one
+	(including both ends). *)
+    let rec all_numbers_from_to first last =
+      if first <= last
+      then first :: (all_numbers_from_to (first + 1) last)
+      else []
+    in
+    (* Convert each number from 0 to 255 to a character with the given ASCII code. *)
+    List.map Char.chr (all_numbers_from_to 0 255)
+      
+  in
+  (* One by one add all the possible pairs (char, hexed_char)
+      to both hashtables. *)
+  List.iter (fun char -> 
+    let char_as_string = String.make 1 char in
+    let hexed_char = hex_char char in
+    EncodingHashtable.add enc_ht char_as_string hexed_char;
+    DecodingHashtable.add dec_ht hexed_char char_as_string
+      ) all_ascii_chars
+    ;;
+
+(* Create and initialize twin hashtables,
+   one for encoding and one for decoding. *)
+let enc_ht = EncodingHashtable.create 256;;
+let dec_ht = DecodingHashtable.create 256;;
+init_hashtables enc_ht dec_ht;;
+
+(* encode *)
+let encode_single s   = EncodingHashtable.find enc_ht s;;
+let not_allowed_regexp = Pcre.regexp "[^a-zA-Z0-9@/+().-]";;
 
 let encode s =
-  let not_allowed = Str.regexp  "[^a-zA-Z0-9@/+().-]" in
-  let search s =
-    try (Str.search_forward not_allowed s 0) >= 0
-    with Not_found -> false
-  in
-  let make_hex chr = Printf.sprintf "%%%x" (Char.code chr) in
-  if search s then begin
-    let n = String.length s in
-    let b = Buffer.create n in
-    for i = 0 to n-1 do
-      let s' = String.of_char s.[i] in
-      if Str.string_match not_allowed s' 0 then
-        Buffer.add_string b (make_hex s.[i])
-      else
-        Buffer.add_string b s'
-    done;
-    Buffer.contents b
-  end else s
+  Pcre.substitute ~rex:not_allowed_regexp ~subst:encode_single s
+;;
+
+(* decode *)
+let decode_single s = DecodingHashtable.find dec_ht s;;
+let encoded_char_regexp = Pcre.regexp "%[0-9a-f][0-9a-f]";;
 
 let decode s =
-  let hex_re = Str.regexp "%[0-9a-f][0-9a-f]" in
-  let un s =
-    let s = Str.matched_string s in
-    let hex = String.sub s 1 2 in
-    let n = int_of_string ("0x" ^ hex) in
-    String.make 1 (Char.chr n)
-  in
-  Str.global_substitute hex_re un s
+  Pcre.substitute ~rex:encoded_char_regexp ~subst:decode_single s
+;;
 
-let add_properties preamble l =
-  List.fold_left (fun pre prop ->
-    {pre with Cudf.property = prop :: pre.Cudf.property }
-  ) preamble l
+(* formatting *)
 
 let buf = Buffer.create 1024
+
 let buf_formatter =
   let fmt = Format.formatter_of_buffer buf in
     Format.pp_set_margin fmt max_int;
@@ -96,7 +139,7 @@ let string_of pp arg =
   Buffer.contents buf
 
 let pp_version fmt pkg =
-  try Format.fprintf fmt "%s" (Cudf.lookup_package_property pkg "number")
+  try Format.fprintf fmt "%s" (decode (Cudf.lookup_package_property pkg "number"))
   with Not_found -> Format.fprintf fmt "%d" pkg.Cudf.version
 
 let pp_package fmt pkg =
@@ -105,19 +148,24 @@ let pp_package fmt pkg =
 let string_of_version = string_of pp_version
 let string_of_package = string_of pp_package
 
-let is_essential pkg =
-  try (Cudf.lookup_package_property pkg "essential") = "yes"
-  with Not_found -> false
-
-module StringSet = OCAMLSet.Make(String)
+module StringSet = Set.Make(String)
 
 let pkgnames universe =
   Cudf.fold_packages (fun names pkg ->
     StringSet.add pkg.Cudf.package names
   ) StringSet.empty universe
 
-(** build an hash table that associates (package name, String version) to
- * cudf packages *)
+
+let add_properties preamble l =
+  List.fold_left (fun pre prop ->
+    {pre with Cudf.property = prop :: pre.Cudf.property }
+  ) preamble l
+
+let is_essential pkg =
+  try (Cudf.lookup_package_property pkg "essential") = "yes"
+  with Not_found -> false
+
+
 let realversionmap pkglist =
   let h = Hashtbl.create (5 * (List.length pkglist)) in
   List.iter (fun pkg ->
@@ -127,8 +175,6 @@ let realversionmap pkglist =
 
 let vartoint = Cudf.uid_by_package 
 let inttovar = Cudf.package_by_uid
-
-let pkgid p = (p.Cudf.package, p.Cudf.version)
 
 let add_to_package_list h n p =
   try let l = Hashtbl.find h n in l := p :: !l
@@ -142,6 +188,7 @@ let unique l =
     else x::results) [] l
   )
 ;;
+
 let normalize_set (l : int list) = unique l
 
 (* (pkgname,constr) -> pkg *)

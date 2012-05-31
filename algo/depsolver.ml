@@ -49,7 +49,7 @@ let result map universe result =
   |Diagnostic_int.Success f_int ->
       Diagnostic.Success (fun ?(all=false) () ->
         List.map (fun i ->
-          {(from_sat (map#inttovar i)) with Cudf.installed = true}
+          {(from_sat i) with Cudf.installed = true}
         ) (f_int ~all ())
       )
   |Diagnostic_int.Failure f -> Diagnostic.Failure (fun () ->
@@ -93,24 +93,36 @@ let listcheck ?callback universe pkglist =
       Depsolver_int.listcheck ~callback:callback_int universe idlist
 ;;
 
+(** this function converts Depsolver_int results to
+ * Diagnostic_int results. The difference is that the integer
+ * list returned by the function f_int represents solver indexs
+ * while Diagnostic_int.Success must return cudf indexs *)
+let conv solver = function
+  |Depsolver_int.Success(f_int) -> 
+      Diagnostic_int.Success(fun ?all () -> 
+        List.map solver.Depsolver_int.map#inttovar (f_int ())
+      )
+  |Depsolver_int.Failure(r) -> Diagnostic_int.Failure(r)
+;;
+
 let edos_install univ pkg =
   let pool = Depsolver_int.init_pool_univ univ in
   let id = CudfAdd.vartoint univ pkg in
-  let closure = Depsolver_int.dependency_closure univ [id] in
+  let closure = Depsolver_int.dependency_closure_cache pool [id] in
   let solver = Depsolver_int.init_solver_closure pool closure in
   let req = Diagnostic_int.Sng id in
   let res = Depsolver_int.solve solver req in
-  diagnosis solver.Depsolver_int.map univ res req
+  diagnosis solver.Depsolver_int.map univ (conv solver res) req
 ;;
 
 let edos_coinstall univ pkglist =
   let pool = Depsolver_int.init_pool_univ univ in
   let idlist = List.map (CudfAdd.vartoint univ) pkglist in
-  let closure = Depsolver_int.dependency_closure univ idlist in
+  let closure = Depsolver_int.dependency_closure_cache pool idlist in
   let solver = Depsolver_int.init_solver_closure pool closure in
   let req = Diagnostic_int.Lst idlist in
   let res = Depsolver_int.solve solver req in
-  diagnosis solver.Depsolver_int.map univ res req
+  diagnosis solver.Depsolver_int.map univ (conv solver res) req
 ;;
 
 let edos_coinstall_prod univ ll =
@@ -126,11 +138,11 @@ let edos_coinstall_prod univ ll =
   in
   List.map (fun pkglist -> 
     let idlist = List.map (CudfAdd.vartoint univ) pkglist in
-    let closure = Depsolver_int.dependency_closure univ idlist in
+    let closure = Depsolver_int.dependency_closure_cache pool idlist in
     let solver = Depsolver_int.init_solver_closure pool closure in
     let req = Diagnostic_int.Lst idlist in
     let res = Depsolver_int.solve solver req in
-    diagnosis solver.Depsolver_int.map univ res req
+    diagnosis solver.Depsolver_int.map univ (conv solver res) req
   ) (permutation ll)
 ;;
 
@@ -157,9 +169,7 @@ let find_broken universe =
   !broken_pkgs
 
 let dependency_closure ?maxdepth ?conjunctive univ pkglist =
-  let idlist = List.map (CudfAdd.vartoint univ) pkglist in
-  let closure = Depsolver_int.dependency_closure ?maxdepth ?conjunctive univ idlist in
-  List.map (CudfAdd.inttovar univ) closure
+  Depsolver_int.dependency_closure ?maxdepth ?conjunctive univ pkglist
 
 let reverse_dependencies univ =
   let rev = Depsolver_int.reverse_dependencies univ in

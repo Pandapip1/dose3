@@ -31,46 +31,58 @@ end
 
 (* *************************************** *)
 
-let and_sep_re = Pcre.regexp "\\s*,\\s*"
-let pkg_re = Pcre.regexp "([0-9a-z][a-z0-9.+-]*)(\\s*$|\\s*\\(([><=!]+)\\s+([a-zA-Z0-9.+:~-]+)\\))"
-let parse_vpkg s =
-  let parse_aux str =
-    try
-      let s = Pcre.exec ~rex:pkg_re str  in
-      let p = Pcre.get_substring s 1 in
-      try 
-        let c = Pcre.get_substring s 3 in
-        let v = Pcre.get_substring s 4 in
-        (p,CudfAdd.cudfop(Some(c,v)))
-      with Not_found -> (p,None)
-    with
-      Not_found -> fatal "Parse error %s\n" str
-  in List.map parse_aux (Pcre.split ~rex:and_sep_re s)
+let vpkg_option ?default ?(metavar = "VPKG") () =
+  let parse_vpkg s = 
+    let _loc = Debian.Format822.dummy_loc in
+    Debian.Packages.parse_vpkg (_loc,s)
+  in
+  OptParse.Opt.value_option metavar default
+  parse_vpkg (fun _ s -> Printf.sprintf "invalid vpackage '%s'" s)
 ;;
 
+(* this is a ,-separated list of vpkgs of the form "a (= v)" *)
 let vpkglist_option ?default ?(metavar = "VPKGLST") () =
+  let parse_vpkglist s = 
+    let _loc = Debian.Format822.dummy_loc in
+    Debian.Packages.parse_vpkglist (_loc,s)
+  in
   OptParse.Opt.value_option metavar default
-  parse_vpkg (fun _ s -> Printf.sprintf "invalid vpackage list '%s'" s)
+  parse_vpkglist (fun _ s -> Printf.sprintf "invalid vpackage list '%s'" s)
+;;
+
+(* this is a ,-separated list of vpkgs of the form "a (= v)" *)
+let pkglist_option ?default ?(metavar = "VPKGLST") () =
+  let parse_vpkglist s = 
+    let _loc = Debian.Format822.dummy_loc in
+    List.map (function
+      |((n,a),Some("=",v)) -> (n,a,v)
+      |_ -> raise (Debian.Packages.ParseError (s,""))
+    ) (Debian.Packages.parse_vpkglist (_loc,s))
+  in
+  OptParse.Opt.value_option metavar default
+  parse_vpkglist (fun _ s -> Printf.sprintf "invalid package list '%s'" s)
+;;
+
+let debvpkg ?(native_arch="") to_cudf ((n,a),c) =
+  let name =
+    CudfAdd.encode (
+      if Option.is_none a then
+        if native_arch <> "" then
+          (native_arch^":"^n)
+        else n
+      else
+        ((Option.get a)^":"^n)
+    )
+  in
+  let constr =
+    match CudfAdd.cudfop c with
+    |None -> None
+    |Some(op,v) -> Some(op,snd(to_cudf (name,v)))
+  in
+  (name,constr)
 ;;
 
 (* *************************************** *)
-
-let and_sep_re = Pcre.regexp "\\s*;\\s*"
-let pkg_re = Pcre.regexp "\\(([0-9a-z][a-z0-9.+-]*)\\s*,\\s*([a-zA-Z0-9.+:~-]+)\\)"
-let parse_pkg s =
-  let parse_aux str =
-    try
-      let s = Pcre.exec ~rex:pkg_re str  in
-      (Pcre.get_substring s 1, Pcre.get_substring s 2)
-    with
-      Not_found -> fatal "Parse error %s" str
-  in List.map parse_aux (Pcre.split ~rex:and_sep_re s)
-;;
-
-let pkglist_option ?default ?(metavar = "PKGLST") () =
-  OptParse.Opt.value_option metavar default
-  parse_pkg (fun _ s -> Printf.sprintf "invalid package list '%s'" s)
-;;
 
 let incr_str_list ?(default=Some []) ?(metavar = "STR") =
   let acc = ref [] in 
@@ -80,13 +92,13 @@ let incr_str_list ?(default=Some []) ?(metavar = "STR") =
   (fun _ s -> Printf.sprintf "Invalid String '%s'" s)
 ;;
 
-let str_list ?(default=Some []) ?(metavar = "STRLST") =
+(* this is a ,-separated list of strings *)
+let str_list_option ?(default=Some []) ?(metavar = "STRLST") =
   let sep = "," in
-  let coerce str = ExtString.String.nsplit str sep in
+  let coerce s = ExtString.String.nsplit s sep in
   fun () ->
     OptParse.Opt.value_option metavar default coerce
     (fun _ s -> Printf.sprintf "Invalid String '%s'" s)
-
 
 (* *************************************** *)
 
@@ -106,6 +118,82 @@ module MakeOptions(O : Ot) = struct
   add options ~long_name:"quiet" ~help:"do no print any messages" quiet;
 
 end
+
+type options =
+  |Deb of Debian.Debcudf.options
+  |Eclipse of Debian.Debcudf.options
+  |Csw
+  |Rpm
+  |Cudf
+
+module MakeDistribOptions(O : sig val options : OptParse.OptParser.t end) = struct
+  open OptParse ;;
+
+  let deb_foreign_arch = str_list_option ()
+  let deb_native_arch = StdOpt.str_option ()
+  let deb_host_arch = StdOpt.str_option ()
+  let deb_build_arch = StdOpt.str_option ()
+  let deb_ignore_essential = StdOpt.store_true ()
+
+  let set_options = function
+    |Url.Deb ->
+      let host =
+        if Opt.is_set deb_host_arch then
+          Opt.get deb_host_arch
+        else ""
+      in
+      let build =
+        if Opt.is_set deb_build_arch then
+          Opt.get deb_build_arch
+        else ""
+      in
+      let native =
+        if Opt.is_set deb_native_arch then
+          Opt.get deb_native_arch
+        else ""
+      in
+
+      let archs =
+        let l = Opt.get deb_foreign_arch in
+        let l = if host <> "" then host::l else l in
+        let l = if build <> "" then build::l else l in
+        let l = if native <> "" then native::l else l in
+        l
+      in
+
+      Some (
+        Deb {
+          Debian.Debcudf.default_options with
+          Debian.Debcudf.foreign = archs;
+          host = host;
+          build = build;
+          native = native;
+          ignore_essential = Opt.get deb_ignore_essential
+        }
+      )
+    |Url.Synthesis -> None
+    |Url.Hdlist -> None
+    |(Url.Pgsql|Url.Sqlite) -> None
+    |Url.Eclipse -> Some (Eclipse Debian.Debcudf.default_options)
+    |Url.Cudf -> None
+    |Url.Csw -> None
+  ;;
+
+  open OptParser ;;
+  let deb_group = add_group O.options "Debian Specific Options" in
+  add O.options ~group:deb_group ~long_name:"deb-native-arch" ~help:"Native architecture" deb_native_arch;
+  (*
+  add options ~group:deb_group ~long_name:"deb-host-arch" ~help:"Host architecture" deb_host_arch;
+  add options ~group:deb_group ~long_name:"deb-build-arch" ~help:"Build architecture" deb_build_arch;
+  *)
+  add O.options ~group:deb_group ~long_name:"deb-foreign-archs" ~help:"Foreign architectures" deb_foreign_arch;
+  add O.options ~group:deb_group ~long_name:"deb-ignore-essential" ~help:"Ignore Essential Packages" deb_ignore_essential;
+
+(*  let rpm_group = add_group options "Rpm Specific Options" in
+    let eclipse_group = add_group options "Eclipse Specific Options" in
+*)
+end
+
 
 let enable_debug = function
   |0 -> () (* only warning messages : default *)
@@ -147,7 +235,7 @@ let read_deb ?filter ?(extras=[]) fname =
  * dll = deb packages list list 
  * cll = cudf package list list
  *)
-let deb_load_list ?(extras=[]) ?(status=[]) dll =
+let deb_load_list options ?(status=[]) dll =
   let pkglist = List.flatten dll in
   let pkglist = if status = [] then pkglist else Debian.Packages.merge status pkglist in
   let tables = Debian.Debcudf.init_tables pkglist in
@@ -155,7 +243,7 @@ let deb_load_list ?(extras=[]) ?(status=[]) dll =
   let to_cudf (p,v) = (p,Debian.Debcudf.get_cudf_version tables (p,v)) in
   let cll = 
     List.map (fun l ->
-      List.map (Debian.Debcudf.tocudf ~extras tables) l
+      List.map (Debian.Debcudf.tocudf tables ~options) l
     ) dll
   in
   let preamble = Debian.Debcudf.preamble in
@@ -167,7 +255,8 @@ let pp_versions_table fmt (from_cudf, pkglist) =
     Format.fprintf fmt "%s=%d=%s@." p pkg.Cudf.version v
   ) pkglist
 
-let eclipse_load_list ?(extras=[]) dll =
+let eclipse_load_list options dll =
+  let extras = [] in
   let pkglist = List.flatten dll in
   let tables = Eclipse.Eclipsecudf.init_tables pkglist in
   let from_cudf (p,i) = (p, Eclipse.Eclipsecudf.get_real_version tables (p,i)) in
@@ -180,9 +269,22 @@ let eclipse_load_list ?(extras=[]) dll =
   let preamble = Eclipse.Eclipsecudf.preamble in
   (preamble,cll,from_cudf,to_cudf)
  
+let csw_load_list dll =
+  let pkglist = List.flatten dll in
+  let tables = Csw.Cswcudf.init_tables pkglist in
+  let from_cudf (p,i) = (p, Csw.Cswcudf.get_real_version tables (p,i)) in
+  let to_cudf (p,v) = (p, Csw.Cswcudf.get_cudf_version tables (p,v)) in
+  let cll = 
+    List.map (fun l ->
+      List.map (Csw.Cswcudf.tocudf tables) l
+    ) dll
+  in
+  let preamble = Csw.Cswcudf.preamble in
+  (preamble,cll,from_cudf,to_cudf)
+ 
 (** transform a list of debian control stanza into a cudf universe *)
-let deb_load_universe ?(extras=[]) l =
-  let (pr,cll,f,t) = deb_load_list ~extras [l] in
+let deb_load_universe options l =
+  let (pr,cll,f,t) = deb_load_list options [l] in
   (pr,Cudf.load_universe (List.flatten cll), f, t)
 
 (* XXX double minded ... this code is kinda similar to the code in rpmcudf 
@@ -242,10 +344,14 @@ let load_cudf doc =
 
 (* XXX when parsing a cudf, I should also remember the preamble !! *)
 let cudf_load_list file =
-  let _, pkglist, _ = parse_cudf file in
+  let preamble, pkglist =
+    match parse_cudf file with
+    |None, pkglist, _ -> Cudf.default_preamble, pkglist
+    |Some p , pkglist, _ -> p, pkglist
+  in
   let from_cudf (p,i) = (p,string_of_int i) in
   let to_cudf (p,v) = (p,int_of_string v) in
-  (Cudf.default_preamble,[pkglist;[]],from_cudf,to_cudf)
+  (preamble,[pkglist;[]],from_cudf,to_cudf)
 
 let cudf_load_universe file =
   let (pr,l,f,t) = cudf_load_list file in
@@ -254,72 +360,86 @@ let cudf_load_universe file =
 (** return the name of the file *)
 let unpack (_,(_,_,_,_,file),_) = file
 
+let deb_parse_input options urilist =
+  let archs = 
+    if options.Debian.Debcudf.native <> "" then
+      options.Debian.Debcudf.native :: options.Debian.Debcudf.foreign 
+    else []
+  in
+  let dll = 
+    List.map (fun l ->
+      let filelist = List.map unpack l in
+      Debian.Packages.input_raw ~archs filelist
+    ) urilist
+  in
+  deb_load_list options dll
+
+let eclipse_parse_input options urilist =
+  let dll = 
+    List.map (fun l ->
+      let filelist = List.map unpack l in
+      Eclipse.Packages.input_raw filelist
+    ) urilist
+  in
+  eclipse_load_list options dll
+
+let csw_parse_input urilist =
+  let dll = 
+    List.map (fun l ->
+      let filelist = List.map unpack l in
+      Csw.Packages.input_raw filelist
+    ) urilist
+  in
+  csw_load_list dll
+
+let cudf_parse_input urilist =
+  match urilist with
+  |[[p]] when (unpack p) = "-" -> fatal "no stdin for cudf yet"
+  |[[p]] -> cudf_load_list (unpack p)
+  |l ->
+    if List.length (List.flatten l) > 1 then
+      warning "more then one cudf speficied on the command line";
+    let p = List.hd (List.flatten l) in 
+    cudf_load_list (unpack p)
+;;
+
 (* Check that all uris are of type that is an instance of scheme *)
 (* If yes return that instance of scheme, and the list of paths  *)
 (* in uris.                                                      *)
 (** parse a list of uris of the same type and return a cudf packages list *)
-let parse_input ?default_arch ?(extras=[]) (urilist : string list list) =
-  let default = match List.flatten urilist with
-    |uri::_ -> let (p,_,_) = Input.parse_uri uri in Some p
-    |_ -> None
-  in
-  let filelist =
-    List.map (fun uris ->
-      List.filter_map (fun uri ->
-        let (t,_,_) as p = Input.parse_uri uri in
-        if Some t = default then Some p else None
-      ) uris
-    ) urilist
-  in
-  match default, filelist with
-  |None,_ -> fatal "No input specified"
-  |Some Url.Cudf,[[p]] when (unpack p) = "-" -> fatal "no stdin for cudf yet"
-  |Some Url.Cudf,[[p]] -> cudf_load_list (unpack p)
-  |Some Url.Cudf, l when (List.flatten l) = [] -> fatal "how do you know it's a cudf ?"
-  |Some Url.Cudf, l -> 
-      if List.length (List.flatten l) > 1 then
-        warning "more then one cudf speficied on the command line";
-      let p = List.hd (List.flatten l) in 
-      cudf_load_list (unpack p)
+let parse_input ?(options=None) urilist =
+  let filelist = List.map (List.map Input.parse_uri) urilist in
+  match Input.guess_format urilist, options with
+  |Url.Cudf, None -> cudf_parse_input filelist
 
-  |Some Url.Deb,ll ->
-      let dll = 
-        List.map (fun l ->
-          let filelist = List.map unpack l in
-          Debian.Packages.input_raw ?default_arch filelist
-        ) ll 
-      in
-      deb_load_list ~extras dll
+  |Url.Deb, None -> deb_parse_input Debian.Debcudf.default_options filelist
+  |Url.Eclipse, None -> eclipse_parse_input Debian.Debcudf.default_options filelist
 
-  |Some Url.Eclipse, ll ->
-      let dll = 
-        List.map (fun l ->
-          let filelist = List.map unpack l in
-          Eclipse.Packages.input_raw filelist
-        ) ll 
-      in
-      eclipse_load_list ~extras dll
+  |Url.Deb, Some (Deb opt) -> deb_parse_input opt filelist
+  |Url.Eclipse, Some (Eclipse opt) -> eclipse_parse_input opt filelist
 
-  |Some Url.Hdlist, ll -> 
+  |Url.Csw, None -> csw_parse_input filelist
+
+  |Url.Hdlist, None -> 
 IFDEF HASRPM THEN
       let dll = 
         List.map (fun l ->
           let filelist = List.map unpack l in
           Rpm.Packages.Hdlists.input_raw filelist
-        ) ll 
+        ) filelist 
       in
       rpm_load_list dll
 ELSE
     fatal "hdlist Not supported. re-configure with --with-rpm"
 END
 
-  |Some Url.Synthesis, ll -> 
+  |Url.Synthesis, None -> 
 IFDEF HASRPM THEN
       let dll = 
         List.map (fun l ->
           let filelist = List.map unpack l in
           Rpm.Packages.Synthesis.input_raw filelist
-        ) ll 
+        ) filelist
       in
       rpm_load_list dll
 ELSE
@@ -335,7 +455,7 @@ ELSE
     fatal "%s Not supported. re-configure with --with-??" (Url.scheme_to_string dbtype)
 END
 *)
-    |Some s,_ -> fatal "%s Not supported" (Url.scheme_to_string s)
+    |s,_ -> fatal "%s Not supported" (Url.scheme_to_string s)
 ;;
 
 let supported_formats () =
@@ -358,20 +478,20 @@ END
 ;;
 
 (** parse and merge a list of files into a cudf package list *)
-let load_list ?default_arch ?(extras=[]) urilist =
+let load_list ?(options=None) urilist =
   info "Parsing and normalizing..." ;
   let timer = Util.Timer.create "Parsing and normalizing" in
   Util.Timer.start timer;
-  let u = parse_input ?default_arch ~extras urilist in
+  let u = parse_input ~options urilist in
   Util.Timer.stop timer u
 ;;
 
 (** parse and merge a list of files into a cudf universe *)
-let load_universe ?default_arch ?(extras=[]) uris =
+let load_universe ?(options=None) uris =
   info "Parsing and normalizing..." ;
   let timer = Util.Timer.create "Parsing and normalizing" in
   Util.Timer.start timer;
-  let (pr,cll,f,t) = parse_input ?default_arch ~extras [uris] in
+  let (pr,cll,f,t) = parse_input ~options [uris] in
   let u = (pr,Cudf.load_universe (List.flatten cll), f, t) in
   Util.Timer.stop timer u
 ;;
