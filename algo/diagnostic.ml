@@ -16,18 +16,30 @@ open Common
 
 include Util.Logging(struct let label = __FILE__ end) ;;
 
+(** One un-installability reason for a package *)
 type reason =
-  |Dependency of (Cudf.package * Cudf_types.vpkg list * Cudf.package list)
-  |Missing of (Cudf.package * Cudf_types.vpkg list)
-  |Conflict of (Cudf.package * Cudf.package * Cudf_types.vpkg)
+  |Dependency of (Cudf.package * Cudf_types.vpkg list * Cudf.package list) (** Not strictly a un-installability, Dependency (a,vpkglist,pkglist) is used
+      to recontruct the the dependency path from the root package to the
+      offending un-installable package *)
+  |Missing of (Cudf.package * Cudf_types.vpkg list) (** Missing (a,vpkglist) means that the dependency
+      [vpkglist] of package [a] cannot be satisfied *)
+  |Conflict of (Cudf.package * Cudf.package * Cudf_types.vpkg) (** Conflict (a,b,vpkg) means that the package [a] is in conflict
+      with package [b] because of vpkg *)
 
+(** The request provided to the solver *)
 type request =
-  |Package of Cudf.package
-  |PackageList of Cudf.package list
+  |Package of Cudf.package (** Check the installability of one package *)
+  |PackageList of Cudf.package list (** Check the installability of a list of packages *)
 
+(** The result of an installability query *)
 type result =
-  |Success of (?all:bool -> unit -> Cudf.package list)
-  |Failure of (unit -> reason list)
+  |Success of (?all:bool -> unit -> Cudf.package list) (** If successfull returns a function that will
+      return the installation set for the given query. Since
+      not all packages are tested for installability directly, the
+      installation set might be empty. In this case, the solver can
+      be called again to provide the real installation set 
+      using the parameter [~all:true] *)
+  |Failure of (unit -> reason list) (** If unsuccessful returns a function containing the list of reason *)
 
 type diagnosis = { result : result ; request : request }
 
@@ -81,21 +93,22 @@ let build_paths deps root =
 
 let pp_package ?(source=false) pp fmt pkg =
   let (p,v,fields) = pp pkg in
-  Format.fprintf fmt "package: %s@," (CudfAdd.decode p);
+  Format.fprintf fmt "package: %s@," p;
   Format.fprintf fmt "version: %s" v;
   List.iter (function
     |(("source"|"sourcenumber"),_) -> ()
-    |(k,v) -> Format.fprintf fmt "@,%s: %s" k (CudfAdd.decode v)
+    |(k,v) -> Format.fprintf fmt "@,%s: %s" k v
   ) fields;
-  if source then
-    begin try
+  if source then begin 
+    try
       let source = List.assoc "source" fields in
       let sourceversion = 
         try "(= "^(List.assoc "sourcenumber" fields)^")" 
         with Not_found -> ""
       in
       Format.fprintf fmt "@,source: %s %s" source sourceversion
-    with Not_found -> () end
+    with Not_found -> ()
+  end
 ;;
 
 let pp_vpkglist pp fmt = 
@@ -123,10 +136,10 @@ let pp_vpkglist pp fmt =
     | `Lt -> "<"
   in
   let pp_item fmt = function
-    |(p,None) -> Format.fprintf fmt "%s" (CudfAdd.decode p)
+    |(p,None) -> Format.fprintf fmt "%s" p
     |(p,Some(c,v)) ->
         let (p,v,_) = pp {Cudf.default_package with Cudf.package = p ; version = v} in
-        Format.fprintf fmt "%s (%s %s)" (CudfAdd.decode p) (string_of_relop c) v
+        Format.fprintf fmt "%s (%s %s)" p (string_of_relop c) v
   in
   pp_list fmt ~pp_item ~sep:" | "
 
@@ -194,9 +207,36 @@ let print_error pp root fmt l =
   pp_list pp_reason fmt res;
 ;;
 
+(* XXX unplug your imperative brain and rewrite this as a tail recoursive
+ * function ! *)
+let minimize roots l =
+  let module H = Hashtbl in
+  let h = H.create (List.length l) in
+  List.iter (fun p -> H.add h p.Cudf.package p) l;
+  let acc = H.create 1023 in
+  let rec visit pkg =
+    if not (H.mem acc pkg) then begin
+      H.add acc pkg ();
+      List.iter (fun vpkgformula ->
+        List.iter (fun (name,constr) ->
+          try
+            let p = H.find h name in
+            if Cudf.version_matches p.Cudf.version constr then
+              visit p
+          with Not_found -> ()
+        ) vpkgformula
+      ) pkg.Cudf.depends
+    end
+  in
+  begin match roots with 
+  |Package r -> visit r
+  |PackageList rl -> List.iter visit l end;
+  H.fold (fun k _ l -> k::l) acc []
+;;
+
 let default_pp pkg = (pkg.Cudf.package,CudfAdd.string_of_version pkg,[])
 
-let fprintf ?(pp=default_pp) ?(failure=false) ?(success=false) ?(explain=false) fmt = function
+let fprintf ?(pp=default_pp) ?(failure=false) ?(success=false) ?(explain=false) ?(minimal=false) fmt = function
   |{result = Success (f); request = req } when success ->
        Format.fprintf fmt "@[<v 1>-@,";
        begin match req with
@@ -208,7 +248,10 @@ let fprintf ?(pp=default_pp) ?(failure=false) ?(success=false) ?(explain=false) 
        end;
        Format.fprintf fmt "status: ok@,";
        if explain then begin
-         let is = f ~all:true () in
+         let is =
+           let s = f ~all:true () in
+           if minimal then minimize req s else s
+         in
          if is <> [] then begin
            Format.fprintf fmt "@[<v 1>installationset:@," ;
            Format.fprintf fmt "@[<v>%a@]" (pp_list (pp_package pp)) is;

@@ -50,6 +50,7 @@ let open_ch ch = IO.input_channel ch
 let close_ch ch = IO.close_in ch
 
 let open_file file =
+  if (Unix.stat file).Unix.st_size = 0 then fatal "Input file %s is empty" file;
   if Filename.check_suffix file ".gz" || Filename.check_suffix file ".cz" then
 IFDEF HASZIP THEN
     gzip_open_file file
@@ -82,3 +83,15 @@ let parse_uri s =
   let db = Printf.sprintf "%s%s" (string_of_opt url.Url.host) url.Url.path
   in
   (url.Url.scheme,(user,pass,host,port,db),query)
+
+let guess_format urilist =
+  match List.flatten urilist with
+  |uri::l ->
+      let (p_default,_,_) = parse_uri uri in
+      if List.for_all (fun u -> 
+        let (p_list,_,_) = parse_uri u in
+        p_default = p_list
+      ) l then p_default
+      else
+        fatal "The input list contains different format prefixes"
+  |_ -> fatal "Impossible to guess input format"

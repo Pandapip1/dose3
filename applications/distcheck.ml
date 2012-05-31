@@ -16,7 +16,6 @@
 (******************************************************************************)
 
 open ExtLib
-open Debian
 open Common
 open Algo
 
@@ -26,20 +25,26 @@ module Options = struct
   let options = OptParser.make ~description
   include Boilerplate.MakeOptions(struct let options = options end)
 
+  let inputtype = StdOpt.str_option ()
   let successes = StdOpt.store_true ()
   let failures = StdOpt.store_true ()
   let explain = StdOpt.store_true ()
+  let minimal = StdOpt.store_true ()
   let summary = StdOpt.store_true ()
   let latest = StdOpt.store_true ()
   let checkonly = Boilerplate.vpkglist_option ()
   let coinst = Boilerplate.vpkglist_option ()
-  let architecture = StdOpt.str_option ()
+
   let outfile = StdOpt.str_option ()
   let background = Boilerplate.incr_str_list ()
   let foreground = Boilerplate.incr_str_list ()
 
   open OptParser
+
+  add options ~short_name:'t' ~help:"input type format" inputtype;
+
   add options ~short_name:'e' ~long_name:"explain" ~help:"Explain the results" explain;
+  add options ~short_name:'m' ~long_name:"explain-minimal" ~help:"" minimal;
   add options ~short_name:'f' ~long_name:"failures" ~help:"Only show failures" failures;
   add options ~short_name:'s' ~long_name:"successes" ~help:"Only show successes" successes;
 
@@ -47,8 +52,6 @@ module Options = struct
   add options ~long_name:"summary" ~help:"Print a detailed summary" summary;
 
   add options ~long_name:"latest" ~help:"Check only the latest version of each package" latest;
-
-  add options ~long_name:"arch" ~help:"Allowed architecture" architecture;
 
   add options ~long_name:"coinst" ~help:"Check if these packages are coinstallable" coinst;
 
@@ -59,38 +62,56 @@ module Options = struct
   ~help:"Additional Packages lists that are NOT checked but used for resolving dependencies (can be repeated)" background;
 
   add options ~short_name:'o' ~long_name:"outfile" ~help:"output file" outfile;
+
+  include Boilerplate.MakeDistribOptions(struct let options = options end);;
+
 end
 
 include Util.Logging(struct let label = __FILE__ end) ;;
 
 let timer = Util.Timer.create "Solver" 
 
+(* implicit prefix of resources derived from name of executable *)
+(* (input_format * add_format ?) *)
+let guess_format t l =
+  match Filename.basename(Sys.argv.(0)) with
+  |"debcheck"|"dose-debcheck" -> (Url.Deb, true)
+  |"eclipsecheck"|"dose-eclipsecheck" -> (Url.Eclipse, true)
+  |"rpmcheck"|"dose-rpmcheck" -> (Url.Synthesis,true)
+  |_ when OptParse.Opt.is_set t -> 
+      (Url.scheme_of_string (OptParse.Opt.get t),true)
+  |_ -> (Input.guess_format [l], false)
+;;
+
+let add_format t = List.map (fun s -> (Url.scheme_to_string t)^"://"^s)
+
 let main () =
-  let resource_prefix =
-    (* implicit prefix of resources derived from name of executable *)
-    match Filename.basename(Sys.argv.(0)) with
-      |"debcheck"|"dose-debcheck" -> "deb://"
-      |"eclipsecheck"|"dose-eclipsecheck" -> "eclipse://"
-      |"rpmcheck"|"dose-rpmcheck" -> "synth://"
-      |"cudfcheck"|"dose-cudfcheck" -> "cudf://"
-      |_ -> ""
-  in
-  let add_resource_prefix = List.map (function s -> resource_prefix^s) in
   let posargs = OptParse.OptParser.parse_argv Options.options in
+  let inputlist = posargs@(OptParse.Opt.get Options.foreground) in
+  let (input_format,implicit_format) = guess_format Options.inputtype inputlist in
+
   Boilerplate.enable_debug (OptParse.Opt.get Options.verbose);
   Boilerplate.enable_timers (OptParse.Opt.get Options.timers) ["Solver"];
   Boilerplate.enable_bars (OptParse.Opt.get Options.progress)
     ["Depsolver_int.univcheck";"Depsolver_int.init_solver"] ;
   Boilerplate.all_quiet (OptParse.Opt.get Options.quiet);
-  let default_arch = OptParse.Opt.opt Options.architecture in 
-  let fg = 
-    if posargs = [] && resource_prefix <> "" then 
-      add_resource_prefix ("-"::(OptParse.Opt.get Options.foreground))
-    else
-      add_resource_prefix (posargs@(OptParse.Opt.get Options.foreground))
+
+  let options = Options.set_options input_format in
+
+  let fg = OptParse.Opt.get Options.foreground in
+  let bg = OptParse.Opt.get Options.background in
+  let fg =
+    let pos =
+      if List.length (posargs@fg@bg) = 0 && implicit_format then 
+        ["-"] 
+      else 
+        posargs
+    in
+    if implicit_format then add_format input_format (pos@fg) else (pos@fg)
   in
-  let bg = add_resource_prefix (OptParse.Opt.get Options.background) in
-  let (preamble,pkgll,from_cudf,to_cudf) = Boilerplate.load_list ~default_arch [fg;bg] in
+  let bg = if implicit_format then add_format input_format bg else bg in
+
+  let (preamble,pkgll,from_cudf,to_cudf) = Boilerplate.load_list ~options [fg;bg] in
   let (fg_pkglist, bg_pkglist) = match pkgll with [fg;bg] -> (fg,bg) | _ -> assert false in
   let fg_pkglist = 
     if OptParse.Opt.get Options.latest then
@@ -121,11 +142,9 @@ let main () =
     if OptParse.Opt.is_set Options.checkonly then begin
       info "--checkonly specified, consider all packages as background packages";
       List.flatten (
-        List.map (function 
-          |(p,None) -> Cudf.lookup_packages universe p
-          |(p,Some(c,v)) ->
-              let filter = Some(c,snd(to_cudf (p,v))) in
-              Cudf.lookup_packages ~filter universe p
+        List.map (fun ((n,a),c) ->
+          let (name,filter) = Boilerplate.debvpkg to_cudf ((n,a),c) in
+          Cudf.lookup_packages ~filter universe name
         ) (OptParse.Opt.get Options.checkonly)
       )
     end else []
@@ -134,28 +153,27 @@ let main () =
   let coinstlist = 
     if OptParse.Opt.is_set Options.coinst then begin
       info "--coinst specified, consider all packages as background packages";
-      List.map (function 
-        |(p,None) -> Cudf.lookup_packages universe p
-        |(p,Some(c,v)) ->
-            let filter = Some(c,snd(to_cudf (p,v))) in
-            Cudf.lookup_packages ~filter universe p
+      List.map (fun ((n,a),c) ->
+        let (name,filter) = Boilerplate.debvpkg to_cudf ((n,a),c) in
+        Cudf.lookup_packages ~filter universe name
       ) (OptParse.Opt.get Options.coinst)
     end else []
   in
 
-  let pp pkg =
+  let pp ?(decode=CudfAdd.decode) pkg =
     let (p,v) = from_cudf (pkg.Cudf.package,pkg.Cudf.version) in 
     let l = 
       List.filter_map (fun k ->
-        try Some(k,Cudf.lookup_package_property pkg k)
+        try Some(k,decode(Cudf.lookup_package_property pkg k))
         with Not_found -> None
-      ) ["architecture";"source";"sourcenumber"]
-    in (p,v,l)
+      ) ["architecture";"source";"sourcenumber";"essential"]
+    in (decode p,decode v,l)
   in
   info "Solving..." ;
   let failure = OptParse.Opt.get Options.failures in
   let success = OptParse.Opt.get Options.successes in
   let explain = OptParse.Opt.get Options.explain in
+  let minimal = OptParse.Opt.get Options.minimal in
   let summary = OptParse.Opt.get Options.summary in
   let fmt =
     if OptParse.Opt.is_set Options.outfile then
@@ -166,13 +184,15 @@ let main () =
   in
   let results = Diagnostic.default_result universe_size in
 
-  if OptParse.Opt.is_set Options.architecture then
-    Format.fprintf fmt "architecture: %s@." (OptParse.Opt.get Options.architecture);
-
   if failure || success then Format.fprintf fmt "@[<v 1>report:@,";
   let callback d =
     if summary then Diagnostic.collect results d ;
-    Diagnostic.fprintf ~pp ~failure ~success ~explain fmt d
+    let pp =
+      if input_format = Url.Cudf then 
+        fun pkg -> pp ~decode:(fun x -> x) pkg 
+      else fun pkg -> pp pkg
+    in
+    Diagnostic.fprintf ~pp ~failure ~success ~explain ~minimal fmt d
   in
   Util.Timer.start timer;
 
@@ -226,7 +246,6 @@ let main () =
   in
   (* if at least one broken package then we set the exit code = 1 *)
   if number_broken > 0 then exit(1);
-  
 ;;
 
 main () ;;

@@ -73,7 +73,7 @@ installcudf:
 uninstallcudf:
 endif
 
-BYTELIBS += common/common.cma deb/debian.cma rpm/rpm.cma eclipse/eclipse.cma algo/algo.cma doseparse/boilerplateNoRpm.cma doseparse/boilerplate.cma
+BYTELIBS += common/common.cma deb/debian.cma rpm/rpm.cma opencsw/csw.cma eclipse/eclipse.cma algo/algo.cma doseparse/boilerplateNoRpm.cma doseparse/boilerplate.cma
 
 ifeq ("@OCAMLBEST@","opt")
   OPTLIBS += $(BYTELIBS:%.cma=%.cmxa) 
@@ -106,7 +106,8 @@ endif
 #ocamlgraph support
 ifeq ("@HAS_OCAMLGRAPH@","yes")
   TARGETS += \
-	     applications/strong-deps.$(OCAMLBEST)
+	     applications/strong-deps.$(OCAMLBEST) \
+	     applications/dominators-graph.$(OCAMLBEST)
   
   EXPERIMENTAL += applications/strong-conflicts.$(OCAMLBEST)
 endif
@@ -114,7 +115,7 @@ endif
 #ocamlgraph support
 ifeq ("@HAS_OCAMLGRAPH@","yes")
   TARGETS += \
-	     applications/ceve.$(OCAMLBEST)
+	     applications/smallworld.$(OCAMLBEST)
 endif
 
 #ounit support

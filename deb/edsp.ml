@@ -19,8 +19,8 @@ include Util.Logging(struct let label = __FILE__ end) ;;
 
 type request = {
   request : string;
-  install : Format822.vpkgreq list;
-  remove : Format822.vpkgreq list;
+  install : Format822.vpkg list;
+  remove : Format822.vpkg list;
   autoremove : bool;
   upgrade : bool;
   distupgrade : bool;
@@ -39,10 +39,31 @@ let default_request = {
   preferences = ""
 }
 
+(* convert a apt command line request to edsp request *)
+let from_apt_request request = function
+  |Apt.Install vpkgreqlist ->
+      List.fold_left (fun acc -> function
+        |(Some Format822.I, vpkg, _) -> {acc with install = vpkg :: acc.install}
+        |(Some Format822.R, vpkg, _) -> {acc with remove = vpkg :: acc.remove}
+        |(None, vpkg, _) -> {acc with install = vpkg :: acc.install}
+      ) request vpkgreqlist
+  |Apt.Remove vpkgreqlist ->
+      List.fold_left (fun acc -> function
+        |(Some Format822.I, vpkg, _) -> {acc with install = vpkg :: acc.install}
+        |(Some Format822.R, vpkg, _) -> {acc with remove = vpkg :: acc.remove}
+        |(None, vpkg, _) -> {acc with remove = vpkg :: acc.remove}
+      ) request vpkgreqlist
+  |Apt.Upgrade _ -> {request with upgrade = true }
+  |Apt.DistUpgrade _ -> {request with distupgrade = true}
+;;
+
 let parse_s = Packages.parse_s
 let parse_string (_,s) = s
 let parse_int_s (_,s) = string_of_int(int_of_string s)
-let parse_req s = Packages.lexbuf_wrapper Packages_parser.request_top s
+let parse_req (loc,s) = 
+  let aux = Packages.lexbuf_wrapper Packages_parser.vpkg_top in
+  let l = Pcre.split ~rex:Apt.blank_regexp s in 
+  List.map (fun s -> aux (loc,s)) l
 
 let parse_request_stanza par =
   {
@@ -83,7 +104,7 @@ let extras = [
   ]
 
 (* parse the entire file while filtering out unwanted stanzas *)
-let rec packages_parser ?(request=false) (req,acc) p =
+let rec packages_parser ?(request=false) archs (req,acc) p =
   let filter par = 
     let match_field f p =
       try 
@@ -102,22 +123,24 @@ let rec packages_parser ?(request=false) (req,acc) p =
   |None -> (req,acc) (* end of file *)
   |Some stanza when request = true -> 
       let req = parse_request_stanza stanza in
-      packages_parser (req,acc) p
+      packages_parser archs (req,acc) p
   |Some stanza when req.strict_pin = true -> begin
-    match (Packages.parse_package_stanza (Some(filter)) None extras stanza) with
-    |None -> packages_parser (req,acc) p
-    |Some st -> packages_parser (req,st::acc) p
+    match (Packages.parse_package_stanza (Some(filter)) archs extras stanza) with
+    |None -> packages_parser archs (req,acc) p
+    |Some st -> packages_parser archs (req,st::acc) p
   end
   |Some stanza when req.strict_pin = false -> begin
-    match (Packages.parse_package_stanza None None extras stanza) with
+    match (Packages.parse_package_stanza None archs extras stanza) with
     |None -> assert false (* this is not possible in this branch *)
-    |Some st -> packages_parser (req,st::acc) p
+    |Some st -> packages_parser archs (req,st::acc) p
   end
   |_ -> assert false
 ;;
 
-let input_raw_ch ic =
-  Format822.parse_from_ch (packages_parser ~request:true (default_request,[])) ic
+let input_raw_ch ?(archs=[]) ic =
+  Format822.parse_from_ch (
+    packages_parser ~request:true archs (default_request,[])
+  ) ic
 ;;
 
 let extras_tocudf =
@@ -131,13 +154,14 @@ let extras_tocudf =
   ]
 ;;
 
-let tocudf tables pkg =
-  let inst =
-    try
-      let _loc = Format822.dummy_loc in
-      let v = Packages.assoc "installed" pkg.Packages.extras in
-      Packages.parse_bool (_loc,v)
-    with Not_found -> false
-  in
-  Debcudf.tocudf tables ~inst ~extras:extras_tocudf pkg 
+let is_installed pkg =
+  try
+    let _loc = Format822.dummy_loc in
+    let v = Packages.assoc "installed" pkg.Packages.extras in
+    Packages.parse_bool (_loc,v)
+  with Not_found -> false
+
+let tocudf tables ?(options=Debcudf.default_options) ?(inst=false) pkg =
+  let options = { options with Debcudf.extras_opt = extras_tocudf } in
+  Debcudf.tocudf tables ~options ~inst:(is_installed pkg) pkg 
 ;;

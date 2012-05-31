@@ -17,13 +17,14 @@ open Common
 open Packages
 
 include Util.Logging(struct let label = __FILE__ end) ;;
+module SMap = Map.Make (String)
 
 type tables = {
   virtual_table : unit Util.StringHashtbl.t;
   unit_table : unit Util.StringHashtbl.t ;
   versions_table : int Util.StringHashtbl.t;
   versioned_table : unit Util.StringHashtbl.t;
-  reverse_table : (string * string) list ref Util.IntHashtbl.t
+  reverse_table : (string SMap.t) ref Util.IntHashtbl.t
 }
 
 let create n = {
@@ -38,6 +39,36 @@ type lookup = {
   from_cudf : Cudf.package -> (string * string);
   to_cudf : (string * string) -> Cudf.package
 }
+
+type extramap = (string * (string * Cudf_types.typedecl1)) list
+
+type options = {
+  extras_opt : extramap ;
+  native : string;
+  host : string;
+  build : string;
+  foreign : string list ;
+  ignore_essential : bool;
+}
+
+let default_options = {
+  extras_opt = [] ;
+  native = "";
+  build = "";  (* the default architecture 'dpkg -print-architecture' *)
+  host = "";   (* used to resolv cross dependencies *)
+  foreign = []; (* list of foreign architectures *)
+  ignore_essential = false
+}
+
+let add_name_arch a n = CudfAdd.encode (Printf.sprintf "%s:%s" n a)
+
+let add_arch hostArch arch = function
+  |n when String.ends_with n ":any" -> (CudfAdd.encode n)
+  |n when arch = "all" -> add_name_arch n hostArch
+  |n -> add_name_arch n arch
+
+let add_arch_l hostArch arch l = 
+  List.map (fun (n,c) -> (add_arch hostArch arch n,c)) l
 
 let clear tables =
   Util.StringHashtbl.clear tables.virtual_table;
@@ -57,14 +88,15 @@ let add_v table k v =
 
 (* collect names of virtual packages *)
 let init_virtual_table table pkg =
-  List.iter (fun (name,_) -> add table name ()) pkg.provides
+  List.iter (fun ((name,_),_) -> add table name ()) pkg.provides
 
 (* collect names of real packages *)
-let init_unit_table table pkg = add table pkg.name ()
+let init_unit_table table pkg = 
+  add table pkg.name ()
 
 (* collect all versions mentioned of depends, pre_depends, conflict and breaks *)
 let init_versioned_table table pkg =
-  let conj_iter l = List.iter (fun (name,_)-> add table name ()) l in
+  let conj_iter l = List.iter (fun ((name,_),_)-> add table name ()) l in
   let cnf_iter ll = List.iter conj_iter ll in
   conj_iter pkg.conflicts ;
   conj_iter pkg.breaks ;
@@ -76,7 +108,7 @@ let init_versioned_table table pkg =
    fields *)
 let init_versions_table table pkg =
   let conj_iter l =
-    List.iter (fun (name,sel) ->
+    List.iter (fun ((name,_),sel) ->
       match CudfAdd.cudfop sel with
       |None -> ()
       |Some(_,version) -> add_v table (version,name) ()
@@ -98,7 +130,7 @@ let init_versions_table table pkg =
   add_source pkg.version pkg.source
 ;;
 
-let init_tables ?(step=1) ?(versionlist=[]) pkglist =
+let init_tables ?(options=default_options) ?(step=1) ?(versionlist=[]) pkglist =
   let n = List.length pkglist in
   let tables = create n in 
   let temp_versions_table = Hashtbl.create (10 * n) in
@@ -110,9 +142,13 @@ let init_tables ?(step=1) ?(versionlist=[]) pkglist =
   List.iter (fun v -> add_v temp_versions_table (v,"") ()) versionlist; 
   List.iter (fun pkg -> ivt pkg ; ivrt pkg ; ivdt pkg ; iut pkg) pkglist ;
   let l = Hashtbl.fold (fun v _ acc -> v::acc) temp_versions_table [] in
-  let add_reverse i v =
-     try let l = Util.IntHashtbl.find tables.reverse_table i in l := v::!l
-     with Not_found -> Util.IntHashtbl.add tables.reverse_table i (ref [v])
+  let add_reverse i (n,v) =
+     try 
+       let m = Util.IntHashtbl.find tables.reverse_table i in 
+       m := (SMap.add n v !m)
+     with Not_found ->
+       let m = SMap.add n v SMap.empty in
+       Util.IntHashtbl.add tables.reverse_table i (ref m)
   in
   let sl = List.sort ~cmp:(fun x y -> Version.compare (fst x) (fst y)) l in
   let rec numbers (prec,i) = function
@@ -120,11 +156,11 @@ let init_tables ?(step=1) ?(versionlist=[]) pkglist =
     |(v,n)::t ->
       if Version.equal v prec then begin
         add tables.versions_table v i;
-        add_reverse i (v,n);
+        add_reverse i (n,v);
         numbers (prec,i) t
       end else begin
         add tables.versions_table v (i+step);
-        add_reverse (i+step) (v,n);
+        add_reverse (i+step) (n,v);
         numbers (v,(i+step)) t
       end
   in
@@ -136,31 +172,41 @@ let init_tables ?(step=1) ?(versionlist=[]) pkglist =
 let get_cudf_version tables (package,version) =
   try Util.StringHashtbl.find tables.versions_table version
   with Not_found -> begin
-    warning "(%s,%s) is not known" package version;
+    warning "Package (%s,%s) does not have an associated cudf version" package version;
     raise Not_found
   end
 
-let get_real_version tables (package,cudfversion) =
-  let package = CudfAdd.decode package in
+let get_real_version tables (name,cudfversion) =
+  let package = 
+    (* XXX this is a hack. I should record the name with the architecture *)
+    let n = CudfAdd.decode name in
+    try snd(ExtString.String.split n ":") 
+    with Invalid_string _ -> n
+  in
   try
-    match !(Util.IntHashtbl.find tables.reverse_table cudfversion) with
-    |[] -> fatal "at lease one version for (%s,%d) must exist" package cudfversion
-    |[(v,_)] -> v
-    |l ->
-        try fst (List.find (fun (v,n) -> n = package) l)
-        with Not_found -> fatal "%s" package
+    let m = !(Util.IntHashtbl.find tables.reverse_table cudfversion) in
+    try SMap.find package m 
+    with Not_found ->
+      let known =
+        String.concat "," (
+          List.map (fun (n,v) ->
+            Printf.sprintf "(%s,%s)" n v
+          ) (SMap.bindings m)
+        )
+      in
+      fatal "Unable to get real version for %s\n All Known versions for this package are %s" package known
   with Not_found ->
-    fatal "package (%s,%d) is not known" package cudfversion
+    fatal "Package (%s,%d) does not have an associated debian version" name cudfversion
 
 let loadl tables l =
   List.flatten (
-    List.map (fun (name,sel) ->
-      let encname = CudfAdd.encode name in
+    List.map (fun ((name,_),sel) ->
+      let encname = (* CudfAdd.encode *) name in
       match CudfAdd.cudfop sel with
       |None ->
           if (Util.StringHashtbl.mem tables.virtual_table name) &&
           (Util.StringHashtbl.mem tables.versioned_table name) then
-            [(encname, None);(encname^"--virtual", None)]
+            [(encname, None);("--virtual-"^encname, None)]
           else
             [(encname, None)]
       |Some(op,v) ->
@@ -173,18 +219,18 @@ let loadl tables l =
 let loadlc tables name l = (CudfAdd.encode name, None)::(loadl tables l)
 
 let loadlp tables l =
-  List.map (fun (name,sel) ->
-    let encname = CudfAdd.encode name in
+  List.map (fun ((name,_),sel) ->
+    let encname = (* CudfAdd.encode *) name in
     match CudfAdd.cudfop sel with
     |None  ->
         if (Util.StringHashtbl.mem tables.unit_table name) || 
         (Util.StringHashtbl.mem tables.versioned_table name)
-        then (encname^"--virtual",None)
+        then ("--virtual-"^encname,None)
         else (encname, None)
     |Some(`Eq,v) ->
         if (Util.StringHashtbl.mem tables.unit_table name) || 
         (Util.StringHashtbl.mem tables.versioned_table name)
-        then (encname^"--virtual",Some(`Eq,get_cudf_version tables (name,v)))
+        then ("--virtual-"^encname,Some(`Eq,get_cudf_version tables (name,v)))
         else (encname,Some(`Eq,get_cudf_version tables (name,v)))
     |_ -> fatal "This should never happen : a provide can be either = or unversioned"
   ) l
@@ -192,8 +238,6 @@ let loadlp tables l =
 let loadll tables ll = List.map (loadl tables) ll
 
 (* ========================================= *)
-
-type extramap = (string * (string * Cudf_types.typedecl1)) list
 
 let preamble = 
   (* number is a mandatory property -- no default *)
@@ -231,7 +275,7 @@ let add_extra_default extras tables pkg =
   let l =
     List.filter_map (fun (debprop, (cudfprop,v)) ->
       try 
-        let s = Packages.assoc debprop pkg.extras in
+        let s = Packages.assoc (String.lowercase debprop) pkg.extras in
         let typ = Cudf_types.type_of_typedecl v in
         Some (cudfprop, Cudf_types_pp.parse_value typ s)
       with Not_found -> None
@@ -265,36 +309,72 @@ let add_inst inst pkg =
     with Not_found -> false
 
 let add_extra extras tables pkg =
-  match extras with
-  |None -> []
-  |Some el -> add_extra_default el tables pkg
+  add_extra_default extras tables pkg
 
-let tocudf tables ?extras ?(inst=false) pkg =
-  { Cudf.default_package with
-    Cudf.package = CudfAdd.encode pkg.name ;
-    Cudf.version = get_cudf_version tables (pkg.name,pkg.version) ;
-    Cudf.keep = add_essential pkg.essential;
-    Cudf.depends = loadll tables (pkg.pre_depends @ pkg.depends);
-    Cudf.conflicts = loadlc tables pkg.name (pkg.breaks @ pkg.conflicts) ;
-    Cudf.provides = loadlp tables pkg.provides ;
-    Cudf.installed = add_inst inst pkg;
-    Cudf.pkg_extra = add_extra extras tables pkg ;
-  }
+let tocudf tables ?(options=default_options) ?(inst=false) pkg =
+  if options.native <> "" then begin
+    let _name = add_arch options.native pkg.architecture pkg.name in
+    let version = get_cudf_version tables (pkg.name,pkg.version)  in
+    let _provides = 
+      let l = 
+        match pkg.multiarch with
+        |`None -> [(CudfAdd.encode pkg.name,None)]
+        |`Foreign -> List.map (fun arch -> (add_arch options.native arch pkg.name,Some(`Eq,version))) options.foreign
+        |`Allowed -> [(CudfAdd.encode pkg.name,None) ; (CudfAdd.encode (pkg.name^":any"),None)]
+        |`Same -> []
+      in
+      l@(add_arch_l options.native pkg.architecture (loadlp tables pkg.provides))
+    in
+    let _conflicts = 
+      (* self conflict / multi-arch conflict *)
+      let sc = (add_arch options.native pkg.architecture pkg.name,None) in
+      let mac = (CudfAdd.encode pkg.name,None) in
+      let l = pkg.breaks @ pkg.conflicts in
+      match pkg.multiarch with
+      |(`None|`Foreign|`Allowed) -> 
+          sc::mac::(add_arch_l options.native pkg.architecture (loadl tables l))
+      |`Same -> sc::(add_arch_l options.native pkg.architecture (loadl tables l))
+    in
+    let _depends = 
+      List.map (add_arch_l options.native pkg.architecture) 
+      (loadll tables (pkg.pre_depends @ pkg.depends))
+    in
+    { Cudf.default_package with
+      Cudf.package = _name ;
+      Cudf.version = get_cudf_version tables (pkg.name,pkg.version) ;
+      Cudf.keep = if options.ignore_essential then `Keep_none else add_essential pkg.essential;
+      Cudf.depends = _depends;
+      Cudf.conflicts = _conflicts ;
+      Cudf.provides = _provides ;
+      Cudf.installed = add_inst inst pkg;
+      Cudf.pkg_extra = add_extra options.extras_opt tables pkg ;
+    }
+  end else
+    { Cudf.default_package with
+      Cudf.package = CudfAdd.encode pkg.name ;
+      Cudf.version = get_cudf_version tables (pkg.name,pkg.version) ;
+      Cudf.keep = if options.ignore_essential then `Keep_none else add_essential pkg.essential;
+      Cudf.depends = loadll tables (pkg.pre_depends @ pkg.depends);
+      Cudf.conflicts = loadlc tables pkg.name (pkg.breaks @ pkg.conflicts) ;
+      Cudf.provides = loadlp tables pkg.provides ;
+      Cudf.installed = add_inst inst pkg;
+      Cudf.pkg_extra = add_extra options.extras_opt tables pkg ;
+    }
 
 let lltocudf = loadll
 let ltocudf = loadl
 
-let load_list l =
+let load_list ?options l =
   let timer = Util.Timer.create "Debian.Debcudf.load_list" in
   Util.Timer.start timer;
-  let tables = init_tables l in
-  let pkglist = List.map (tocudf tables) l in
+  let tables = init_tables ?options l in
+  let pkglist = List.map (tocudf tables ?options) l in
   clear tables;
   Util.Timer.stop timer pkglist
 
-let load_universe l =
+let load_universe ?options l =
   let timer = Util.Timer.create "Debian.Debcudf.load_universe" in
-  let pkglist = load_list l in
+  let pkglist = load_list ?options l in
   Util.Timer.start timer;
   let univ = Cudf.load_universe pkglist in
   Util.Timer.stop timer univ

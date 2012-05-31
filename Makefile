@@ -75,6 +75,15 @@ eclipse/eclipse.%:
 	  fi ; \
 	done
 
+opencsw/csw.%:
+	$(OCAMLBUILD) $(OBFLAGS) opencsw/csw.$*
+	@for i in _build/opencsw/csw.*; do \
+	  if [ -e $$i ]; then \
+	  cp $$i $(DOSELIBS) ; \
+	  rm -f $(DOSELIBS)/*.mlpack $(DOSELIBS)/*.cmx ; \
+	  fi ; \
+	done
+
 doseparse/boilerplate.%:
 	$(OCAMLBUILD) $(OBFLAGS) doseparse/boilerplate.$*
 	@for i in _build/doseparse/boilerplate.*; do \
@@ -124,12 +133,14 @@ $(DOSELIBS)/%:
 	$(OCAMLBUILD) $(OBFLAGS) $*
 	@touch $@
 
-test:
+test: 
+	@applications/dose-tests.py -pwd `pwd` -v
 	@for i in $(TESTS); do\
 		echo "#######TESTING $$i" ;\
 		$(OCAMLBUILD) $(OBFLAGS) $$i/tests.$(OCAMLBEST) ;\
 		./tests.$(OCAMLBEST) ;\
 	done
+	@make apps
 
 # stuff not not put in a distribution tarball
 DIST_EXCLUDE = cudf tests $(wildcard */tests) experimental
@@ -180,6 +191,12 @@ dist: ./$(DIST_TARBALL)
 	tar cvzf ./$(DIST_TARBALL) ./$(DIST_DIR)
 	rm -rf ./$(DIST_DIR)
 	@echo "Distribution tarball: ./$(DIST_TARBALL)"
+
+changelog:
+	dch -c CHANGES --package $(NAME) -v $(VERSION)
+
+credits:
+	@git log --pretty=format:'%aN        %aE' | LC_ALL=C sort -u | awk -F'\t' '{printf("\t%s <%s>\n",$$1,$$2)}';
 
 doc: fast
 	$(OCAMLBUILD) $(OBFLAGS) dose3.docdir/index.html dose3.docdir/index.dot

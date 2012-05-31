@@ -21,9 +21,11 @@ IFDEF HASOCAMLGRAPH THEN
   module DGraph = Defaultgraphs.SyntacticDependencyGraph
 END
 
-module Options =
-struct
+module Options = struct
   open OptParse
+  let description = "Ceve - integrated metadata parser and transformer"
+  let options = OptParser.make ~description
+  include Boilerplate.MakeOptions(struct let options = options end)
 
   exception Format
   let out_option ?default ?(metavar = "<dot|cnf|dimacs|cudf|table>") () =
@@ -34,46 +36,26 @@ struct
     let error _ s = Printf.sprintf "%s format not supported" s in
     Opt.value_option metavar default corce error
 
-  let verbose = StdOpt.incr_option ()
-  let src = StdOpt.str_option ()
-  let dst = StdOpt.str_option ()
-  let cone = StdOpt.str_option ()
-  let extract = StdOpt.str_option ()
-  let reverse_cone = StdOpt.str_option ()
+  let src = Boilerplate.vpkglist_option ()
+  let dst = Boilerplate.vpkg_option ()
+  let cone = Boilerplate.vpkglist_option ()
+(*  let extract = StdOpt.str_option () *)
+  let reverse_cone = Boilerplate.vpkglist_option ()
   let cone_maxdepth = StdOpt.int_option ()
-  let output_ty = out_option ~default:"cnf" ()
-  let out_ch = StdOpt.str_option ()
-
-  let output_ch () =
-    if Opt.is_set out_ch then 
-      open_out (Opt.get out_ch)
-    else stdout
-
-  let description = "Ceve - integrated metadata parser and transformer"
-  let options = OptParser.make ~description:description ()
+  let out_type = out_option ~default:"cnf" ()
+  let out_file = StdOpt.str_option ()
 
   open OptParser
-  add options ~short_name:'v' ~help:"Print information (can be repeated)" verbose;
-(*   add options ~short_name:'s' ~long_name:"src" ~help:"root packages" src; *)
-(*  add options ~short_name:'d' ~long_name:"dst" ~help:"pivot packages" dst; *)
-  add options ~short_name:'e' ~long_name:"extract" ~help:"dependency/conflict cone" extract;
+(*  add options ~short_name:'e' ~long_name:"extract" ~help:"dependency/conflict cone" extract; *)
   add options ~short_name:'c' ~long_name:"cone" ~help:"dependency cone" cone;
   add options ~short_name:'r' ~long_name:"rcone" ~help:"reverse dependency cone" reverse_cone;
   add options                 ~long_name:"depth" ~help:"max depth - in conjunction with cone" cone_maxdepth;
-  add options ~short_name:'t' ~long_name:"outtype" ~help:"Output type" output_ty;
-  add options ~short_name:'o' ~long_name:"outfile" ~help:"Output file" out_ch;
-end;;
+  add options ~short_name:'t' ~long_name:"outtype" ~help:"Output type" out_type;
+  add options ~short_name:'o' ~long_name:"outfile" ~help:"Output file" out_file;
 
-let and_sep_re = Pcre.regexp "\\s*;\\s*"
-let pkg_re = Pcre.regexp "\\(([a-z][a-z0-9.+-]*)\\s*,\\s*([a-zA-Z0-9.+:~-]+)\\)"
-let parse_pkg s =
-  let parse_aux str =
-    try 
-      let s = Pcre.exec ~rex:pkg_re str  in
-      (Pcre.get_substring s 1, Pcre.get_substring s 2)
-    with
-      Not_found -> (Printf.eprintf "Parse error %s\n" str ; exit 1)
-  in List.map parse_aux (Pcre.split ~rex:and_sep_re s);;
+  include Boilerplate.MakeDistribOptions(struct let options = options end);;
+
+end;;
 
 (* -------------------------------- *)
 
@@ -119,18 +101,26 @@ let output_cudf oc pr univ =
 
 let main () =
   let posargs = OptParse.OptParser.parse_argv Options.options in
-  Boilerplate.enable_debug(OptParse.Opt.get Options.verbose);
+  let input_format = Input.guess_format [posargs] in
+  let options = Options.set_options input_format in
 
-  if OptParse.Opt.get Options.output_ty = "sqlite" then
+  Boilerplate.enable_debug(OptParse.Opt.get Options.verbose);
+  Boilerplate.all_quiet (OptParse.Opt.get Options.quiet);
+
+  if OptParse.Opt.get Options.out_type = "sqlite" then
     output_to_sqlite posargs
   else
-  let (preamble,universe,from_cudf,to_cudf) = Boilerplate.load_universe posargs in
-  let get_cudfpkg (p,v) = Cudf.lookup_package universe (to_cudf (p,v)) in
+  let (preamble,universe,from_cudf,to_cudf) = Boilerplate.load_universe ~options posargs in
+  let get_cudfpkg ((n,a),c) = 
+    let (name,filter) = Boilerplate.debvpkg to_cudf ((n,a),c) in
+    try List.hd(Cudf.lookup_packages ~filter universe name)
+    with ExtList.List.Empty_list -> fatal "package %s not found" n
+  in
 
-  let pkg_src () = List.map get_cudfpkg (parse_pkg (OptParse.Opt.get Options.src)) in
+  let pkg_src () = List.map get_cudfpkg (OptParse.Opt.get Options.src) in
   let pkg_dst () =
     (* all packages q in R s.t. q is in the dependency closure of p *)
-    let (p,v) = List.hd(parse_pkg (OptParse.Opt.get Options.dst)) in
+    let (p,v) = OptParse.Opt.get Options.dst in
     let pid = get_cudfpkg (p,v) in
     List.filter_map (fun pkg ->
       if List.mem pid (Depsolver.dependency_closure universe [pkg]) then
@@ -146,7 +136,7 @@ let main () =
         (Depsolver.dependency_closure ~maxdepth:md universe [pid]) @ acc
       else
         (Depsolver.dependency_closure universe [pid]) @ acc
-    ) [] (parse_pkg (OptParse.Opt.get Options.cone)))
+    ) [] (OptParse.Opt.get Options.cone))
   in
   let pkg_reverse_cone () =
     List.unique (List.fold_left (fun acc (p,v) ->
@@ -156,14 +146,14 @@ let main () =
         (Depsolver.reverse_dependency_closure ~maxdepth:md universe [pid]) @ acc
       else
         (Depsolver.reverse_dependency_closure universe [pid]) @ acc
-    ) [] (parse_pkg (OptParse.Opt.get Options.reverse_cone)))
+    ) [] (OptParse.Opt.get Options.reverse_cone))
   in
 
   let pkg_src_list = ref [] in
   let pkg_dst_list = ref [] in
   let plist =
     if OptParse.Opt.is_set Options.src && OptParse.Opt.is_set Options.dst then begin
-      let (p,v) = List.hd(parse_pkg (OptParse.Opt.get Options.dst)) in
+      let (p,v) = OptParse.Opt.get Options.dst in
       let pid = get_cudfpkg (p,v) in
       pkg_src_list := pkg_src ();
       pkg_dst_list := [pid];
@@ -187,8 +177,12 @@ let main () =
   let output ll =
     List.iter (fun l ->
       let u = Cudf.load_universe l in
-      let oc = Options.output_ch () in
-      begin match OptParse.Opt.get Options.output_ty with
+      let oc =
+        if OptParse.Opt.is_set Options.out_file then 
+          open_out (OptParse.Opt.get Options.out_file)
+        else stdout
+      in
+      begin match OptParse.Opt.get Options.out_type with
       |"dot" -> 
 IFDEF HASOCAMLGRAPH THEN
           DGraph.D.output_graph oc (DGraph.dependency_graph u)

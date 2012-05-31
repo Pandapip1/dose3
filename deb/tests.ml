@@ -17,8 +17,6 @@
 (*                                                                            *)
 (******************************************************************************)
 
-
-
 open OUnit
 open Common
 
@@ -36,16 +34,18 @@ let f_discriminants = Filename.concat test_dir "deb/discriminants" ;;
   * add test for status and merge
   * *)
 
-let ch = Input.open_file f_packages ;;
 let extras_properties = [
   ("Maintainer", ("maintainer", `String None));
   ("Size", ("size", `Nat None));
   ("Installed-Size", ("installedsize", `Nat None))
 ];;
+
 let extras = List.map fst extras_properties ;;
+let options = { Debcudf.default_options with Debcudf.extras_opt = extras_properties } ;;
+
 let packagelist = Packages.input_raw [f_packages] ;;
 let tables = Debcudf.init_tables packagelist ;;
-let cudf_list = List.map (Debcudf.tocudf ~extras:extras_properties tables) packagelist ;; 
+let cudf_list = List.map (Debcudf.tocudf tables ~options) packagelist ;; 
 let universe = Cudf.load_universe cudf_list ;;
 
 (* version comparison ****************************************************************************)
@@ -273,7 +273,7 @@ let test_cluster =
 let test_evolution =
   let packagelist = Packages.input_raw [f_discriminants] in
   let constraints_table = Evolution.constraints packagelist in
-  let clusters = Debutil.cluster packagelist in
+  (* let clusters = Debutil.cluster packagelist in *)
   "evolution" >::: [
     "constraints" >:: (fun _ ->
       let constr = Evolution.all_constraints constraints_table "cc" in
@@ -419,15 +419,21 @@ let test_evolution =
   ]
 ;;
 
+let test_multiarch = 
+  "test multiarch" >::: [
+    "" >:: (fun _ -> ());
+  ] 
+;;
+
 let test_numbering = 
   "test numbering" >::: [
     "sequence" >:: (fun _ -> 
       try
         let debconf = Cudf.lookup_package universe ("debconf",32) in
-        Printf.eprintf "debconf : %s\n" (CudfAdd.string_of_package debconf);
         assert_equal debconf.Cudf.version 32
       with Not_found -> assert_failure "debconf version mismatch"
     );
+    "get real version" >:: (fun _ -> ());
   ] 
 ;;
 
@@ -435,8 +441,9 @@ let test_virtual =
   "test virtual" >::: [
     "provides" >:: (fun _ -> 
       try
-        let ssmtp = Cudf.lookup_package universe ("ssmtp",8366) in
-        let vpkg = ("mail-transport-agent--virtual",None) in
+        let v = Debcudf.get_cudf_version tables ("ssmtp","2.62-3") in
+        let ssmtp = Cudf.lookup_package universe ("ssmtp",v) in
+        let vpkg = ("--virtual-mail-transport-agent",None) in
         let provides = CudfAdd.who_provides universe vpkg in
         assert_equal true (List.exists (Cudf.(=%) ssmtp) provides)
       with Not_found -> assert_failure "ssmtp version mismatch"
@@ -447,8 +454,9 @@ let test_virtual =
 let test_conflicts =
   "test conflict" >::: [
     "self conflict" >:: (fun _ -> 
-      try 
-        let ssmtp = Cudf.lookup_package universe ("ssmtp",8366) in
+      try
+        let v = Debcudf.get_cudf_version tables ("ssmtp","2.62-3") in
+        let ssmtp = Cudf.lookup_package universe ("ssmtp",v) in
         assert_equal true (List.mem (ssmtp.Cudf.package,None) ssmtp.Cudf.conflicts)
       with Not_found -> assert_failure "ssmtp version mismatch"
     );
@@ -457,11 +465,215 @@ let test_conflicts =
 let test_mapping =
   "test deb -> cudf mapping" >::: [
 (*    test_numbering ; *)
-    test_virtual
+    test_virtual;
+    test_multiarch
   ]
+
+(* Parsing tests *)
+
+(* Useful test functions *)
+
+let returns_result function_to_test expected_result =
+  (fun args () -> assert_equal (function_to_test args) expected_result)
+and raises_failure function_to_test failure_text =
+  (fun args () -> assert_raises (Failure failure_text) (fun () -> function_to_test args) )
+
+(* let ch = Input.open_file f_packages ;; *)
+(* Extension of "bracket_tmpfile" function, filling
+    the temporary file with lines from the given list. *)
+let bracket_tmpfile_filled lines (test_fun : string -> unit)  =
+  bracket_tmpfile
+    (fun (file, ch) ->
+      List.iter (fun line ->
+        output_string ch (line ^ "\n")
+      ) lines;
+      close_out ch;
+      test_fun file
+    )
+;;
+
+(* parse_inst *)
+
+(* List of triplets: (test_name, file_lines, expected_result) *)
+let parse_inst_triplets =
+  (* The standard expected result. *)
+  let result =
+  [ (("name1", "version1"), ());
+    (("name2", "version2"), ());
+    (("name3", "version3"), ());
+    (("name4", "version4"), ()) ]
+  in
+  (* List of triplets. *)
+  [ ("simple",
+     [ "ii name1 version1";
+       "ii name2 version2";
+       "ii name3 version3";
+       "ii name4 version4" ],
+     result);
+    ("varied blanks and comments",
+     [ "ii name1 version1 blah blah blah";
+       "ii 	 name2 	       version2		 blah blah blah";
+       "ii   name3    version3  blah blah blah";
+       "ii name4                         version4 blah blah blah" ],
+     result);
+    ("errors with something else than \"ii\" at the beginning",
+     [ "ii name1 version1 blah blah blah";
+       "jj errname1 errversion1 blah blah blah";
+       "ii name2 version2 blah blah blah";
+       "ii name3 version3 blah blah blah";
+       "kk errname2 errversion2 blah blah blah";
+       "ii name4 version4 blah blah blah" ],
+     result);
+    ("errors with no \"ii\" at all",
+     [ "err1";
+       "err2 err3";
+       "";
+       "err4 err5 err6";
+       "ii name1 version1";
+       "err7 err8";
+       "ii name2 version2";
+       "";
+       "ii name3 version3";
+       "ii name4 version4" ],
+     result);
+    ("varying number of fields",
+     [ "";
+       "ii";
+       "ii errname1";
+       "ii name1 version1";
+       "ii name2 version2 blah";
+       "ii name3 version3 blah blah";
+       "ii name4 version4 blah blah blah" ],
+     result)
+  ]
+
+let list_of_hashtbl ht = 
+  ExtLib.List.of_enum (ExtLib.Hashtbl.enum ht)
+
+let test_parse_inst = 
+  let parse_inst_test_cases =
+    List.map (fun (test_name, file_lines, expected_result) ->
+      test_name >::
+      bracket_tmpfile_filled file_lines
+	( fun file -> assert_equal
+	    (list_of_hashtbl (Apt.parse_inst_from_file file))
+	    expected_result )
+	) parse_inst_triplets
+  in
+  "test parse_inst" >::: parse_inst_test_cases
+
+
+(* parse_popcon *)
+let parse_popcon_triplets =
+  let function_to_test = Apt.parse_popcon in
+  let returns = returns_result function_to_test
+  and raises  = raises_failure function_to_test
+  in
+  [ ("simple",      "123 name1 456",      returns (123, "name1", 456) );
+    ("more fields", "123 name1 456 err1", returns (123, "name1", 456) );
+    ("wrong int 1", "err1 name1 456",     raises "int_of_string" );
+    ("wrong int 2", "123 name1 err2",     raises "int_of_string" )
+  ] 
+
+(* parse_pkg_req *)
+let parse_pkg_req_triplets =
+  let function_to_test = (fun (suite, s) -> Apt.parse_pkg_req suite s) in
+  let returns = returns_result function_to_test
+(*  and raises  = raises_failure function_to_test *)
+  in
+  [ ("suite name=1.2", 
+     ( (Some "suite"), "name=1.2"), 
+     returns (None, (("name", None), Some ("=", "1.2")), Some "suite"));
+
+    ("suite +name=1.2", 
+     ( (Some "suite"), "+name=1.2"), 
+     returns (Some Format822.I, (("name", None), Some ("=", "1.2")), Some "suite"));
+
+    ("suite -name=1.2", 
+     ( (Some "suite"), "-name=1.2"), 
+     returns (Some Format822.R, (("name", None), Some ("=", "1.2")), Some "suite"));
+
+    ("suite name/suite1", 
+     ( (Some "suite"), "name/suite1"), 
+     returns (None, (("name", None), None), Some "suite"));
+
+    ("none name/suite1", 
+     ( None, "name/suite1"), 
+     returns (None, (("name", None), None), Some "suite1"));
+
+    ("none name", 
+     ( None, "name"), 
+     returns (None, (("name", None), None), None));
+
+    ("none +name", 
+     ( None, "+name"), 
+     returns (Some Format822.I, (("name", None), None), None));
+
+    ("none -name", 
+     ( None, "-name"), 
+     returns (Some Format822.R, (("name", None), None), None));
+
+    ("suite name", 
+     ( Some "suite", "name"), 
+     returns (None, (("name", None), None), Some "suite"));
+
+  ]
+
+(* parse_pref_labels *)
+let parse_pref_labels_triplets =
+  let function_to_test = Apt.parse_pref_labels in
+  let returns = returns_result function_to_test
+(*  and raises  = raises_failure function_to_test *)
+  in
+  [ ("simple single num",      "123",         returns [("v", "123")]);
+    ("simple single alpha",    "abc",         returns [("a", "abc")]);
+    ("simple pair",            "123=abc",     returns [("123", "abc")]);
+    ("complicated single num", "123.456.789", returns [("v", "123.456.789")]);
+    ("many nums",              "123,456,789", returns [("v", "123"); ("v", "456"); ("v", "789")]);
+    ("many alphas",            "abc,def,ghi", returns [("a", "abc"); ("a", "def"); ("a", "ghi")]);
+    ("many pairs",             "1=a,2=b,3=c", returns [("1", "a"); ("2", "b"); ("3", "c")]);
+  ]
+
+(* parse_pref_package *)
+let parse_pref_package_triplets =
+  let function_to_test = (fun s -> Apt.parse_pref_package ((),s)) in
+  let returns = returns_result function_to_test
+(*  and raises  = raises_failure function_to_test *)
+  in
+  [ ("asterisk 1", "*",          returns Apt.Pref.Star);
+    ("asterisk 2", "    *     ", returns Apt.Pref.Star);
+    ("name 1",     "name1",      returns (Apt.Pref.Package (Packages.parse_name (Format822.dummy_loc, "name1")))); ]
+
+(* parse_pin *)
+let parse_pin_triplets =
+  let function_to_test = (fun s -> Apt.parse_pin ((),s)) in
+  let returns = returns_result function_to_test
+(*  and raises  = raises_failure function_to_test *)
+  in
+  [ ("release 1", "release name1", returns (Apt.Pref.Release (Apt.parse_pref_labels "name1")));
+    ("version 1", "version name1", returns (Apt.Pref.Version "name1"));
+    ("origin 1",  "origin name1",  returns (Apt.Pref.Origin "name1")); ]
+
+(* Makes a list of test cases from a list of triplets:
+    (test_name, string_to_parse, assert_function) *)
+let make_test_cases triplets =
+  List.map ( fun (test_name, input, assert_function) -> test_name >:: assert_function input ) triplets
+
+let test_parsing =
+  "test_parsing" >::: [
+    test_parse_inst;
+    "test parse_popcon"       >::: make_test_cases parse_popcon_triplets;
+    "test parse_pkg_req"      >::: make_test_cases parse_pkg_req_triplets;
+    "test parse_pref_labels"  >::: make_test_cases parse_pref_labels_triplets;
+    "test parse_pref_package" >::: make_test_cases parse_pref_package_triplets;
+    "test_parse_pin"          >::: make_test_cases parse_pin_triplets;
+  ]
+
+
 
 let all = 
   "all tests" >::: [ 
+    test_parsing;
     test_mapping ;
     test_conflicts;
     test_version;
