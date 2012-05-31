@@ -33,8 +33,8 @@ override_dh_auto_build:
 	cd doc/debcheck-primer && $(MAKE) 
 	pod2man --section 8 -release "apt-cudf $(RELEASE)" \
 		debian/update-cudf-solvers > debian/update-cudf-solvers.8
-	pod2man --section 1 --release "apt-cudf $(RELEASE)" \
-		debian/apt-cudf-get.pod > debian/apt-cudf-get.1
+	pod2man --section 8 --release "apt-cudf $(RELEASE)" \
+		debian/apt-cudf-get.pod > debian/apt-cudf-get.8
 
 override_dh_auto_clean:
 	dh_auto_clean
