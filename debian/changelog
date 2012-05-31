@@ -2,8 +2,9 @@ dose3 (2.9.17-1) UNRELEASED; urgency=low
 
   * New upstream version.
     - refreshed patch binaries-prefix-edos
+  * New file debian/apt-cudf.conf, install into /etc
 
- -- Ralf Treinen <treinen@debian.org>  Thu, 31 May 2012 10:29:15 +0200
+ -- Ralf Treinen <treinen@debian.org>  Thu, 31 May 2012 10:50:38 +0200
 
 dose3 (2.9.15-1) unstable; urgency=low
 
