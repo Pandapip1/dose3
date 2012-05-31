@@ -40,6 +40,9 @@ in particular not the +I<pkg> and -I<pkg> shorthands for installation and remova
 
 =head1 SEE ALSO
 
-B<apt-get>(1),
+B<apt-get>(8),
 B<apt-cudf>(1),
-B<apt-cudf.conf>(5)
+B<apt-cudf.conf>(5),
+B<update-cudf-solvers>(8),
+README.cudf-solvers <file:///usr/share/doc/apt-cudf/README.cudf-solvers>,
+README.Debian <file:///usr/share/doc/apt-cudf/README.Debian>
