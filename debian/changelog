@@ -1,4 +1,4 @@
-dose3 (2.9.17-1) UNRELEASED; urgency=low
+dose3 (2.9.17-1) unstable; urgency=low
 
   * New upstream version.
     - refreshed patch binaries-prefix-edos
@@ -8,8 +8,9 @@ dose3 (2.9.17-1) UNRELEASED; urgency=low
   * debian/rules: deactivate dh_auto_test for now as the upstream tarball
     does not contain the necessary data for the tests.
   * New file debian/apt-cudf-get, install into /usr/bin
+  * Write a manpage for apt-cudf-get, install in the apt-cudf package.
 
- -- Ralf Treinen <treinen@debian.org>  Thu, 31 May 2012 18:20:15 +0200
+ -- Ralf Treinen <treinen@debian.org>  Thu, 31 May 2012 21:27:30 +0200
 
 dose3 (2.9.15-1) unstable; urgency=low
 

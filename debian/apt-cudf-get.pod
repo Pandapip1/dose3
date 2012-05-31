@@ -1,0 +1,45 @@
+=head1 NAME
+
+apt-cudf-get - wrapper for calling apt-get with external solvers
+
+=head1 SYNOPSIS
+
+=over
+
+=item B<apt-cudf-get> [arguments]
+
+=back
+=cut
+
+=head1 DESCRIPTION
+
+B<apt-cudf-get> is a wrapper that in some situations is useful to
+invoke B<apt-get> with external solvers. All options are passed on to
+B<apt-get>.
+
+The is is useful is when one wishes to relax apt's pinning. Normally,
+apt uses so-called pinning to select a candidate version of a package
+in case there are several versions available. A priori this also holds
+when calling apt-get with external solvers. However, it may be useful
+to relax pinning and to allow the external solver to choose among all
+available versions of packages in order to satisfy dependencies, not
+only those that are selected by the pinning. Note that in this case the
+versions of packages that are given as arguments to B<install> on the
+command line are still selected according to apt's pinning, the
+relaxation of pinning only applies to the dependencies that may be
+necessary to install
+
+=head1 AUTHOR
+
+Pietro Abate and Roberto Di Cosmo
+
+=head1 BUGS
+
+Not all types of arguements to apt are correctly treated by this wrapper,
+in particular not the +I<pkg> and -I<pkg> shorthands for installation and removal requests.
+
+=head1 SEE ALSO
+
+B<apt-get>(1),
+B<apt-cudf>(1),
+B<apt-cudf.conf>(5)

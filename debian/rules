@@ -1,5 +1,6 @@
 #!/usr/bin/make -f
 
+RELEASE = $(shell dpkg-parsechangelog | grep ^Version: | cut -f 2 -d' ')
 %:
 	dh $@ --with ocaml
 
@@ -30,9 +31,10 @@ override_dh_auto_build:
 	dh_auto_build
 	$(MAKE) doc
 	cd doc/debcheck-primer && $(MAKE) 
-	pod2man --section 8 \
-	  --release "apt-cudf $(shell dpkg-parsechangelog | grep ^Version: | cut -f 2 -d' ')" \
-	debian/update-cudf-solvers > debian/update-cudf-solvers.8
+	pod2man --section 8 -release "apt-cudf $(RELEASE)" \
+		debian/update-cudf-solvers > debian/update-cudf-solvers.8
+	pod2man --section 1 --release "apt-cudf $(RELEASE)" \
+		debian/apt-cudf-get.pod > debian/apt-cudf-get.1
 
 override_dh_auto_clean:
 	dh_auto_clean
