@@ -10,7 +10,7 @@ dose3 (2.9.17-1) unstable; urgency=low
   * New file debian/apt-cudf-get, install into /usr/bin
   * Write a manpage for apt-cudf-get, install in the apt-cudf package.
 
- -- Ralf Treinen <treinen@debian.org>  Thu, 31 May 2012 21:27:30 +0200
+ -- Ralf Treinen <treinen@debian.org>  Thu, 31 May 2012 22:35:14 +0200
 
 dose3 (2.9.15-1) unstable; urgency=low
 
