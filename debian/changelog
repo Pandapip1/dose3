@@ -2,8 +2,9 @@ dose3 (3.0-1) unstable; urgency=low
 
   * New upstream version
   * Remove patch manpages-section5 which has been applied by upstream
+  * Install upstream's version of apt-cudf-get, drop our version in debian/
 
- -- Ralf Treinen <treinen@debian.org>  Sun, 17 Jun 2012 13:09:07 +0200
+ -- Ralf Treinen <treinen@debian.org>  Sun, 17 Jun 2012 13:17:41 +0200
 
 dose3 (2.9.17-1) unstable; urgency=low
 
