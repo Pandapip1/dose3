@@ -103,7 +103,10 @@ doseparse/boilerplateNoRpm.%:
 	done
 
 POD = $(wildcard doc/manpages/*.pod)
-MAN = $(patsubst %.pod,%.1,$(POD))
+POD5 = doc/manpages/apt-cudf.conf.pod
+POD8 = doc/manpages/apt-cudf-get.pod
+POD1 = $(filter-out $(POD5) $(POD8),$(POD))
+MAN = $(patsubst %.pod,%.1,$(POD1)) $(patsubst %.pod,%.5,$(POD5)) $(patsubst %.pod,%.8,$(POD8))
 HTML = $(patsubst %.pod,%.html,$(POD))
 
 man: $(MAN)
@@ -114,12 +117,19 @@ html: $(HTML)
 doc/manpages/%.1: doc/manpages/%.pod
 	pod2man --section 1 --center="DOSE Tools" --release "$(NAME) $(VERSION)" doc/manpages/$*.pod > $@
 
+doc/manpages/%.5: doc/manpages/%.pod
+	pod2man --section 5 --center="DOSE Tools" --release "$(NAME) $(VERSION)" doc/manpages/$*.pod > $@
+
+doc/manpages/%.8: doc/manpages/%.pod
+	pod2man --section 8 --center="DOSE Tools" --release "$(NAME) $(VERSION)" doc/manpages/$*.pod > $@
+
 doc/manpages/%.html: doc/manpages/%.pod
 	pod2html doc/manpages/$*.pod > $@
 
 clean:
 	$(OCAMLBUILD) -clean
 	@echo ""
+	rm -f doc/manpages/*.[158]
 
 distclean: clean
 	rm -Rf Makefile.config aclocal.m4 config.log config.status autom4te.cache/
@@ -133,14 +143,18 @@ $(DOSELIBS)/%:
 	$(OCAMLBUILD) $(OBFLAGS) $*
 	@touch $@
 
-test: 
+testapps: apps 
 	@applications/dose-tests.py -pwd `pwd` -v
+
+testlib: 
 	@for i in $(TESTS); do\
 		echo "#######TESTING $$i" ;\
 		$(OCAMLBUILD) $(OBFLAGS) $$i/tests.$(OCAMLBEST) ;\
 		./tests.$(OCAMLBEST) ;\
 	done
 	@make apps
+
+test: testapps testlib
 
 # stuff not not put in a distribution tarball
 DIST_EXCLUDE = cudf tests $(wildcard */tests) experimental
