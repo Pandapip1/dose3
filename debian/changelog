@@ -1,4 +1,4 @@
-dose3 (3.0-1) unstable; urgency=low
+dose3 (3.0.1-1) unstable; urgency=low
 
   * New upstream version
   * Remove patch manpages-section5 which has been applied by upstream
