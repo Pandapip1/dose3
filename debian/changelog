@@ -2,11 +2,15 @@ dose3 (3.0.1-1) unstable; urgency=low
 
   * New upstream version
   * Remove patch manpages-section5 which has been applied by upstream
-  * Install upstream's version of apt-cudf-get script an manpage, drop our
+  * Install upstream's version of apt-cudf-get script and manpage, drop our
     version in debian/
   * Patch manpage-distcheck: some improvements to distcheck manpage.
+  * debian/copyright:
+    - put files paragraph with more general file pattern first
+    - add BSD-ish license for db/sqlite/sqlitext/connection.h
+      (thanks to Ansgar Burchardt for the remark).
 
- -- Ralf Treinen <treinen@debian.org>  Sun, 17 Jun 2012 13:50:36 +0200
+ -- Ralf Treinen <treinen@debian.org>  Sun, 17 Jun 2012 19:58:39 +0200
 
 dose3 (2.9.17-1) unstable; urgency=low
 
