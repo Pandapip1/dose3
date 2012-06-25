@@ -1,8 +1,9 @@
 dose3 (3.0.2-1) unstable; urgency=low
 
   * New upstream version.
+  * Remove patch manpage-distcheck which has been applied upstream
 
- -- Ralf Treinen <treinen@debian.org>  Mon, 25 Jun 2012 15:45:39 +0200
+ -- Ralf Treinen <treinen@debian.org>  Mon, 25 Jun 2012 15:50:56 +0200
 
 dose3 (3.0.1-1) unstable; urgency=low
 
