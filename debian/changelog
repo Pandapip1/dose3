@@ -5,8 +5,10 @@ dose3 (3.0.2-1) unstable; urgency=low
   * debian/copyright:
     - fix continuation lines in the paragraph for connection-licence.
     - fix typo Licence -> License
+  * debian/rules: in clean target, remove doc/debcheck-primer/version.tex
+    since it should be generated.
 
- -- Ralf Treinen <treinen@debian.org>  Mon, 25 Jun 2012 15:57:25 +0200
+ -- Ralf Treinen <treinen@debian.org>  Mon, 25 Jun 2012 18:12:28 +0200
 
 dose3 (3.0.1-1) unstable; urgency=low
 
