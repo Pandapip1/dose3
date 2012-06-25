@@ -146,20 +146,8 @@ let listcheck ?(global_constraints=true) ?callback universe pkglist =
       aux ~callback:callback_int universe idlist
 ;;
 
-(** this function converts Depsolver_int results to
- * Diagnostic_int results. The difference is that the integer
- * list returned by the function f_int represents solver indexs
- * while Diagnostic_int.Success must return cudf indexes *)
-let conv solver = function
-  |Depsolver_int.Success(f_int) -> 
-      Diagnostic_int.Success(fun ?all () -> 
-        List.map solver.Depsolver_int.map#inttovar (f_int ())
-      )
-  |Depsolver_int.Failure(r) -> Diagnostic_int.Failure(r)
-;;
-
 let edos_install ?(global_constraints=false) univ pkg =
-  let pool = Depsolver_int.init_pool_univ univ in
+  let pool = Depsolver_int.init_pool_univ ~global_constraints univ in
   let id = CudfAdd.vartoint univ pkg in
   (* globalid is a fake package indentifier used to encode global
    * constraints in the universe *)
@@ -173,7 +161,7 @@ let edos_install ?(global_constraints=false) univ pkg =
       Diagnostic_int.Sng (None,id)
   in
   let res = Depsolver_int.solve solver req in
-  diagnosis solver.Depsolver_int.map univ (conv solver res) req
+  diagnosis solver.Depsolver_int.map univ res req
 ;;
 
 let edos_coinstall_cache global_constraints univ pool pkglist =
@@ -188,16 +176,16 @@ let edos_coinstall_cache global_constraints univ pool pkglist =
       Diagnostic_int.Lst (None,idlist)
   in
   let res = Depsolver_int.solve solver req in
-  diagnosis solver.Depsolver_int.map univ (conv solver res) req
+  diagnosis solver.Depsolver_int.map univ res req
 ;;
 
 let edos_coinstall ?(global_constraints=false) univ pkglist =
-  let pool = Depsolver_int.init_pool_univ univ in
+  let pool = Depsolver_int.init_pool_univ ~global_constraints univ in
   edos_coinstall_cache global_constraints univ pool pkglist
 ;;
 
 let edos_coinstall_prod ?(global_constraints=false) univ ll =
-  let pool = Depsolver_int.init_pool_univ univ in
+  let pool = Depsolver_int.init_pool_univ ~global_constraints univ in
   let return a = [a] in
   let bind m f = List.flatten (List.map f m) in
   let rec permutation = function
@@ -253,8 +241,8 @@ let reverse_dependency_closure ?maxdepth univ pkglist =
 
 type enc = Cnf | Dimacs
 
-let output_clauses ?(enc=Cnf) univ =
-  let solver = Depsolver_int.init_solver_univ ~buffer:true univ in
+let output_clauses ?(global_constraints=true) ?(enc=Cnf) univ =
+  let solver = Depsolver_int.init_solver_univ ~global_constraints ~buffer:true univ in
   let clauses = Depsolver_int.S.dump solver.Depsolver_int.constraints in
   let size = Cudf.universe_size univ in
   let buff = Buffer.create size in
@@ -325,4 +313,4 @@ let check_request (_,pkglist,request) =
   let solver = Depsolver_int.init_solver_closure pool closure in
 *)
   edos_install universe dummy
-
+;;
