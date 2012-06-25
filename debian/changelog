@@ -2,8 +2,9 @@ dose3 (3.0.2-1) unstable; urgency=low
 
   * New upstream version:
     - Remove patch manpage-distcheck which has been applied upstream
-  * debian/copyright: fix continuation lines in the paragraph for
-    connection-licence.
+  * debian/copyright:
+    - fix continuation lines in the paragraph for connection-licence.
+    - fix typo Licence -> License
 
  -- Ralf Treinen <treinen@debian.org>  Mon, 25 Jun 2012 15:57:25 +0200
 
