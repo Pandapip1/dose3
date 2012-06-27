@@ -7,8 +7,12 @@ dose3 (3.0.2-1) unstable; urgency=low
     - fix typo Licence -> License
   * debian/rules: in clean target, remove doc/debcheck-primer/version.tex
     since it should be generated.
+  * fix the version number that upstream forgot to bump:
+    - add patch version-3.0.2
+    - add automake and autoconf to build-dependencies
+    - call aclocal and autconf in the configure target of debian/rules
 
- -- Ralf Treinen <treinen@debian.org>  Mon, 25 Jun 2012 18:12:28 +0200
+ -- Ralf Treinen <treinen@debian.org>  Wed, 27 Jun 2012 11:24:15 +0200
 
 dose3 (3.0.1-1) unstable; urgency=low
 
