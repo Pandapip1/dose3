@@ -1,8 +1,8 @@
-diff --git a/deb/debcudf.ml b/deb/debcudf.ml
-index cd83799..ecfd929 100644
---- a/deb/debcudf.ml
-+++ b/deb/debcudf.ml
-@@ -320,27 +320,70 @@ let add_extra extras tables pkg =
+Index: dose3/deb/debcudf.ml
+===================================================================
+--- dose3.orig/deb/debcudf.ml	2012-09-08 14:06:46.000000000 +0200
++++ dose3/deb/debcudf.ml	2012-09-08 14:14:46.000000000 +0200
+@@ -320,27 +320,66 @@
  
  let tocudf tables ?(options=default_options) ?(inst=false) pkg =
    if options.native <> "" then begin
@@ -19,11 +19,7 @@ index cd83799..ecfd929 100644
 -      l@(add_arch_l options.native pkg.architecture (loadlp tables pkg.provides))
 +    let pkgarch = pkg.architecture (* binary package : dependencies are package specific *)
 +    in
-+    let _name = 
-+      (* if the package is a source package the name does not need an
-+       * architecture annotation. Nobody depends on it *)
-+      if is_source pkg then (CudfAdd.encode pkg.name) 
-+      else add_arch options.native pkgarch pkg.name 
++    let _name = add_arch options.native pkgarch pkg.name
 +    in
 +    let _version = get_cudf_version tables (pkg.name,pkg.version)  in
 +    let _provides = match pkg.multiarch with
@@ -67,11 +63,11 @@ index cd83799..ecfd929 100644
 +      (* self conflict *)
 +      let sc = (add_arch options.native pkgarch pkg.name,None) in
 +      let multiarchconstraints = match pkg.multiarch with
-+        |(`None|`Foreign|`Allowed) -> 
++        |(`None|`Foreign|`Allowed) ->
 +            (* conflict with all other packages with differents archs *)
 +            let mac = (CudfAdd.encode pkg.name,None) in
-+            [sc; mac] 
-+        |`Same -> 
++            [sc; mac]
++        |`Same ->
 +            (* conflict with packages of same name but different arch and version*)
 +            let masc =
 +              List.filter_map (function
@@ -79,7 +75,7 @@ index cd83799..ecfd929 100644
 +                |arch -> Some(add_arch options.native arch pkg.name,Some(`Neq,_version))
 +              ) (options.native::options.foreign)
 +            in
-+            sc :: masc 
++            sc :: masc
 +      in
 +      let multiarchconflicts =
 +        List.flatten (
