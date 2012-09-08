@@ -1,0 +1,98 @@
+diff --git a/deb/debcudf.ml b/deb/debcudf.ml
+index cd83799..ecfd929 100644
+--- a/deb/debcudf.ml
++++ b/deb/debcudf.ml
+@@ -320,27 +320,74 @@ let add_extra extras tables pkg =
+ 
+ let tocudf tables ?(options=default_options) ?(inst=false) pkg =
+   if options.native <> "" then begin
+-    let _name = add_arch options.native pkg.architecture pkg.name in
+-    let version = get_cudf_version tables (pkg.name,pkg.version)  in
+-    let _provides = 
+-      let l = 
+-        match pkg.multiarch with
+-        |`None -> [(CudfAdd.encode pkg.name,None)]
+-        |`Foreign -> List.map (fun arch -> (add_arch options.native arch pkg.name,Some(`Eq,version))) options.foreign
+-        |`Allowed -> [(CudfAdd.encode pkg.name,None) ; (CudfAdd.encode (pkg.name^":any"),None)]
+-        |`Same -> []
+-      in
+-      l@(add_arch_l options.native pkg.architecture (loadlp tables pkg.provides))
++    let pkgarch =
++      match options.host,is_source pkg with
++      |"",true -> options.native   (* source package : build deps on the native arch *)
++      |_,true -> options.host      (* source package : build deps on the cross arch *)
++      |_,false -> pkg.architecture (* binary package : dependencies are package specific *)
++    in
++    let _name = 
++      (* if the package is a source package the name does not need an
++       * architecture annotation. Nobody depends on it *)
++      if is_source pkg then (CudfAdd.encode pkg.name) 
++      else add_arch options.native pkgarch pkg.name 
++    in
++    let _version = get_cudf_version tables (pkg.name,pkg.version)  in
++    let _provides = match pkg.multiarch with
++      |`None ->
++         (* only arch-less package and pkgarch provides *)
++         (CudfAdd.encode pkg.name,None)::
++           (add_arch_l options.native pkgarch (loadlp tables pkg.provides))
++      |`Foreign ->
++         (* packages of same name and version of itself in all archs except its own
++            each package this package provides is provided in all arches *)
++          List.flatten (
++            List.map (function
++              |arch when arch = pkgarch ->
++                  (add_arch_l options.native arch (loadlp tables pkg.provides))
++              |arch ->
++                  (add_arch options.native arch pkg.name,Some(`Eq,_version)) ::
++                    (add_arch_l options.native arch (loadlp tables pkg.provides))
++            ) (options.native::options.foreign)
++          )
++      |`Allowed ->
++         (* archless package and arch: any package *)
++         (* all provides as arch: any *)
++         (* pkgarch provides *)
++         (CudfAdd.encode pkg.name,None)::
++           (CudfAdd.encode (pkg.name^":any"),None)::
++             (List.map (fun (name, v) -> (CudfAdd.encode (name^":any"), v)) (loadlp tables pkg.provides))@
++                (add_arch_l options.native pkgarch (loadlp tables pkg.provides))
++      |`Same ->
++         (add_arch_l options.native pkgarch (loadlp tables pkg.provides))
+     in
+     let _conflicts = 
+-      (* self conflict / multi-arch conflict *)
+-      let sc = (add_arch options.native pkg.architecture pkg.name,None) in
+-      let mac = (CudfAdd.encode pkg.name,None) in
+-      let l = pkg.breaks @ pkg.conflicts in
+-      match pkg.multiarch with
+-      |(`None|`Foreign|`Allowed) -> 
+-          sc::mac::(add_arch_l options.native pkg.architecture (loadl tables l))
+-      |`Same -> sc::(add_arch_l options.native pkg.architecture (loadl tables l))
++      let originalconflicts = pkg.breaks @ pkg.conflicts in
++      (* self conflict *)
++      let sc = (add_arch options.native pkgarch pkg.name,None) in
++      let multiarchconstraints = match pkg.multiarch with
++        |(`None|`Foreign|`Allowed) -> 
++            (* conflict with all other packages with differents archs *)
++            let mac = (CudfAdd.encode pkg.name,None) in
++            [sc; mac] 
++        |`Same -> 
++            (* conflict with packages of same name but different arch and version*)
++            let masc =
++              List.filter_map (function
++                |arch when arch = pkgarch -> None
++                |arch -> Some(add_arch options.native arch pkg.name,Some(`Neq,_version))
++              ) (options.native::options.foreign)
++            in
++            sc :: masc 
++      in
++      let multiarchconflicts =
++        List.flatten (
++          List.map (fun arch ->
++            add_arch_l options.native arch (loadl tables originalconflicts)
++          ) (options.native::options.foreign)
++        )
++      in
++      multiarchconflicts @ multiarchconstraints
+     in
+     let _depends = 
+       List.map (add_arch_l options.native pkg.architecture) 
