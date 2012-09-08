@@ -2,7 +2,7 @@ diff --git a/deb/debcudf.ml b/deb/debcudf.ml
 index cd83799..ecfd929 100644
 --- a/deb/debcudf.ml
 +++ b/deb/debcudf.ml
-@@ -320,27 +320,74 @@ let add_extra extras tables pkg =
+@@ -320,27 +320,70 @@ let add_extra extras tables pkg =
  
  let tocudf tables ?(options=default_options) ?(inst=false) pkg =
    if options.native <> "" then begin
@@ -17,11 +17,7 @@ index cd83799..ecfd929 100644
 -        |`Same -> []
 -      in
 -      l@(add_arch_l options.native pkg.architecture (loadlp tables pkg.provides))
-+    let pkgarch =
-+      match options.host,is_source pkg with
-+      |"",true -> options.native   (* source package : build deps on the native arch *)
-+      |_,true -> options.host      (* source package : build deps on the cross arch *)
-+      |_,false -> pkg.architecture (* binary package : dependencies are package specific *)
++    let pkgarch = pkg.architecture (* binary package : dependencies are package specific *)
 +    in
 +    let _name = 
 +      (* if the package is a source package the name does not need an
