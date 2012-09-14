@@ -1,3 +1,4 @@
 binaries-prefix-edos
 version-3.0.2
 multiarch-conflicts
+apt-cudf-pinning

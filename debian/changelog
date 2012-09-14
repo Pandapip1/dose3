@@ -5,8 +5,11 @@ dose3 (3.0.2-2) unstable; urgency=low
     architectures. (closes: #685171). Extracted from the upstream git
     repository (commit 7c30da3d). Thanks to Pietro Abate for having fixed
     this.
+  * Patch apt-cudf-pinning: Fix version numbers in the package installation
+    requests in the translation process from EDSP to CUDF (closes: #687643).
+    Thanks to Pietro Abate for the patch!
 
- -- Ralf Treinen <treinen@debian.org>  Sat, 08 Sep 2012 13:29:48 +0200
+ -- Ralf Treinen <treinen@debian.org>  Fri, 14 Sep 2012 16:04:03 +0200
 
 dose3 (3.0.2-1) unstable; urgency=low
 
