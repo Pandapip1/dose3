@@ -6,8 +6,10 @@ dose3 (3.0.2-2) unstable; urgency=low
     3.0.2-hotfix branch of the upstream git repository (commit
     a2f69265323d8cead088eeee2a731db582d3cc81). Thanks to Pietro Abate for
     having fixed this.
+  * Fix architecture options in the dose-builddebcheck manpage
+    (closes: #680271).
 
- -- Ralf Treinen <treinen@debian.org>  Wed, 26 Sep 2012 16:57:24 +0200
+ -- Ralf Treinen <treinen@debian.org>  Wed, 26 Sep 2012 17:16:02 +0200
 
 dose3 (3.0.2-1) unstable; urgency=low
 
