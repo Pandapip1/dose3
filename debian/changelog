@@ -1,4 +1,4 @@
-dose3 (3.0.2-2) unstable; urgency=low
+dose3 (3.0.2-2) experimental; urgency=low
 
   * Patch multiarch-conflicts: fix the translation of conflicts in case of
     multiarchs, a conflict on package p has to apply to p of all possible
