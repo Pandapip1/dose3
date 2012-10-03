@@ -1,3 +1,9 @@
+dose3 (3.0.2-3) unstable; urgency=low
+
+  * Upload to unstable.
+
+ -- Ralf Treinen <treinen@debian.org>  Wed, 03 Oct 2012 19:25:40 +0200
+
 dose3 (3.0.2-2) experimental; urgency=low
 
   * Patch multiarch-conflicts: fix the translation of conflicts in case of
