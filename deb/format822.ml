@@ -1,3 +1,14 @@
+(**************************************************************************************)
+(*  Copyright (C) 2009 Pietro Abate <pietro.abate@pps.jussieu.fr>                     *)
+(*  Copyright (C) 2009 Mancoosi Project                                               *)
+(*                                                                                    *)
+(*  This library is free software: you can redistribute it and/or modify              *)
+(*  it under the terms of the GNU Lesser General Public License as                    *)
+(*  published by the Free Software Foundation, either version 3 of the                *)
+(*  License, or (at your option) any later version.  A special linking                *)
+(*  exception to the GNU Lesser General Public License applies to this                *)
+(*  library, see the COPYING file for more information.                               *)
+(**************************************************************************************)
 
 open ExtLib
 open Common
@@ -48,6 +59,7 @@ let parse_from_ch _parser ic =
 type name = string
 type version = string
 type architecture = string
+type buildprofile = string
 type vpkgname = (string * architecture option)
 type multiarch = [ `Foreign | `Allowed | `None | `Same ]
 type source = (name * version option)
@@ -58,7 +70,7 @@ type vpkg = (vpkgname * constr option)
 type vpkglist = vpkg list
 type vpkgformula = vpkg list list
 
-type builddep = (vpkg * (bool * architecture) list)
+type builddep = (vpkg * (bool * architecture) list * (bool * buildprofile) list)
 type builddepslist = builddep list
 type builddepsformula = builddep list list
 

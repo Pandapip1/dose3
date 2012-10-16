@@ -143,7 +143,9 @@ let pp_vpkglist pp fmt =
     | `Lt -> "<"
   in
   let pp_item fmt = function
-    |(p,None) -> Format.fprintf fmt "%s" p
+    |(p,None) -> 
+        let (p,_,_) = pp {Cudf.default_package with Cudf.package = p} in
+        Format.fprintf fmt "%s" p
     |(p,Some(c,v)) ->
         let (p,v,_) = pp {Cudf.default_package with Cudf.package = p ; version = v} in
         Format.fprintf fmt "%s (%s %s)" p (string_of_relop c) v
@@ -241,7 +243,15 @@ let minimize roots l =
   H.fold (fun k _ l -> k::l) acc []
 ;;
 
-let default_pp pkg = (pkg.Cudf.package,CudfAdd.string_of_version pkg,[])
+(** [default_pp] default package printer. If the version of the package is
+  * a negative number, the version version if printed as "nan" *)
+let default_pp pkg =
+  let v = 
+    if pkg.Cudf.version > 0 then 
+      CudfAdd.string_of_version pkg
+    else "nan"
+  in
+  (pkg.Cudf.package,v,[])
 
 let fprintf ?(pp=default_pp) ?(failure=false) ?(success=false) ?(explain=false) ?(minimal=false) fmt = function
   |{result = Success (f); request = req } when success ->
@@ -317,24 +327,32 @@ let collect results = function
   |_  -> ()
 ;;
 
-let pp_summary_row pp fmt = function
+let pp_summary_row explain pp fmt = function
   |(Conflict (i,j,_),pl) ->
       Format.fprintf fmt "@[<v 1>conflict:@,";
       Format.fprintf fmt "@[<v 1>pkg1:@,%a@]@," (pp_package pp) i;
       Format.fprintf fmt "@[<v 1>pkg2:@,%a@]@," (pp_package pp) j;
-      Format.fprintf fmt "@[<v 1>packages:@," ;
-      pp_list (pp_package ~source:true pp) fmt pl;
-      Format.fprintf fmt "@]@]"
+      Format.fprintf fmt "@[<v 1>broken-by: %d@]@," (List.length pl);
+      if explain then begin
+        Format.fprintf fmt "@[<v 1>packages:@," ;
+        pp_list (pp_package ~source:true pp) fmt pl;
+        Format.fprintf fmt "@]"
+      end;
+      Format.fprintf fmt "@]"
   |(Missing (i,vpkgs) ,pl) -> 
       Format.fprintf fmt "@[<v 1>missing:@,";
       Format.fprintf fmt "@[<v 1>unsat-dependency: %a@]@," (pp_vpkglist pp) vpkgs;
-      Format.fprintf fmt "@[<v 1>packages:@," ;
-      pp_list (pp_package ~source:true pp) fmt pl;
-      Format.fprintf fmt "@]@]"
+      Format.fprintf fmt "@[<v 1>broken-by: %d@]@," (List.length pl);
+      if explain then begin
+        Format.fprintf fmt "@[<v 1>packages:@," ;
+        pp_list (pp_package ~source:true pp) fmt pl;
+        Format.fprintf fmt "@]"
+      end;
+      Format.fprintf fmt "@]"
   |_ -> ()
 ;;
 
-let pp_summary ?(pp=default_pp) () fmt result = 
+let pp_summary ?(pp=default_pp) ?(explain=false) () fmt result = 
   let l =
     ResultHash.fold (fun k v acc -> 
       let l1 = Util.list_unique !v in
@@ -346,7 +364,7 @@ let pp_summary ?(pp=default_pp) () fmt result =
       if List.length l1 > 1 then (k,l1)::acc else acc 
     ) result.summary [] 
   in
-  let l = List.sort ~cmp:(fun (_,l1) (_,l2) -> (List.length l1) - (List.length l2)) l in
+  let l = List.sort ~cmp:(fun (_,l1) (_,l2) -> (List.length l2) - (List.length l1)) l in
 
   Format.fprintf fmt "@[";
   Format.fprintf fmt "missing-packages: %d@." result.missing;
@@ -356,6 +374,6 @@ let pp_summary ?(pp=default_pp) () fmt result =
   Format.fprintf fmt "@]";
 
   Format.fprintf fmt "@[<v 1>summary:@," ;
-  pp_list (pp_summary_row pp) fmt l;
+  pp_list (pp_summary_row explain pp) fmt l;
   Format.fprintf fmt "@]"
 ;;

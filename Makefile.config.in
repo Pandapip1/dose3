@@ -5,7 +5,7 @@ CFLAGS=@CFLAGS@ -fPIC -Wall -pedantic -Werror -Wno-long-long
 CPPFLAGS=@CPPFLAGS@
 LDFLAGS=@LDFLAGS@
 
-OCAMLFIND_COMMANDS="ocamlc=@OCAMLC@ ocamlopt=@OCAMLOPT@ ocamldep=@OCAMLDEP@"
+#OCAMLFIND_COMMANDS="ocamlc=@OCAMLC@ ocamlopt=@OCAMLOPT@ ocamldep=@OCAMLDEP@"
 OCAMLFIND=@OCAMLFIND@
 
 DESTDIR =
@@ -28,9 +28,15 @@ ifeq ("@OCAML_OS_TYPE@","freebsd")
   LDFLAGS += -fstack-protector
 endif
 
+ifeq ("@CAMLP4OOPT@","camlp4o.opt")
+  CAMLP4CMXS=camlp4cmxs
+else
+  CAMLP4CMXS=
+endif
+
 ifeq ("@OCAMLBEST@","opt")
   OCAMLBEST=native
-  OCAMLBUILD=@OCAMLBUILD@ -ocamlc @OCAMLC@ -ocamlopt @OCAMLOPT@ -ocamldep @OCAMLDEP@
+  OCAMLBUILD=@OCAMLBUILD@ #-ocamlc @OCAMLC@ -ocamlopt @OCAMLOPT@ -ocamldep @OCAMLDEP@
   INSTALLOPTS=-s
 else
   OCAMLBEST=byte
@@ -59,9 +65,6 @@ ifeq ("@HAS_LIBCUDF@","no")
     CMXSLIBS += cudf/cudf.cmxs
   endif
 endif
-
-#AH I hate hacks !
-all: realall
 
 ifeq ("@HAS_LIBCUDF@","no")
 installcudf:

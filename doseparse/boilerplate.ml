@@ -63,25 +63,6 @@ let pkglist_option ?default ?(metavar = "VPKGLST") () =
   parse_vpkglist (fun _ s -> Printf.sprintf "invalid package list '%s'" s)
 ;;
 
-let debvpkg ?(native_arch="") to_cudf ((n,a),c) =
-  let name =
-    CudfAdd.encode (
-      if Option.is_none a then
-        if native_arch <> "" then
-          (native_arch^":"^n)
-        else n
-      else
-        ((Option.get a)^":"^n)
-    )
-  in
-  let constr =
-    match CudfAdd.cudfop c with
-    |None -> None
-    |Some(op,v) -> Some(op,snd(to_cudf (name,v)))
-  in
-  (name,constr)
-;;
-
 (* *************************************** *)
 
 let incr_str_list ?(default=Some []) ?(metavar = "STR") =
@@ -93,12 +74,13 @@ let incr_str_list ?(default=Some []) ?(metavar = "STR") =
 ;;
 
 (* this is a ,-separated list of strings *)
-let str_list_option ?(default=Some []) ?(metavar = "STRLST") =
+let str_list_option ?default ?(metavar = "STRLST") =
   let sep = "," in
   let coerce s = ExtString.String.nsplit s sep in
   fun () ->
     OptParse.Opt.value_option metavar default coerce
     (fun _ s -> Printf.sprintf "Invalid String '%s'" s)
+;;
 
 (* *************************************** *)
 
@@ -122,6 +104,7 @@ end
 type options =
   |Deb of Debian.Debcudf.options
   |Eclipse of Debian.Debcudf.options
+  |Edsp of Debian.Debcudf.options
   |Csw
   |Rpm
   |Cudf
@@ -129,71 +112,85 @@ type options =
 module MakeDistribOptions(O : sig val options : OptParse.OptParser.t end) = struct
   open OptParse ;;
 
-  let deb_foreign_arch = str_list_option ()
   let deb_native_arch = StdOpt.str_option ()
-  let deb_host_arch = StdOpt.str_option ()
-  let deb_build_arch = StdOpt.str_option ()
+  let deb_foreign_archs = str_list_option ()
+  let deb_target_arch = StdOpt.str_option ()
   let deb_ignore_essential = StdOpt.store_true ()
 
+  let set_deb_options () =
+    let native =
+      if Opt.is_set deb_native_arch then
+        Opt.get deb_native_arch
+      else ""
+    in
+    let foreign = 
+      if Opt.is_set deb_foreign_archs then
+        Opt.get deb_foreign_archs 
+      else []
+    in
+    let target =
+      if Opt.is_set deb_target_arch then
+        Opt.get deb_target_arch
+      else native
+    in
+    {
+      Debian.Debcudf.default_options with
+      Debian.Debcudf.native = native;
+      foreign = foreign;
+      target = target;
+      ignore_essential = Opt.get deb_ignore_essential
+    }
+  ;;
+
+  let get_deb_buildarchs opt =
+    let native = opt.Debian.Debcudf.native in
+    let foreign = opt.Debian.Debcudf.foreign in
+    let target = opt.Debian.Debcudf.target in
+    if native = "" then 
+      fatal "you must specify at least the native architecture" ;
+    if Opt.is_set deb_foreign_archs then
+      if List.mem target foreign then
+        native::foreign
+      else
+        fatal "the target architecture is not included in the list of foreign architectures"
+    else
+      if target = native then [target]
+      else
+        fatal "the target architecture is not included in the list of foreign architectures"
+  ;;
+
+  let set_default_options = function
+    |`Deb -> Some (
+      Deb { 
+        Debian.Debcudf.default_options with
+        Debian.Debcudf.ignore_essential = true
+      })
+    |`Edsp -> Some (
+      Edsp { 
+        Debian.Debcudf.default_options with
+        Debian.Debcudf.ignore_essential = true
+      })
+    |`Eclipse -> Some (Eclipse Debian.Debcudf.default_options)
+    |_ -> None
+
   let set_options = function
-    |Url.Deb ->
-      let host =
-        if Opt.is_set deb_host_arch then
-          Opt.get deb_host_arch
-        else ""
-      in
-      let build =
-        if Opt.is_set deb_build_arch then
-          Opt.get deb_build_arch
-        else ""
-      in
-      let native =
-        if Opt.is_set deb_native_arch then
-          Opt.get deb_native_arch
-        else ""
-      in
-
-      let archs =
-        let l = Opt.get deb_foreign_arch in
-        let l = if host <> "" then host::l else l in
-        let l = if build <> "" then build::l else l in
-        let l = if native <> "" then native::l else l in
-        l
-      in
-
-      Some (
-        Deb {
-          Debian.Debcudf.default_options with
-          Debian.Debcudf.foreign = archs;
-          host = host;
-          build = build;
-          native = native;
-          ignore_essential = Opt.get deb_ignore_essential
-        }
-      )
-    |Url.Synthesis -> None
-    |Url.Hdlist -> None
-    |(Url.Pgsql|Url.Sqlite) -> None
-    |Url.Eclipse -> Some (Eclipse Debian.Debcudf.default_options)
-    |Url.Cudf -> None
-    |Url.Csw -> None
+    |`Deb -> Some (Deb (set_deb_options ()))
+    |`Edsp -> Some (Edsp (set_deb_options ()))
+    |`Eclipse -> Some (Eclipse Debian.Debcudf.default_options)
+    |_ -> None
   ;;
 
   open OptParser ;;
   let deb_group = add_group O.options "Debian Specific Options" in
   add O.options ~group:deb_group ~long_name:"deb-native-arch" ~help:"Native architecture" deb_native_arch;
-  (*
-  add options ~group:deb_group ~long_name:"deb-host-arch" ~help:"Host architecture" deb_host_arch;
-  add options ~group:deb_group ~long_name:"deb-build-arch" ~help:"Build architecture" deb_build_arch;
-  *)
-  add O.options ~group:deb_group ~long_name:"deb-foreign-archs" ~help:"Foreign architectures" deb_foreign_arch;
+  add O.options ~group:deb_group ~long_name:"deb-host-arch" ~help:"XCompile Target architecture" deb_target_arch;
+  add O.options ~group:deb_group ~long_name:"deb-foreign-archs" ~help:"Foreign architectures" deb_foreign_archs;
   add O.options ~group:deb_group ~long_name:"deb-ignore-essential" ~help:"Ignore Essential Packages" deb_ignore_essential;
 
 (*  let rpm_group = add_group options "Rpm Specific Options" in
     let eclipse_group = add_group options "Eclipse Specific Options" in
 *)
 end
-
 
 let enable_debug = function
   |0 -> () (* only warning messages : default *)
@@ -226,10 +223,7 @@ let enable_timers verbose l =
 
 (** read a debian Packages file - compressed or not *)
 let read_deb ?filter ?(extras=[]) fname =
-  let ch = Input.open_file fname in
-  let l = Debian.Packages.input_raw_ch ?filter ~extras ch in
-  let _ = Input.close_ch ch in
-  l
+  Debian.Packages.input_raw ?filter ~extras [fname]
 
 (* fll = file list list
  * dll = deb packages list list 
@@ -243,7 +237,8 @@ let deb_load_list options ?(status=[]) dll =
   let to_cudf (p,v) = (p,Debian.Debcudf.get_cudf_version tables (p,v)) in
   let cll = 
     List.map (fun l ->
-      List.map (Debian.Debcudf.tocudf tables ~options) l
+      (* XXX this is stupid and slow *)
+      List.map (Debian.Debcudf.tocudf tables ~options) (Debian.Packages.merge status l)
     ) dll
   in
   let preamble = Debian.Debcudf.preamble in
@@ -282,6 +277,40 @@ let csw_load_list dll =
   let preamble = Csw.Cswcudf.preamble in
   (preamble,cll,from_cudf,to_cudf)
  
+let edsp_load_list options file =
+  let archs = 
+    if options.Debian.Debcudf.native <> "" then
+      options.Debian.Debcudf.native :: options.Debian.Debcudf.foreign 
+    else []
+  in
+  let (_,pkglist) = Debian.Edsp.input_raw ~archs file in
+  let tables = Debian.Debcudf.init_tables pkglist in
+  let preamble =
+    let l = List.map snd Debian.Edsp.extras_tocudf in
+    Common.CudfAdd.add_properties Debian.Debcudf.preamble l
+  in  
+  let univ = Hashtbl.create (2*(List.length pkglist)-1) in
+  let cudfpkglist =
+    List.filter_map (fun pkg ->
+      let p = Debian.Edsp.tocudf tables ~options pkg in
+      if not(Hashtbl.mem univ (p.Cudf.package,p.Cudf.version)) then begin
+        Hashtbl.add univ (p.Cudf.package,p.Cudf.version) pkg;
+        Some p
+      end else begin
+        warning "Duplicated package (same version, name and architecture) : (%s,%s,%s)"
+          pkg.Debian.Packages.name pkg.Debian.Packages.version pkg.Debian.Packages.architecture;
+        None
+      end
+    ) pkglist
+  in
+  let to_cudf (p,v) = (p,Debian.Debcudf.get_cudf_version tables (p,v)) in
+  let from_cudf (p,i) = (p, Debian.Debcudf.get_real_version tables (p,i)) in
+  (preamble,[cudfpkglist;[]],from_cudf,to_cudf)
+
+let edsp_load_universe options file =
+  let (pr,l,f,t) = edsp_load_list options file in
+  (pr,Cudf.load_universe (List.hd l), f, t)
+
 (** transform a list of debian control stanza into a cudf universe *)
 let deb_load_universe options l =
   let (pr,cll,f,t) = deb_load_list options [l] in
@@ -342,7 +371,6 @@ let load_cudf doc =
   l
 ;;
 
-(* XXX when parsing a cudf, I should also remember the preamble !! *)
 let cudf_load_list file =
   let preamble, pkglist =
     match parse_cudf file with
@@ -360,7 +388,7 @@ let cudf_load_universe file =
 (** return the name of the file *)
 let unpack (_,(_,_,_,_,file),_) = file
 
-let deb_parse_input options urilist =
+let deb_parse_input options ?(status=[]) urilist =
   let archs = 
     if options.Debian.Debcudf.native <> "" then
       options.Debian.Debcudf.native :: options.Debian.Debcudf.foreign 
@@ -372,7 +400,7 @@ let deb_parse_input options urilist =
       Debian.Packages.input_raw ~archs filelist
     ) urilist
   in
-  deb_load_list options dll
+  deb_load_list options ~status dll
 
 let eclipse_parse_input options urilist =
   let dll = 
@@ -403,6 +431,17 @@ let cudf_parse_input urilist =
     cudf_load_list (unpack p)
 ;;
 
+let edsp_parse_input options urilist =
+  match urilist with
+  |[[p]] when (unpack p) = "-" -> fatal "no stdin for edsp yet"
+  |[[p]] -> edsp_load_list options (unpack p)
+  |l ->
+    if List.length (List.flatten l) > 1 then
+      warning "more then one cudf speficied on the command line";
+    let p = List.hd (List.flatten l) in 
+    edsp_load_list options (unpack p)
+;;
+
 (* Check that all uris are of type that is an instance of scheme *)
 (* If yes return that instance of scheme, and the list of paths  *)
 (* in uris.                                                      *)
@@ -410,17 +449,21 @@ let cudf_parse_input urilist =
 let parse_input ?(options=None) urilist =
   let filelist = List.map (List.map Input.parse_uri) urilist in
   match Input.guess_format urilist, options with
-  |Url.Cudf, None -> cudf_parse_input filelist
+  |`Cudf, None -> cudf_parse_input filelist
 
-  |Url.Deb, None -> deb_parse_input Debian.Debcudf.default_options filelist
-  |Url.Eclipse, None -> eclipse_parse_input Debian.Debcudf.default_options filelist
+  |`Deb, None -> deb_parse_input Debian.Debcudf.default_options filelist
+  |`Eclipse, None -> eclipse_parse_input Debian.Debcudf.default_options filelist
 
-  |Url.Deb, Some (Deb opt) -> deb_parse_input opt filelist
-  |Url.Eclipse, Some (Eclipse opt) -> eclipse_parse_input opt filelist
+  |`Deb, Some (Deb opt) -> deb_parse_input opt filelist
+  
+  |`Edsp, Some (Edsp opt) -> edsp_parse_input opt filelist
+  |`Edsp, None -> edsp_parse_input Debian.Debcudf.default_options filelist
 
-  |Url.Csw, None -> csw_parse_input filelist
+  |`Eclipse, Some (Eclipse opt) -> eclipse_parse_input opt filelist
 
-  |Url.Hdlist, None -> 
+  |`Csw, None -> csw_parse_input filelist
+
+  |`Hdlist, None -> 
 IFDEF HASRPM THEN
       let dll = 
         List.map (fun l ->
@@ -433,7 +476,7 @@ ELSE
     fatal "hdlist Not supported. re-configure with --with-rpm"
 END
 
-  |Url.Synthesis, None -> 
+  |`Synthesis, None -> 
 IFDEF HASRPM THEN
       let dll = 
         List.map (fun l ->
@@ -475,6 +518,12 @@ ELSE
 END
    in
    standard@rpm@db
+;;
+
+(** return a list of Debian packages from a debian source file *)
+let deb_load_source ?(profiles=true) ?(noindep=true) target builddeparchs sourcefile =
+  let l = Debian.Sources.input_raw ~archs:[target] [sourcefile] in
+  Debian.Sources.sources2packages ~noindep ~profiles builddeparchs l
 ;;
 
 (** parse and merge a list of files into a cudf package list *)
