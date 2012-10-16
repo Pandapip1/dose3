@@ -28,6 +28,7 @@ let get_source pkg =
  * otherwise add it to the table indexed by package version *)
 (* actually it should be sourceversion -> list of list of clusters grouped by
  * version *)
+(* (source,sourceversion) -> [= packageversion -> (ref[pkg],realversion) =] *)
 let cluster packagelist =
   let drop_epoch v = let (_,v,r,b) = Version.split v in Version.concat ("",v,r,b) in
   let th = Hashtbl.create (List.length packagelist) in
@@ -67,4 +68,20 @@ let cluster packagelist =
   info "Source Clusters: %d" (Hashtbl.length h);
   info "Binary (effective) Clusters: %d" !i;
   h
+;;
+
+(** convert a deb constraint into a cudf constraint *)
+let debvpkg to_cudf ((n,a),c) =
+  let name =
+    CudfAdd.encode (
+      if Option.is_none a then n
+      else ((Option.get a)^":"^n)
+    )
+  in
+  let constr =
+    match CudfAdd.cudfop c with
+    |None -> None
+    |Some(op,v) -> Some(op,snd(to_cudf (name,v)))
+  in
+  (name,constr)
 ;;

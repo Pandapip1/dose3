@@ -92,9 +92,7 @@ exception IgnorePackage of string
  * opt = Some s -> return s *)
 let parse_s ?opt ?err ?(multi=false) f field par =
   let field = String.lowercase field in
-  try 
-    let (_loc,s) = (assoc field par) in
-    f (_loc,s) 
+  try let (_loc,s) = (assoc field par) in f (_loc,s) 
   with Not_found ->
     if Option.is_none opt then
       if Option.is_none err then raise Not_found
@@ -167,7 +165,7 @@ let parse_package_stanza filter archs extras par =
       breaks = parse_s ~opt:[] ~multi:true parse_vpkglist "Breaks" par;
       replaces = parse_s ~opt:[] ~multi:true parse_vpkglist "Replaces" par;
       provides = parse_s ~opt:[] ~multi:true parse_vpkglist "Provides" par;
-      extras = parse_e extras par;
+      extras = ("Type","bin") :: (parse_e extras par);
   }
   in
   try
@@ -206,21 +204,22 @@ let arch_filter archlist par =
   with Not_found -> false
 
 (* parse the entire file while filtering out unwanted stanzas *)
-let rec packages_parser stanza_parser acc p =
+let rec packages_parser fname stanza_parser acc p =
+  let filename = ("Filename",(Format822.dummy_loc,Filename.basename fname)) in
   match Format822_parser.stanza_822 Format822_lexer.token_822 p.Format822.lexbuf with
   |None -> acc
   |Some stanza -> begin
-      match (stanza_parser stanza) with
-      |None -> packages_parser stanza_parser acc p
-      |Some st -> packages_parser stanza_parser (st::acc) p
+      match stanza_parser (filename::stanza) with
+      |None -> packages_parser fname stanza_parser acc p
+      |Some st -> packages_parser fname stanza_parser (st::acc) p
   end
 
-let parse_packages_in ?filter ?(archs=[]) ?(extras=[]) file ic =
-  info "Parsing Packages file %s..." file;
+let parse_packages_in ?filter ?(archs=[]) ?(extras=[]) fname ic =
+  info "Parsing Packages file %s..." fname;
   try
     let stanza_parser = parse_package_stanza filter archs extras in
-    Format822.parse_from_ch (packages_parser stanza_parser []) ic
-  with ParseError (field,errmsg) -> fatal "Filename %s\n %s : %s" file field errmsg
+    Format822.parse_from_ch (packages_parser fname stanza_parser []) ic
+  with ParseError (field,errmsg) -> fatal "Filename %s\n %s : %s" fname field errmsg
 
 (**/**)
 let id p = (p.name,p.version,p.architecture)
@@ -231,7 +230,7 @@ module Set = struct
     let compare x y =
       let c = x >% y in 
       if c = 0 then 
-        warning "the input contains two packages with the same name, version and architecture (%s,%s,%s). Only the latter will be considered."
+        debug "the input contains two packages with the same name, version and architecture (%s,%s,%s). Only the latter will be considered."
         x.name x.version x.architecture;
       c
   end)
@@ -239,6 +238,7 @@ end
 (**/**)
 
 let merge status packages =
+  info "Merging status file";
   let merge_aux p1 p2 =
     if (p1 >% p2) = 0 then begin
       {p1 with
@@ -255,19 +255,36 @@ let merge status packages =
       with Not_found -> Set.add p acc
     ) Set.empty (status @ packages)
   in
-  Set.elements ps
+  Set.elements ps 
+
+let is_installed pkg =
+  try match String.nsplit (assoc "status" pkg.extras) " " with
+    |[_;_;"installed"] -> true
+    | _ -> false
+  with Not_found -> false
+
+let is_on_hold pkg =
+  try match String.nsplit (assoc "status" pkg.extras) " " with
+    |["hold";_;_] -> true
+    | _ -> false
+  with Not_found -> false
 
 let default_extras = [
   ("Status", None);
   ("Size", None);
   ("Installed-Size", None);
+  ("Filename", None);
 ]
 
-(** input_raw [file] : parse a debian Packages file from [file] *)
+(** input_raw [file] : parse a debian Packages file from [file]
+    [~archs] determines which which architectures should be considered while
+    parsing the Packages file. if ~arch is [] then all archs are cosidered 
+*)
 let input_raw ?filter ?(archs=[]) ?(extras=[]) =
   let module M = Format822.RawInput(Set) in
   let extras = default_extras @ extras in
   M.input_raw (parse_packages_in ?filter ~archs ~extras)
+;;
 
 (** input_raw_ch ch : parse a debian Packages file from channel [ch] *)
 let input_raw_ch ?filter ?(archs=[]) ?(extras=[]) =

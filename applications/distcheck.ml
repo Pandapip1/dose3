@@ -75,9 +75,9 @@ let timer = Util.Timer.create "Solver"
 (* (input_format * add_format ?) *)
 let guess_format t l =
   match Filename.basename(Sys.argv.(0)) with
-  |"debcheck"|"dose-debcheck" -> (Url.Deb, true)
-  |"eclipsecheck"|"dose-eclipsecheck" -> (Url.Eclipse, true)
-  |"rpmcheck"|"dose-rpmcheck" -> (Url.Synthesis,true)
+  |"debcheck"|"dose-debcheck" -> (`Deb, true)
+  |"eclipsecheck"|"dose-eclipsecheck" -> (`Eclipse, true)
+  |"rpmcheck"|"dose-rpmcheck" -> (`Synthesis,true)
   |_ when OptParse.Opt.is_set t -> 
       (Url.scheme_of_string (OptParse.Opt.get t),true)
   |_ -> (Input.guess_format [l], false)
@@ -114,19 +114,8 @@ let main () =
   let (preamble,pkgll,from_cudf,to_cudf) = Boilerplate.load_list ~options [fg;bg] in
   let (fg_pkglist, bg_pkglist) = match pkgll with [fg;bg] -> (fg,bg) | _ -> assert false in
   let fg_pkglist = 
-    if OptParse.Opt.get Options.latest then
-      let h = Hashtbl.create (List.length fg_pkglist) in
-      List.iter (fun p ->
-        try
-          let q = Hashtbl.find h p.Cudf.package in
-          if (CudfAdd.compare p q) > 0 then
-            Hashtbl.replace h p.Cudf.package p
-          else ()
-        with Not_found -> Hashtbl.add h p.Cudf.package p
-      ) fg_pkglist;
-      Hashtbl.fold (fun _ v acc -> v::acc) h []
-    else
-      fg_pkglist
+    if OptParse.Opt.get Options.latest then CudfAdd.latest fg_pkglist
+    else fg_pkglist
   in
   let universe = 
     let s = CudfAdd.to_set (fg_pkglist @ bg_pkglist) in
@@ -143,7 +132,7 @@ let main () =
       info "--checkonly specified, consider all packages as background packages";
       List.flatten (
         List.map (fun ((n,a),c) ->
-          let (name,filter) = Boilerplate.debvpkg to_cudf ((n,a),c) in
+          let (name,filter) = Debian.Debutil.debvpkg to_cudf ((n,a),c) in
           Cudf.lookup_packages ~filter universe name
         ) (OptParse.Opt.get Options.checkonly)
       )
@@ -154,21 +143,13 @@ let main () =
     if OptParse.Opt.is_set Options.coinst then begin
       info "--coinst specified, consider all packages as background packages";
       List.map (fun ((n,a),c) ->
-        let (name,filter) = Boilerplate.debvpkg to_cudf ((n,a),c) in
+        let (name,filter) = Debian.Debutil.debvpkg to_cudf ((n,a),c) in
         Cudf.lookup_packages ~filter universe name
       ) (OptParse.Opt.get Options.coinst)
     end else []
   in
+  let pp = CudfAdd.pp from_cudf in
 
-  let pp ?(decode=CudfAdd.decode) pkg =
-    let (p,v) = from_cudf (pkg.Cudf.package,pkg.Cudf.version) in 
-    let l = 
-      List.filter_map (fun k ->
-        try Some(k,decode(Cudf.lookup_package_property pkg k))
-        with Not_found -> None
-      ) ["architecture";"source";"sourcenumber";"essential"]
-    in (decode p,decode v,l)
-  in
   info "Solving..." ;
   let failure = OptParse.Opt.get Options.failures in
   let success = OptParse.Opt.get Options.successes in
@@ -188,7 +169,7 @@ let main () =
   let callback d =
     if summary then Diagnostic.collect results d ;
     let pp =
-      if input_format = Url.Cudf then 
+      if input_format = `Cudf then 
         fun pkg -> pp ~decode:(fun x -> x) pkg 
       else fun pkg -> pp pkg
     in
@@ -199,29 +180,25 @@ let main () =
   let number_broken =
     if OptParse.Opt.is_set Options.coinst then 
       let rl = Depsolver.edos_coinstall_prod universe coinstlist in
-      let number_broken_tuples =
-	List.length (List.filter (fun r -> not (Diagnostic.is_solution r)) rl) 
-      and number_checks = List.length rl
-      in begin
-	ignore(Util.Timer.stop timer ());
-	List.iter callback rl;
-	if failure || success then Format.fprintf fmt "@]@.";
-	Format.fprintf fmt "total-packages: %d@." universe_size;
-	Format.fprintf fmt "total-tuples: %d@." number_checks;
-	Format.fprintf fmt "broken-tuples: %d@." number_broken_tuples;
-	number_broken_tuples
-      end
+      let nbt = List.length (List.filter (fun r -> not (Diagnostic.is_solution r)) rl) in
+      let number_checks = List.length rl in 
+      ignore(Util.Timer.stop timer ());
+      List.iter callback rl;
+      if failure || success then Format.fprintf fmt "@]@.";
+      Format.fprintf fmt "total-packages: %d@." universe_size;
+      Format.fprintf fmt "total-tuples: %d@." number_checks;
+      Format.fprintf fmt "broken-tuples: %d@." nbt;
+      nbt
     else begin 
       let global_constraints = not(OptParse.Opt.get Options.deb_ignore_essential) in
-      let number_broken_packages =
+      let nbp =
 	if OptParse.Opt.is_set Options.checkonly then 
 	  Depsolver.listcheck ~global_constraints ~callback universe checklist
-	else begin
+	else
 	  if bg_pkglist = [] then
             Depsolver.univcheck ~global_constraints ~callback universe 
 	  else
             Depsolver.listcheck ~global_constraints ~callback universe fg_pkglist
-	end
       in
       ignore(Util.Timer.stop timer ());
       
@@ -238,10 +215,14 @@ let main () =
       Format.fprintf fmt "background-packages: %d@." nb;
       Format.fprintf fmt "foreground-packages: %d@." nf;
       Format.fprintf fmt "total-packages: %d@." universe_size;
-      Format.fprintf fmt "broken-packages: %d@." number_broken_packages;
+      (*
+      Format.fprintf fmt "broken-percent: %0.2f%%@." 
+       ( (float_of_int nbp) /.  (float_of_int universe_size) *. 100. ) ;
+      *)
+      Format.fprintf fmt "broken-packages: %d@." nbp;
       if summary then 
 	Format.fprintf fmt "@[%a@]@." (Diagnostic.pp_summary ~pp ()) results;
-      number_broken_packages
+      nbp
     end
       
   in
