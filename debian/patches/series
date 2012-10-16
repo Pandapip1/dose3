@@ -1,4 +1,3 @@
 binaries-prefix-edos
-multiarch-conflicts
 builddebcheck-manpage
 apt-cudf-pinning
