@@ -1,8 +1,10 @@
 dose3 (3.1.1-1) UNRELEASED; urgency=low
 
   * debian/{watch.copyright}: new location of upstream on gforge.inria.fr
+  * dropped patches:
+    - version-3.0.2 since upstream got the version right.
 
- -- Ralf Treinen <treinen@debian.org>  Tue, 16 Oct 2012 07:17:07 +0200
+ -- Ralf Treinen <treinen@debian.org>  Tue, 16 Oct 2012 20:34:34 +0200
 
 dose3 (3.0.2-3) unstable; urgency=low
 
