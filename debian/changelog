@@ -13,8 +13,10 @@ dose3 (3.1.1-1) UNRELEASED; urgency=low
     the build-dependencies.
   * refreshed patch binaries-prefix-edos for the new upstream version
     (closes: #687576).
+  * debian/rules, debian/dose-distcheck.{docs,doc-base} the directory
+    doc/debcheck-primer has been renamed to doc/debcheck.primer
 
- -- Ralf Treinen <treinen@debian.org>  Tue, 16 Oct 2012 20:34:34 +0200
+ -- Ralf Treinen <treinen@debian.org>  Tue, 16 Oct 2012 21:02:18 +0200
 
 dose3 (3.0.2-3) unstable; urgency=low
 
