@@ -3,8 +3,8 @@ Description: all binaries have prefix dose-
 
 Index: dose3/doc/manpages/distcheck.pod
 ===================================================================
---- dose3.orig/doc/manpages/distcheck.pod	2012-06-17 13:03:04.000000000 +0200
-+++ dose3/doc/manpages/distcheck.pod	2012-06-17 13:05:21.000000000 +0200
+--- dose3.orig/doc/manpages/distcheck.pod	2012-10-16 20:45:16.000000000 +0200
++++ dose3/doc/manpages/distcheck.pod	2012-10-16 20:45:18.000000000 +0200
 @@ -1,25 +1,25 @@
  =head1 NAME
  
@@ -96,32 +96,9 @@ Index: dose3/doc/manpages/distcheck.pod
  =cut
 Index: dose3/doc/manpages/buildcheck.pod
 ===================================================================
---- dose3.orig/doc/manpages/buildcheck.pod	2012-05-31 21:24:01.000000000 +0200
-+++ dose3/doc/manpages/buildcheck.pod	2012-06-17 13:05:21.000000000 +0200
-@@ -1,19 +1,19 @@
- =head1 NAME
- 
--dose3-buildcheck - check installability of build-dependencies 
-+dose-buildcheck - check installability of build-dependencies 
- 
- =head1 SYNOPSIS
- 
- =over 
- 
--=item B<dose3-buildcheck> [options] I<binary-repositories> I<source-repository> 
-+=item B<dose-buildcheck> [options] I<binary-repositories> I<source-repository> 
- 
- =back
- =cut
- 
- =head1 DESCRIPTION
- 
--dose3-buildcheck determines, for a set of debian source package control
-+dose-buildcheck determines, for a set of debian source package control
- stanzas, called the source repository, whether a build environment for the
- packages of the source repository can be installed by using packages from the
- binary repository. For this, only package meta-information is taken into
-@@ -102,7 +102,7 @@
+--- dose3.orig/doc/manpages/buildcheck.pod	2012-10-16 20:45:16.000000000 +0200
++++ dose3/doc/manpages/buildcheck.pod	2012-10-16 20:45:18.000000000 +0200
+@@ -125,7 +125,7 @@
  =head1 SEE ALSO
  
  L<B<deb-control>(5)>, 
@@ -132,18 +109,18 @@ Index: dose3/doc/manpages/buildcheck.pod
  <http://www.mancoosi.org> is the home page of the Mancoosi project. 
 Index: dose3/doc/manpages/outdated.pod
 ===================================================================
---- dose3.orig/doc/manpages/outdated.pod	2012-05-31 19:39:17.000000000 +0200
-+++ dose3/doc/manpages/outdated.pod	2012-06-17 13:05:21.000000000 +0200
+--- dose3.orig/doc/manpages/outdated.pod	2012-10-16 20:45:16.000000000 +0200
++++ dose3/doc/manpages/outdated.pod	2012-10-16 20:50:31.000000000 +0200
 @@ -1,16 +1,16 @@
  =head1 NAME
  
 -outdated - detect uninstallable packages due to obsolete dependencies 
-+dose--outdated - detect uninstallable packages due to obsolete dependencies 
++dose-outdated - detect uninstallable packages due to obsolete dependencies 
  
  =head1 SYNOPSIS
  
 -B<outdated> [option] ... I<file> ... 
-+B<dose--outdated> [option] ... I<file> ... 
++B<dose-outdated> [option] ... I<file> ... 
  
  =cut
  
@@ -185,8 +162,8 @@ Index: dose3/doc/manpages/outdated.pod
   
 Index: dose3/doc/manpages/challenged.pod
 ===================================================================
---- dose3.orig/doc/manpages/challenged.pod	2012-06-17 13:03:04.000000000 +0200
-+++ dose3/doc/manpages/challenged.pod	2012-06-17 13:06:17.000000000 +0200
+--- dose3.orig/doc/manpages/challenged.pod	2012-10-16 20:45:16.000000000 +0200
++++ dose3/doc/manpages/challenged.pod	2012-10-16 20:45:18.000000000 +0200
 @@ -1,19 +1,19 @@
  =head1 NAME
  
@@ -248,8 +225,8 @@ Index: dose3/doc/manpages/challenged.pod
  
 Index: dose3/doc/manpages/ceve.pod
 ===================================================================
---- dose3.orig/doc/manpages/ceve.pod	2012-05-31 21:24:01.000000000 +0200
-+++ dose3/doc/manpages/ceve.pod	2012-06-17 13:05:21.000000000 +0200
+--- dose3.orig/doc/manpages/ceve.pod	2012-10-16 20:45:16.000000000 +0200
++++ dose3/doc/manpages/ceve.pod	2012-10-16 20:45:18.000000000 +0200
 @@ -1,18 +1,18 @@
  =head1 NAME
  

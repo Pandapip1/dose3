@@ -1,11 +1,15 @@
 dose3 (3.1.1-1) UNRELEASED; urgency=low
 
+  * New upstream version. This version fixes the invocation of the clean
+    target in doc/ makefiles (closes: #687651).
   * debian/{watch.copyright}: new location of upstream on gforge.inria.fr
   * dropped patches:
     - version-3.0.2 since upstream got the version right.
     - multiarch-conflicts (fixed by upstream)
     - apt-cudf-pinning (fixed by upstream)
     - builddebcheck-manpage (fixed by upstream)
+  * refreshed patch binaries-prefix-edos for the new upstream version
+    (closes: #687576).
 
  -- Ralf Treinen <treinen@debian.org>  Tue, 16 Oct 2012 20:34:34 +0200
 
