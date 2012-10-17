@@ -1,0 +1,17 @@
+Author: Ralf Treinen
+Description: skip generation of html versions of manpages which is broken
+Upstream-bug: https://gforge.inria.fr/tracker/index.php?func=detail&aid=14983&group_id=4395&atid=13808
+
+Index: dose3/doc/manpages/Makefile
+===================================================================
+--- dose3.orig/doc/manpages/Makefile	2012-10-17 12:08:15.000000000 +0200
++++ dose3/doc/manpages/Makefile	2012-10-17 13:21:21.000000000 +0200
+@@ -14,7 +14,7 @@
+ # manpages in HTML to be generated
+ HTMLA = $(patsubst %.pod,%.html,$(PODA))
+ 
+-all: man html
++all: man
+ 
+ man: $(MANA)
+ 

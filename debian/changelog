@@ -15,6 +15,7 @@ dose3 (3.1.2-1) UNRELEASED; urgency=low
     (closes: #687576).
   * debian/rules, debian/dose-distcheck.{docs,doc-base} the directory
     doc/debcheck-primer has been renamed to doc/debcheck.primer
+  * patch doc-makefile-html: do not generate html version of Makefiles
 
  -- Ralf Treinen <treinen@debian.org>  Tue, 16 Oct 2012 21:02:18 +0200
 
