@@ -1,4 +1,4 @@
-dose3 (3.1.1-1) UNRELEASED; urgency=low
+dose3 (3.1.2-1) UNRELEASED; urgency=low
 
   * New upstream version. This version fixes the invocation of the clean
     target in doc/ makefiles (closes: #687651).
