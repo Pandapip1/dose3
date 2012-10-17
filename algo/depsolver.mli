@@ -107,5 +107,16 @@ type enc = Cnf | Dimacs
   *)
 val output_clauses : ?global_constraints:bool -> ?enc:enc -> Cudf.universe -> string
 
-(* check if there exists a solution for the give cudf document *)
-val check_request : Cudf.cudf_doc -> Diagnostic.diagnosis
+type solver_result =
+  |Sat of (Cudf.preamble option * Cudf.universe)
+  |Unsat of Diagnostic.diagnosis option
+  |Error of string
+
+(** [check_request] check if there exists a solution for the give cudf document 
+    if ?cmd is specified, it will be used to call an external cudf solver to
+    satisfy the request.
+    if ?criteria is specified it will be used as optimization criteria. 
+    if ?explain is specified and there is no solution for the give request, the
+    result will contain the failure reason.
+*)
+val check_request : ?cmd : string -> ?criteria : string -> ?explain : bool -> Cudf.cudf -> solver_result
