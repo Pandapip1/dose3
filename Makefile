@@ -1,3 +1,6 @@
+#this is a forward reference to the target all below
+all: all
+
 include Makefile.config
 
 DIST_DIR = $(NAME)-$(VERSION)
@@ -7,16 +10,20 @@ OBFLAGS := -j 10 -classic-display
 #OBFLAGS := $(OBFLAGS) -tag debug -tag profile
 #OBFLAGS := $(OBFLAGS) -classic-display
 
-realall: $(BYTELIBS) $(ALIBS) $(OPTLIBS) $(CMXSLIBS) man
+all: $(CAMLP4CMXS) $(BYTELIBS) $(ALIBS) $(OPTLIBS) $(CMXSLIBS) man
 	$(OCAMLBUILD) $(OBFLAGS) $(TARGETS)
 
-fast: $(OPTLIBS)
+fast: $(CAMLP4CMXS) $(OPTLIBS)
 	$(OCAMLBUILD) $(OBFLAGS) $(TARGETS)
 
 apps:
 	$(OCAMLBUILD) $(OBFLAGS) $(TARGETS)
 
 DOSELIBS = _build/doselibs
+
+camlp4cmxs:
+	mkdir -p _build
+	ocamlopt -shared $(shell ocamlc -where)/camlp4/Camlp4Parsers/Camlp4MacroParser.cmx -o _build/Camlp4MacroParser.cmxs
 
 cudf/cudf.%:
 	$(OCAMLBUILD) $(OBFLAGS) cudf/cudf.$*
@@ -102,34 +109,10 @@ doseparse/boilerplateNoRpm.%:
 	  fi ; \
 	done
 
-POD = $(wildcard doc/manpages/*.pod)
-POD5 = doc/manpages/apt-cudf.conf.pod
-POD8 = doc/manpages/apt-cudf-get.pod
-POD1 = $(filter-out $(POD5) $(POD8),$(POD))
-MAN = $(patsubst %.pod,%.1,$(POD1)) $(patsubst %.pod,%.5,$(POD5)) $(patsubst %.pod,%.8,$(POD8))
-HTML = $(patsubst %.pod,%.html,$(POD))
-
-man: $(MAN)
-html: $(HTML)
-	mkdir -p dose3.docdir/manpages
-	cp doc/manpages/*.html dose3.docdir/manpages
-
-doc/manpages/%.1: doc/manpages/%.pod
-	pod2man --section 1 --center="DOSE Tools" --release "$(NAME) $(VERSION)" doc/manpages/$*.pod > $@
-
-doc/manpages/%.5: doc/manpages/%.pod
-	pod2man --section 5 --center="DOSE Tools" --release "$(NAME) $(VERSION)" doc/manpages/$*.pod > $@
-
-doc/manpages/%.8: doc/manpages/%.pod
-	pod2man --section 8 --center="DOSE Tools" --release "$(NAME) $(VERSION)" doc/manpages/$*.pod > $@
-
-doc/manpages/%.html: doc/manpages/%.pod
-	pod2html doc/manpages/$*.pod > $@
-
 clean:
 	$(OCAMLBUILD) -clean
 	@echo ""
-	rm -f doc/manpages/*.[158] doc/manpages/*.html
+	cd doc && $(MAKE) clean
 
 distclean: clean
 	rm -Rf Makefile.config aclocal.m4 config.log config.status autom4te.cache/
@@ -137,7 +120,6 @@ distclean: clean
 	rm -f common/versionInfo.ml
 	rm -f db/db.mlpack
 	rm -f _tags META
-	rm -f doc/manpages/*.1
 
 $(DOSELIBS)/%:
 	$(OCAMLBUILD) $(OBFLAGS) $*
@@ -215,7 +197,13 @@ credits:
 doc: fast
 	$(OCAMLBUILD) $(OBFLAGS) dose3.docdir/index.html dose3.docdir/index.dot
 	dot -Grotate=0 -Tsvg -o dose3.docdir/index.svg dose3.docdir/index.dot
-	$(MAKE) man
-	$(MAKE) html
+	(cd doc && $(MAKE) all)
 
-.PHONY: all opt clean top-level headers test tags install uninstall dist doc
+man:
+	cd doc/manpages && $(MAKE)
+
+upload: doc
+	(cd doc && $(MAKE) upload)
+	rsync -avz dose3.docdir/ scm.gforge.inria.fr:/home/groups/dose/htdocs/doc/api/
+
+.PHONY: all opt clean top-level headers test tags install uninstall dist doc man

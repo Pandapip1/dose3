@@ -12,6 +12,8 @@
 
 (** Debian Specific Cudf conversion routines *)
 
+module SSet = Set.Make(String)
+
 open ExtLib
 open Common
 open Packages
@@ -20,10 +22,10 @@ include Util.Logging(struct let label = __FILE__ end) ;;
 module SMap = Map.Make (String)
 
 type tables = {
-  virtual_table : unit Util.StringHashtbl.t;
-  unit_table : unit Util.StringHashtbl.t ;
-  versions_table : int Util.StringHashtbl.t;
-  versioned_table : unit Util.StringHashtbl.t;
+  virtual_table : SSet.t ref Util.StringHashtbl.t;   (** all names of virtual packages *)
+  unit_table : unit Util.StringHashtbl.t ;     (** all names of real packages    *)
+  versions_table : int Util.StringHashtbl.t;   (** version -> int table          *)
+  versioned_table : unit Util.StringHashtbl.t; (** all (versions,name) tuples    *)
   reverse_table : (string SMap.t) ref Util.IntHashtbl.t
 }
 
@@ -44,19 +46,17 @@ type extramap = (string * (string * Cudf_types.typedecl1)) list
 
 type options = {
   extras_opt : extramap ;
-  native : string;
-  host : string;
-  build : string;
-  foreign : string list ;
+  native : string;        (* the native architecture *)
+  foreign : string list ; (* list of foreign architectures *)
+  target : string;        (* the target architecture - cross compile *)
   ignore_essential : bool;
 }
 
 let default_options = {
   extras_opt = [] ;
   native = "";
-  build = "";   (* the default architecture 'dpkg -print-architecture' *)
-  host = "";    (* used to resolv cross dependencies *)
-  foreign = []; (* list of foreign architectures *)
+  foreign = [];
+  target = "";
   ignore_essential = false
 }
 
@@ -71,6 +71,7 @@ let add_name_arch a n = CudfAdd.encode (Printf.sprintf "%s:%s" n a)
    of the package we are considering *)
 let add_arch native_arch package_arch = function
   |name when String.ends_with name ":any" -> (CudfAdd.encode name)
+  |name when String.ends_with name ":native" -> add_name_arch (String.slice ~last:(-7) name) native_arch
   |name when package_arch = "all" -> add_name_arch name native_arch
   |name -> add_name_arch name package_arch
 
@@ -93,9 +94,14 @@ let add_v table k v =
   if not(Hashtbl.mem table k) then
     Hashtbl.add table k v
 
+let add_s h k v =
+  try let s = Util.StringHashtbl.find h k in s := SSet.add v !s
+  with Not_found -> Util.StringHashtbl.add h k (ref (SSet.singleton v))
+;;
+
 (* collect names of virtual packages *)
 let init_virtual_table table pkg =
-  List.iter (fun ((name,_),_) -> add table name ()) pkg.provides
+  List.iter (fun ((name,_),_) -> add_s table name pkg.name) pkg.provides
 
 (* collect names of real packages *)
 let init_unit_table table pkg = 
@@ -111,8 +117,7 @@ let init_versioned_table table pkg =
   cnf_iter pkg.depends
 ;;
 
-(* collect all versions mentioned anywhere in the universe, including source
-   fields *)
+(* collect all versions mentioned anywhere in the universe, including source fields *)
 let init_versions_table table pkg =
   let conj_iter l =
     List.iter (fun ((name,_),sel) ->
@@ -141,8 +146,9 @@ let init_tables ?(step=1) ?(versionlist=[]) pkglist =
   let n = List.length pkglist in
   let tables = create n in 
   let temp_versions_table = Hashtbl.create (10 * n) in
-  let ivt = init_versions_table temp_versions_table in
   let ivrt = init_virtual_table tables.virtual_table in
+  (* XXX init_versions_table and init_versioned_table can be done at the same time !!! *)
+  let ivt = init_versions_table temp_versions_table in
   let ivdt = init_versioned_table tables.versioned_table in
   let iut = init_unit_table tables.unit_table in
 
@@ -205,10 +211,13 @@ let get_real_version tables (name,cudfversion) =
   with Not_found ->
     fatal "Package (%s,%d) does not have an associated debian version" name cudfversion
 
-let loadl tables l =
+let loadl ?(enc=false) tables l =
   List.flatten (
-    List.map (fun ((name,_),sel) ->
-      let encname = (* CudfAdd.encode *) name in
+    List.map (fun ((name,aop),sel) ->
+      let encname = 
+        let n = match aop with Some a -> name^":"^a | None -> name in
+        if enc then CudfAdd.encode n else n
+      in
       match CudfAdd.cudfop sel with
       |None ->
           if (Util.StringHashtbl.mem tables.virtual_table name) &&
@@ -221,13 +230,17 @@ let loadl tables l =
     ) l
   )
 
+let loadll ?(enc=false) tables ll = List.map (loadl ~enc tables) ll
+
 (* we add a self conflict here, because in debian each package is in conflict
    with all other versions of the same package *)
-let loadlc tables name l = (CudfAdd.encode name, None)::(loadl tables l)
+let loadlc ?(enc=false) tables name l =
+  let sc = if enc then (CudfAdd.encode name, None) else (name, None) in
+  sc::(loadl ~enc tables l)
 
-let loadlp tables l =
+let loadlp ?(enc=false) tables l =
   List.map (fun ((name,_),sel) ->
-    let encname = CudfAdd.encode name in
+    let encname = if enc then CudfAdd.encode name else name in
     match CudfAdd.cudfop sel with
     |None  ->
         if (Util.StringHashtbl.mem tables.unit_table name) || 
@@ -242,12 +255,12 @@ let loadlp tables l =
     |_ -> fatal "This should never happen : a provide can be either = or unversioned"
   ) l
 
-let loadll tables ll = List.map (loadl tables) ll
 
 (* ========================================= *)
 
 let preamble = 
   (* number is a mandatory property -- no default *)
+  (* type a mandatory property -- no default *)
   let l = [
     ("replaces",(`Vpkglist (Some [])));
     ("recommends",(`Vpkgformula (Some [])));
@@ -259,6 +272,8 @@ let preamble =
     ("sourceversion",(`Int (Some 1))) ;
     ("essential",(`Bool (Some false))) ;
     ("buildessential",(`Bool (Some false))) ;
+    ("filename",(`String (Some "")));
+    ("type",(`String None));
     ]
   in
   CudfAdd.add_properties Cudf.default_preamble l
@@ -279,6 +294,13 @@ let add_extra_default extras tables pkg =
     let cv = get_cudf_version tables ("",v) in
     ("source",`String n), ("sourcenumber", `String v), ("sourceversion", `Int cv)
   in
+  let recommends = ("recommends", `Vpkgformula (loadll tables pkg.recommends)) in
+  let replaces = ("replaces", `Vpkglist (loadl tables pkg.replaces)) in
+  let extras = 
+    ("Type",("type",`String None))::
+      ("Filename",("filename",`String None))::
+        extras 
+  in
   let l =
     List.filter_map (fun (debprop, (cudfprop,v)) ->
       try 
@@ -288,8 +310,6 @@ let add_extra_default extras tables pkg =
       with Not_found -> None
     ) extras
   in
-  let recommends = ("recommends", `Vpkgformula (loadll tables pkg.recommends)) in
-  let replaces = ("replaces", `Vpkglist (loadl tables pkg.replaces)) in
   List.filter_map (function
     |(_,`Vpkglist []) -> None
     |(_,`Vpkgformula []) -> None
@@ -302,68 +322,159 @@ let add_extra_default extras tables pkg =
   essential;build_essential]@ l
 ;;
 
-let add_essential = function
-  |false -> `Keep_none
-  |true -> `Keep_package
+let set_keep pkg =
+  match pkg.essential,Packages.is_on_hold pkg with
+  |_,true -> `Keep_version
+  |true,_ -> `Keep_package
+  |false,_ -> `Keep_none
+;;
 
 let add_inst inst pkg =
   if inst then true 
-  else
-    try
-      match String.nsplit (Packages.assoc "status" pkg.extras) " " with
-      |[_;_;"installed"] -> true
-      | _ -> false
-    with Not_found -> false
+  else Packages.is_installed pkg
 
 let add_extra extras tables pkg =
   add_extra_default extras tables pkg
 
 let tocudf tables ?(options=default_options) ?(inst=false) pkg =
+  let bind m f = List.flatten (List.map f m) in
   if options.native <> "" then begin
-    let _name = add_arch options.native pkg.architecture pkg.name in
-    let version = get_cudf_version tables (pkg.name,pkg.version)  in
+    let pkgarch =
+      match options.target,Sources.is_source pkg with
+      |"",true -> options.native   (* source package : build deps on the native arch *)
+      |_,true  -> options.target   (* source package : build deps on the cross arch *)
+      |_,false -> pkg.architecture (* binary package : dependencies are package specific *)
+    in
+    let _name = 
+      (* if the package is a source package the name does not need an
+       * architecture annotation. Nobody depends on it *)
+      if Sources.is_source pkg then (CudfAdd.encode pkg.name) 
+      else add_arch options.native pkgarch pkg.name 
+    in
+    let _version = get_cudf_version tables (pkg.name,pkg.version)  in
     let _provides = 
-      let l = 
+      let archlessprovide = (CudfAdd.encode pkg.name,None) in
+      let multiarchprovides = 
         match pkg.multiarch with
-        |`None -> [(CudfAdd.encode pkg.name,None)]
-        |`Foreign -> List.map (fun arch -> (add_arch options.native arch pkg.name,Some(`Eq,version))) options.foreign
-        |`Allowed -> [(CudfAdd.encode pkg.name,None) ; (CudfAdd.encode (pkg.name^":any"),None)]
-        |`Same -> []
-      in
-      l@(add_arch_l options.native pkg.architecture (loadlp tables pkg.provides))
+        |`None ->
+           (* pkgarch provides *)
+             (add_arch_l options.native pkgarch (loadlp tables pkg.provides))
+        |`Foreign ->
+           (* packages of same name and version of itself in all archs except its own
+              each package this package provides is provided in all arches *)
+           bind (options.native::options.foreign) (function
+                |arch when arch = pkgarch ->
+                    (add_arch_l options.native arch (loadlp tables pkg.provides))
+                |arch ->
+                    (add_arch options.native arch pkg.name,Some(`Eq,_version)) ::
+                      (add_arch_l options.native arch (loadlp tables pkg.provides))
+              )
+        |`Allowed ->
+           (* archless package and arch: any package *)
+           (* all provides as arch: any *)
+           (* pkgarch provides *)
+           let any = (CudfAdd.encode (pkg.name^":any"),None) in
+           let l = 
+             bind (loadlp tables pkg.provides) (fun (name, c) ->
+               [(CudfAdd.encode (name^":any"), c);
+               ((add_arch options.native pkgarch name),c)]
+             )
+           in any::l
+        |`Same ->
+           (add_arch_l options.native pkgarch (loadlp tables pkg.provides))
+      in archlessprovide :: multiarchprovides
     in
     let _conflicts = 
-      (* self conflict / multi-arch conflict *)
-      let sc = (add_arch options.native pkg.architecture pkg.name,None) in
-      let mac = (CudfAdd.encode pkg.name,None) in
-      let l = pkg.breaks @ pkg.conflicts in
-      match pkg.multiarch with
-      |(`None|`Foreign|`Allowed) -> 
-          sc::mac::(add_arch_l options.native pkg.architecture (loadl tables l))
-      |`Same -> sc::(add_arch_l options.native pkg.architecture (loadl tables l))
+      let originalconflicts = pkg.breaks @ pkg.conflicts in
+      (* self conflict *)
+      let sc = (add_arch options.native pkgarch pkg.name,None) in
+      let multiarchconstraints = 
+        match pkg.multiarch with
+        |(`None|`Foreign|`Allowed) -> 
+            (* conflict with all other packages with differents archs *)
+            let mac = (CudfAdd.encode pkg.name,None) in
+            [sc; mac] 
+        |`Same -> 
+            (* conflict with packages of same name but different arch and version*)
+            let masc =
+              List.filter_map (function
+                |arch when arch = pkgarch -> None
+                |arch -> Some(add_arch options.native arch pkg.name,Some(`Neq,_version))
+              ) (options.native::options.foreign)
+            in
+            sc :: masc 
+      in
+      let multiarchconflicts =
+        match pkg.multiarch with
+        |(`None|`Foreign|`Allowed) -> 
+            bind (options.native::options.foreign) (fun arch ->
+                add_arch_l options.native arch (loadl tables originalconflicts)
+              )
+        |`Same -> 
+            bind (options.native::options.foreign) (fun arch ->
+              let l =
+                bind originalconflicts (fun ((n,a),c) ->
+                   try
+                     List.filter_map (fun pn ->
+                       if pn <> pkg.name then Some((pn,a),c) else None
+                     ) (SSet.elements !(Util.StringHashtbl.find tables.virtual_table n))
+                   with Not_found -> if n <> pkg.name then [((n,a),c)] else []
+                )
+              in
+              add_arch_l options.native arch (loadl tables l)
+            )
+      in
+      multiarchconflicts @ multiarchconstraints
     in
     let _depends = 
-      List.map (add_arch_l options.native pkg.architecture) 
+      List.map (add_arch_l options.native pkgarch) 
       (loadll tables (pkg.pre_depends @ pkg.depends))
+    in
+    (* XXX: if ignore essential for the moment we also ignore keep *)
+    let _keep =
+      if options.ignore_essential then
+        `Keep_none
+      else if (pkgarch <> options.native && pkgarch <> "all") then
+        `Keep_none
+      else
+        set_keep pkg
     in
     { Cudf.default_package with
       Cudf.package = _name ;
-      Cudf.version = get_cudf_version tables (pkg.name,pkg.version) ;
-      Cudf.keep = if options.ignore_essential then `Keep_none else add_essential pkg.essential;
-      Cudf.depends = _depends;
+      Cudf.version = _version ;
+      Cudf.keep = _keep ;
+      Cudf.depends = _depends ;
       Cudf.conflicts = _conflicts ;
       Cudf.provides = _provides ;
-      Cudf.installed = add_inst inst pkg;
+      Cudf.installed = add_inst inst pkg ;
       Cudf.pkg_extra = add_extra options.extras_opt tables pkg ;
     }
   end else
+    (* :any and :native are not yet allowed in the Debian archive because of
+     * wanna-build not supporting it but at least :native is required to be
+     * removed because of build-essential:native
+     * :any and :native can safely be removed as only packages of native
+     * architecture are considered here anyways
+     * XXX : in the future, dependencies on :$arch will be introduced (for example
+     * for building cross compilers) they have to be handled here as well *)
+    (* XXX : hack I should look for : and not 3%a . encoding should be done
+     * after *)
+    let remove_qualifier = function
+      | n,v when String.ends_with n "%3anative" -> String.slice ~last:(-9) n, v
+      | n,v when String.ends_with n "%3aany" -> String.slice ~last:(-6) n, v
+      | n,v -> n, v
+    in
+    let _depends =
+      List.map (List.map remove_qualifier)
+      (loadll ~enc:true tables (pkg.pre_depends @ pkg.depends))
+    in
     { Cudf.default_package with
       Cudf.package = CudfAdd.encode pkg.name ;
       Cudf.version = get_cudf_version tables (pkg.name,pkg.version) ;
-      Cudf.keep = if options.ignore_essential then `Keep_none else add_essential pkg.essential;
-      Cudf.depends = loadll tables (pkg.pre_depends @ pkg.depends);
-      Cudf.conflicts = loadlc tables pkg.name (pkg.breaks @ pkg.conflicts) ;
-      Cudf.provides = loadlp tables pkg.provides ;
+      Cudf.keep = if options.ignore_essential then `Keep_none else set_keep pkg;
+      Cudf.depends = _depends;
+      Cudf.conflicts = loadlc ~enc:true tables pkg.name (pkg.breaks @ pkg.conflicts) ;
+      Cudf.provides = loadlp ~enc:true tables pkg.provides ;
       Cudf.installed = add_inst inst pkg;
       Cudf.pkg_extra = add_extra options.extras_opt tables pkg ;
     }

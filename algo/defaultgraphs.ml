@@ -131,8 +131,14 @@ module SyntacticDependencyGraph = struct
     end
 
   (** Graphviz outoput module *)
-  module D = Graph.Graphviz.Dot(Display) 
+  module DotPrinter = Graph.Graphviz.Dot(Display) 
   module S = Set.Make(PkgV)
+
+  module GmlPrinter = Gml.Print (G) (
+    struct
+       let node (v: G.V.label) = []
+       let edge (e: G.E.label) = []
+     end)
 
   let depgraphbar = Util.Progress.create "SyntacticDependencyGraph.dependency_graph"
 
@@ -187,9 +193,8 @@ end
 (** Imperative unidirectional graph for conflicts. *)
 (* Note: ConcreteBidirectionalLabelled graphs are slower and we do not use them
  * here *)
-module MakePackageGraph(V : Sig.COMPARABLE with type t = Cudf.package )= struct
+module MakePackageGraph(PkgV : Sig.COMPARABLE with type t = Cudf.package )= struct
 
-  module PkgV = V
   module G = Imperative.Digraph.ConcreteBidirectional(PkgV)
   module UG = Imperative.Graph.Concrete(PkgV)
   module O = GraphOper(G)
@@ -206,12 +211,20 @@ module MakePackageGraph(V : Sig.COMPARABLE with type t = Cudf.package )= struct
       let default_edge_attributes = fun _ -> []
       let default_vertex_attributes = fun _ -> []
 
-      let vertex_attributes v = []
+      let vertex_attributes p =
+        if p.Cudf.installed then [ `Color 0x00FF00 ] else []
 
       let edge_attributes e = []
     end
   module Display = DisplayF(G)
-  module D = Graph.Graphviz.Dot(Display)
+  module DotPrinter = Graph.Graphviz.Dot(Display)
+
+  module GmlPrinter = Gml.Print (G) (
+    struct
+       let node (v: G.V.label) = []
+       let edge (e: G.E.label) = []
+     end
+  )
 
   (* Maintenance Of Transitive Closures And Transitive Reductions Of Graphs *)
   (* J.A. La Poutre and J. van Leeuwen *)
@@ -413,7 +426,7 @@ module MakePackageGraph(V : Sig.COMPARABLE with type t = Cudf.package )= struct
       let f = Option.get dot in
       debug "Saving dot graph in %s\n" f ;
       let oc = open_out f in
-      D.output_graph oc pkggraph;
+      DotPrinter.output_graph oc pkggraph;
       close_out oc
     end 
 
@@ -486,7 +499,7 @@ module IntPkgGraph = struct
       let edge_attributes e = []
     end
 
-  module D = Graph.Graphviz.Dot(Display)
+  module DotPrinter = Graph.Graphviz.Dot(Display)
 
   module DIn = Dot.Parse (Builder.I(G))(
     struct
@@ -496,6 +509,13 @@ module IntPkgGraph = struct
         |_ -> assert false
       let edge _ = ()
     end
+  )
+
+  module GmlPrinter = Gml.Print (G) (
+    struct
+       let node (v: G.V.label) = []
+       let edge (e: G.E.label) = []
+     end
   )
 
   let add_edge transitive graph i j =
@@ -600,7 +620,7 @@ module IntPkgGraph = struct
       end
     done;
     graph
-;;
+  ;;
 
   let load pkglist filename =
     let timer = Util.Timer.create "Defaultgraph.StrongDepGraph.load" in

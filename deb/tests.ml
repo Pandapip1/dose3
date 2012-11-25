@@ -421,7 +421,28 @@ let test_evolution =
 
 let test_multiarch = 
   "test multiarch" >::: [
-    "" >:: (fun _ -> ());
+    "multi arch same provide-conflicts" >:: (fun _ -> 
+      (*
+      let f = Filename.concat test_dir "deb/edsp/multiarch-same-provides.edsp" in
+      let (request,pkglist) = Edsp.input_raw ~archs:["arch1";"arch2"] f in
+      let tables = Debcudf.init_tables pkglist in
+      let options = {
+        Debcudf.default_options with
+        Debcudf.native = "arch1";
+        Debcudf.foreign = ["arch2"] }
+      in
+      let default_preamble =
+        let l = List.map snd Edsp.extras_tocudf in
+        CudfAdd.add_properties Debcudf.preamble l
+      in
+      let cudf_pkglist = List.map (fun pkg -> Edsp.tocudf tables ~options pkg) pkglist in
+      let universe = Cudf.load_universe cudf_pkglist in
+      let cudf_request = Edsp.requesttocudf tables universe request in
+      let r = Algo.Depsolver.check_request (Some default_preamble,cudf_pkglist,cudf_request) in
+      assert_equal (Algo.Diagnostic.is_solution r) true
+      *) 
+      ()
+    );
   ] 
 ;;
 
@@ -669,7 +690,119 @@ let test_parsing =
     "test_parse_pin"          >::: make_test_cases parse_pin_triplets;
   ]
 
+let select_deps =
+  let function_to_test = (fun (archs,profile,dep) -> Sources.select archs profile dep) in
+  let returns = returns_result function_to_test in
+  (* testname archlist profilename     pkg    archlist           profilelist           return *)
+  [ ("00", ("amd64", None,          ("foo", [],                [])),                 returns (Some "foo"));
+    ("01", ("amd64", None,          ("foo", [],                [(true,"stage1")])),  returns None);
+    ("02", ("amd64", None,          ("foo", [],                [(false,"stage1")])), returns (Some "foo"));
+    ("03", ("amd64", None,          ("foo", [(true,"amd64")],  [])),                 returns (Some "foo"));
+    ("04", ("amd64", None,          ("foo", [(true,"amd64")],  [(true,"stage1")])),  returns None);
+    ("05", ("amd64", None,          ("foo", [(true,"amd64")],  [(false,"stage1")])), returns (Some "foo"));
+    ("06", ("amd64", None,          ("foo", [(false,"amd64")], [])),                 returns None);
+    ("07", ("amd64", None,          ("foo", [(false,"amd64")], [(true,"stage1")])),  returns None);
+    ("08", ("amd64", None,          ("foo", [(false,"amd64")], [(false,"stage1")])), returns None);
+    ("09", ("amd64", Some "stage1", ("foo", [],                [])),                 returns (Some "foo"));
+    ("10", ("amd64", Some "stage1", ("foo", [],                [(true,"stage1")])),  returns (Some "foo"));
+    ("11", ("amd64", Some "stage1", ("foo", [],                [(false,"stage1")])), returns None);
+    ("12", ("amd64", Some "stage1", ("foo", [(true,"amd64")],  [])),                 returns (Some "foo"));
+    ("13", ("amd64", Some "stage1", ("foo", [(true,"amd64")],  [(true,"stage1")])),  returns (Some "foo"));
+    ("14", ("amd64", Some "stage1", ("foo", [(true,"amd64")],  [(false,"stage1")])), returns None);
+    ("15", ("amd64", Some "stage1", ("foo", [(false,"amd64")], [])),                 returns None);
+    ("16", ("amd64", Some "stage1", ("foo", [(false,"amd64")], [(true,"stage1")])),  returns None);
+    ("17", ("amd64", Some "stage1", ("foo", [(false,"amd64")], [(false,"stage1")])), returns None);
+    ("18", ("i386",  None,          ("foo", [],                [])),                 returns (Some "foo"));
+    ("19", ("i386",  None,          ("foo", [],                [(true,"stage1")])),  returns None);
+    ("20", ("i386",  None,          ("foo", [],                [(false,"stage1")])), returns (Some "foo"));
+    ("21", ("i386",  None,          ("foo", [(true,"amd64")],  [])),                 returns None);
+    ("22", ("i386",  None,          ("foo", [(true,"amd64")],  [(true,"stage1")])),  returns None);
+    ("23", ("i386",  None,          ("foo", [(true,"amd64")],  [(false,"stage1")])), returns None);
+    ("24", ("i386",  None,          ("foo", [(false,"amd64")], [])),                 returns (Some "foo"));
+    ("25", ("i386",  None,          ("foo", [(false,"amd64")], [(true,"stage1")])),  returns None);
+    ("26", ("i386",  None,          ("foo", [(false,"amd64")], [(false,"stage1")])), returns (Some "foo"));
+    ("27", ("i386",  Some "stage1", ("foo", [],                [])),                 returns (Some "foo"));
+    ("28", ("i386",  Some "stage1", ("foo", [],                [(true,"stage1")])),  returns (Some "foo"));
+    ("29", ("i386",  Some "stage1", ("foo", [],                [(false,"stage1")])), returns None);
+    ("30", ("i386",  Some "stage1", ("foo", [(true,"amd64")],  [])),                 returns None);
+    ("31", ("i386",  Some "stage1", ("foo", [(true,"amd64")],  [(true,"stage1")])),  returns None);
+    ("32", ("i386",  Some "stage1", ("foo", [(true,"amd64")],  [(false,"stage1")])), returns None);
+    ("33", ("i386",  Some "stage1", ("foo", [(false,"amd64")], [])),                 returns (Some "foo"));
+    ("34", ("i386",  Some "stage1", ("foo", [(false,"amd64")], [(true,"stage1")])),  returns (Some "foo"));
+    ("35", ("i386",  Some "stage1", ("foo", [(false,"amd64")], [(false,"stage1")])), returns None);
+  ]
 
+let test_sources_input = "
+Package: source1
+Version: 0.1-1
+Architecture: any
+Build-Depends: bin1, bin2:any, bin3:native
+
+Package: source2
+Version: 0.1-1
+Architecture: any
+Build-Depends: bin1 [amd64] <!stage1>, bin2 | bin3 <stage1>, bin4 [!amd64] <!stage1>
+
+Package: source3
+Version: 0.1-1
+Architecture: any
+Build-Depends: bin1, bin2
+Build-Depends-Indep: bin3
+"
+;;
+
+let test_sources2packages =
+  let data = IO.input_string test_sources_input in
+  let packagelist = Sources.parse_sources_in "" data in
+  let builddeparch = "amd64" in
+  let sources = Sources.sources2packages ~profiles:true builddeparch packagelist in
+  let function_to_test src =
+    let src = List.find (fun s -> s.Packages.name = src) sources in
+    src.Packages.depends
+  in
+  let returns = returns_result function_to_test in
+  [
+    (
+      "any/native", "src:source1", returns [
+        [(("build-essential", Some "native"), None)];
+        [(("bin1", None), None)];
+        [(("bin2", Some "any"), None)];
+        [(("bin3", Some "native"), None)]
+      ]
+    );
+    (
+      "default", "src:source2", returns [
+        [(("build-essential", Some "native"), None)];
+        [(("bin1", None), None)];
+        [(("bin2", None), None)]
+      ]
+    );
+    (
+      "stage1", "src-stage1:source2", returns [
+        [(("build-essential", Some "native"), None)];
+        [
+          (("bin2", None), None);
+          (("bin3", None), None)
+        ]
+      ]
+    );
+    (
+      "indep", "src:source3", returns [
+        [(("build-essential", Some "native"), None)];
+        [(("bin3", Some "native"), None)];
+        [(("bin1",None), None)];
+        [(("bin2",None), None)]
+      ]
+    )
+  ]
+;;
+
+let test_sources =
+  "test_sources" >::: [
+    "test select" >::: make_test_cases select_deps;
+    "test sources2packages" >::: make_test_cases test_sources2packages;
+  ]
+;;
 
 let all = 
   "all tests" >::: [ 
@@ -680,7 +813,8 @@ let all =
     test_cluster;
     test_evolution;
     test_version_comparison;
-    test_architecture_matching
+    test_architecture_matching;
+    test_sources
   ]
 
 let main () =

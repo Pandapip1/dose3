@@ -251,3 +251,27 @@ let cudfop = function
   |Some("ALL",v) -> None
   |None -> None
   |Some(c,v) -> fatal "%s %s" c v
+
+let latest pkglist =
+  let h = Hashtbl.create (List.length pkglist) in
+  List.iter (fun p ->
+    try
+      let q = Hashtbl.find h p.Cudf.package in
+      if (compare p q) > 0 then
+        Hashtbl.replace h p.Cudf.package p
+      else ()
+    with Not_found -> Hashtbl.add h p.Cudf.package p
+  ) pkglist;
+  Hashtbl.fold (fun _ v acc -> v::acc) h []
+;;
+
+let pp from_cudf ?(decode=decode) pkg =
+  let (p,i) = (pkg.Cudf.package,pkg.Cudf.version) in
+  let v = if i > 0 then snd(from_cudf (p,i)) else "nan" in
+  let l =
+    List.filter_map (fun k ->
+      try Some(k,decode(Cudf.lookup_package_property pkg k))
+      with Not_found -> None
+    ) ["architecture";"source";"sourcenumber";"essential"]
+  in (decode p,decode v,l)
+;;

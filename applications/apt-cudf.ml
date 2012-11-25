@@ -32,7 +32,7 @@ module Options = struct
   let explain = StdOpt.store_true ()
   let conffile = StdOpt.str_option ~default:"/etc/apt-cudf.conf" ()
   let native_arch = StdOpt.str_option ()
-  let foreign_arch = Boilerplate.str_list_option ()
+  let foreign_archs = Boilerplate.str_list_option ()
 
   open OptParser
   add options ~long_name:"conf" ~help:"configuration file (default:/etc/apt-cudf.conf)" conffile;
@@ -43,13 +43,14 @@ module Options = struct
   add options ~short_name:'e' ~long_name:"explain" ~help:"summary" explain;
 
   add options ~long_name:"native-arch" ~help:"Native architecture" native_arch;
-  add options ~long_name:"foreign-archs" ~help:"Foreign architectures" foreign_arch;
+  add options ~long_name:"foreign-archs" ~help:"Foreign architectures" foreign_archs;
 
 end
 
-let print_error fmt =
-  Printf.kprintf (fun s -> 
-    Format.printf "Error: %s@." (Util.timestamp ());
+let fatal fmt =
+  Printf.kprintf (fun s ->
+    Format.printf "Error: %s (%s)@." 
+      (OptParse.Opt.get Options.solver) (OptParse.Opt.get Options.criteria) ;
     Format.printf "Message: %s@." s;
     exit 0
   ) fmt
@@ -63,59 +64,19 @@ let print_progress ?i msg =
     Format.printf "Message: %s@." msg
 ;;
 
-let make_request tables universe native_arch request = 
-  let to_cudf (p,v) = (p,Debian.Debcudf.get_cudf_version tables (p,v)) in
-  let select_packages ?(remove=false) l = 
-    List.map (fun ((n,a),c) -> 
-      let (name,constr) = Boilerplate.debvpkg ~native_arch to_cudf ((n,a),c) in
-      let candidate = 
-        try
-          List.find (fun pkg ->
-            if request.Edsp.strict_pin then
-              try (Cudf.lookup_package_property pkg "apt-candidate") = "true"
-              with Not_found -> false
-            else
-              true
-          ) (CudfAdd.who_provides universe (name,constr))
-        with Not_found -> 
-          print_error "Package %s does not have a suitable candidate" n
-      in
-      if remove then
-        (candidate.Cudf.package,None)
-      else
-        (candidate.Cudf.package,Some(`Eq,candidate.Cudf.version))
-    ) l 
-  in
-  if request.Edsp.upgrade || request.Edsp.distupgrade then
-    let to_upgrade = function
-      |[] ->
-        let filter pkg = pkg.Cudf.installed in
-        let l = Cudf.get_packages ~filter universe in
-        List.map (fun pkg -> (pkg.Cudf.package,None)) l
-      |l -> select_packages l
-    in
-    {Cudf.default_request with 
-    Cudf.request_id = request.Edsp.request;
-    Cudf.upgrade = to_upgrade request.Edsp.install;
-    Cudf.remove = select_packages ~remove:true request.Edsp.remove;
-    }
-  else
-    {Cudf.default_request with
-    Cudf.request_id = request.Edsp.request;
-    Cudf.install = select_packages request.Edsp.install;
-    Cudf.remove = select_packages ~remove:true request.Edsp.remove;
-    }
-;;
-
 let rec input_all_lines acc chan =
   try input_all_lines ((input_line chan)::acc) chan
   with End_of_file -> acc
 
 let solver_dir = 
-  try Sys.getenv("CUDFSOLVERS") with Not_found -> "/usr/share/cudf/solvers"
+  try Sys.getenv("CUDFSOLVERS") 
+  with Not_found -> "/usr/share/cudf/solvers"
+;;
 
 let apt_get_cmdline = 
-  try Sys.getenv("APT_GET_CUDF_CMDLINE") with Not_found -> ""
+  try Sys.getenv("APT_GET_CUDF_CMDLINE")
+  with Not_found -> ""
+;;
 
 let pp_pkg fmt (s,univ) = 
   try
@@ -126,7 +87,7 @@ let pp_pkg fmt (s,univ) =
     Format.fprintf fmt "Package: %s\n" pkg.Packages.name;
     Format.fprintf fmt "Version: %s\n" pkg.Packages.version;
     Format.fprintf fmt "Architecture: %s\n" pkg.Packages.architecture;
-  with Not_found -> print_error "apt-cudf internal error"
+  with Not_found -> fatal "apt-cudf internal error"
 ;;
 
 let pp_pkg_list fmt (l,univ) =
@@ -141,7 +102,7 @@ let pp_pkg_list fmt (l,univ) =
         pkg.Packages.architecture
       ) l)
     )
-  with Not_found -> print_error "apt-cudf internal error"
+  with Not_found -> fatal "apt-cudf internal error"
 ;;
 
 let pp_pkg_list_tran fmt (l,univ) = pp_pkg_list fmt (List.map snd l,univ) ;;
@@ -233,107 +194,64 @@ let parse_solver_spec filename =
     done;
     close_in ic
     with
-      | Sys_error _ -> print_error "cannot parse CUDF solver specification %s" filename
+      | Sys_error _ -> fatal "cannot parse CUDF solver specification %s" filename
       | End_of_file -> ()
       | Scanf.Scan_failure err ->
-        print_error "parse error while reading CUDF solver specification %s: %s"
+        fatal "parse error while reading CUDF solver specification %s: %s"
 	  filename err
   end;
   if !exec = "" || !version = "" then
-    print_error "incomplete CUDF solver specification %s" filename;
+    fatal "incomplete CUDF solver specification %s" filename;
   if not (String.exists !exec "$in" && String.exists !exec "$out"
           && String.exists !exec "$pref") then
-    print_error
+    fatal
       "Incomplete solver specification %s: one or more of $in, $out, $pref is missing in exec line"
       filename;
   (!exec,!version)
-;;
-
-let check_fail file =
-  let ic = open_in file in
-  try begin
-    let l = input_line ic in
-    try (close_in ic ; l = "FAIL")
-    with Scanf.Scan_failure _ -> (close_in ic ; false)
-  end with End_of_file -> (close_in ic ; false)
-
-(** see mktemp(1) for the syntax of [tmp_pattern] *)
-let mktmpdir tmp_pattern =
-  let ic =
-    Unix.open_process_in (Printf.sprintf "mktemp --tmpdir -d %s" tmp_pattern) in
-  let path = input_line ic in
-  ignore (Unix.close_process_in ic);
-  path
-
-(* XXX this function scares me... what if I manage to create a path = "/" *)
-let rmtmpdir path =
-  if String.exists path "apt-cudf" then (* safe guard, sort of *)
-    ignore (Unix.system (Printf.sprintf "rm -rf %s" path))
-
-let check_exit_status = function
-  | Unix.WEXITED 0 -> ()
-  | Unix.WEXITED r -> warning "warning: the process terminated with exit code (%d)\n%!" r
-  | Unix.WSIGNALED n -> warning "warning: the process was killed by a signal (number: %d)\n%!" n
-  | Unix.WSTOPPED n -> warning "warning: the process was stopped by a signal (number: %d)\n%!" n
-;;
-
-let syscall ?(env=[| |]) cmd =
-  let ic, oc, ec = Unix.open_process_full cmd env in
-  let buf1 = Buffer.create 96
-  and buf2 = Buffer.create 48 in
-  (try
-     while true do Buffer.add_channel buf1 ic 1 done
-   with End_of_file -> ());
-  (try
-     while true do Buffer.add_channel buf2 ec 1 done
-   with End_of_file -> ());
-  let exit_status = Unix.close_process_full (ic, oc, ec) in
-  check_exit_status exit_status;
-  (Buffer.contents buf1,
-   Buffer.contents buf2)
 ;;
 
 let get_architectures native_opt foreign =
   let cmd = "apt-config dump" in
   let arch = ref "" in
   let archs = ref [] in
-  let out = Std.input_list (Unix.open_process_in cmd) in
-  List.iter (fun s ->
-    let key, value =  ExtString.String.split s " " in
-    if key = "APT::Architecture" then
-      arch := ExtString.String.slice ~first: 1 ~last:(-2) value
-    else if key = "APT::Architectures::" || key = "APT::Architectures" then
-      let s = ExtString.String.slice ~first:1 ~last:(-2) value in
-      if s <> "" then
-        archs := (ExtString.String.slice ~first:1 ~last:(-2) value)::!archs
-  ) out;
+  let aux () =
+    let out = Std.input_list (Unix.open_process_in cmd) in
+    List.iter (fun s ->
+      let key, value =  ExtString.String.split s " " in
+      if key = "APT::Architecture" then
+        arch := ExtString.String.slice ~first: 1 ~last:(-2) value
+      else if key = "APT::Architectures::" || key = "APT::Architectures" then
+        let s = ExtString.String.slice ~first:1 ~last:(-2) value in
+        if s <> "" then
+          archs := (ExtString.String.slice ~first:1 ~last:(-2) value)::!archs
+    ) out;
+    debug "Atomatically set native as %s and foreign archs as %s" !arch (String.concat "," !archs);
+  in
   match native_opt, foreign with 
-  |None,[] -> (!arch,List.filter ((<>) !arch) !archs)
-  |None, l -> (!arch, l)
-  |Some a, [] -> (a,List.filter ((<>) !arch) !archs)
-  |Some a, l -> (a,l)
+  |None,None     -> aux () ; (!arch,List.filter ((<>) !arch) !archs)
+  |None,Some l   -> fatal "Native arch is missing while Foregin archs are specified"
+  |Some a,None   -> (a,[])
+  |Some a,Some l -> (a,l)
 ;;
 
 let main () =
   let timer1 = Util.Timer.create "parsing" in
   let timer2 = Util.Timer.create "conversion" in
-  let timer3 = Util.Timer.create "cudfio" in
-  let timer4 = Util.Timer.create "solver" in
-  let timer5 = Util.Timer.create "solution" in
   let args = OptParse.OptParser.parse_argv Options.options in
   Boilerplate.enable_debug (OptParse.Opt.get Options.verbose);
   Boilerplate.enable_bars (OptParse.Opt.get Options.progress) [] ;
   Boilerplate.enable_timers (OptParse.Opt.get Options.timers)
   ["parsing";"cudfio";"conversion";"solver";"solution"];
   Boilerplate.all_quiet (OptParse.Opt.get Options.quiet);
+  if apt_get_cmdline <> "" then
+    debug "APT_GET_CUDF_CMDLINE=%s" apt_get_cmdline;
+  debug "CUDFSOLVERS=%s" solver_dir;
+  (* debug "TMPDIR=%s" waiting for ocaml 4.0 *)
 
-  (* Solver "exec:" line. Contains three named wildcards to be interpolated:
-     "$in", "$out", and "$pref"; corresponding to, respectively, input CUDF
-     document, output CUDF universe, user preferences. *)
   let (native_arch,foreign_archs) = 
     get_architectures 
       (OptParse.Opt.opt Options.native_arch) 
-      (OptParse.Opt.get Options.foreign_arch)
+      (OptParse.Opt.opt Options.foreign_archs)
   in
 
   let solver = 
@@ -343,12 +261,6 @@ let main () =
       Filename.basename(Sys.argv.(0))
   in
   let exec_pat = fst (parse_solver_spec (Filename.concat solver_dir solver)) in
-  let interpolate_solver_pat exec cudf_in cudf_out pref =
-    let _, exec = String.replace ~str:exec ~sub:"$in"   ~by:cudf_in  in
-    let _, exec = String.replace ~str:exec ~sub:"$out"  ~by:cudf_out in
-    let _, exec = String.replace ~str:exec ~sub:"$pref" ~by:pref     in
-    exec
-  in
 
   let ch = 
     match args with 
@@ -363,9 +275,10 @@ let main () =
   let request =
     match apt_get_cmdline with
     |"" -> request
-    |_ -> 
+    |_ -> begin
       let apt_req = Apt.parse_request_apt apt_get_cmdline in
-      Edsp.from_apt_request {request with Edsp.install = []; remove = []} apt_req
+      Edsp.from_apt_request native_arch {request with Edsp.install = []; remove = []} apt_req
+    end
   in
 
   Util.Timer.stop timer1 ();
@@ -412,9 +325,9 @@ let main () =
   let universe = 
     try Cudf.load_universe cudfpkglist
     with Cudf.Constraint_violation s ->
-      print_error "(CUDF) Malformed universe %s" s;
+      fatal "(CUDF) Malformed universe %s" s
   in
-  let cudf_request = make_request tables universe native_arch request in
+  let cudf_request = Edsp.requesttocudf tables universe request in
   let cudf = (default_preamble,universe,cudf_request) in
   Util.Timer.stop timer2 ();
 
@@ -432,121 +345,89 @@ let main () =
   (* do nothing, we exit here after dumping the universe *)
   if OptParse.Opt.get Options.noop then exit(0);
 
-  let tmpdir = mktmpdir "tmp.apt-cudf.XXXXXXXXXX" in
-  at_exit (fun () -> rmtmpdir tmpdir);
-  let solver_in = Filename.concat tmpdir "in-cudf" in
-  Unix.mkfifo solver_in 0o600;
-  let solver_out = Filename.concat tmpdir "out-cudf" in
-
-  let cmdline_criteria = OptParse.Opt.opt (Options.criteria) in
+  let cmdline_criteria = OptParse.Opt.opt Options.criteria in
   let conffile = OptParse.Opt.get Options.conffile in
   let criteria = choose_criteria ~criteria:cmdline_criteria ~conffile solver request in
-  let cmd = interpolate_solver_pat exec_pat solver_in solver_out criteria in
-  debug "%s" cmd;
+  OptParse.Opt.set Options.criteria criteria ;
 
-  let env = Unix.environment () in
-  let (cin,cout,cerr) = Unix.open_process_full cmd env in
+  let solpre,soluniv = 
+    let explain = OptParse.Opt.get Options.explain in
+    match Algo.Depsolver.check_request ~cmd:exec_pat ~criteria ~explain cudf with
+    |Algo.Depsolver.Error s -> fatal "%s" s
+    |Algo.Depsolver.Unsat _ -> fatal "(UNSAT) No Solutions according to the give preferences"
+    |Algo.Depsolver.Sat s -> s
+  in
 
-  Util.Timer.start timer3;
-  let solver_in_fd = Unix.openfile solver_in [Unix.O_WRONLY ; Unix.O_SYNC] 0 in
-  let oc = Unix.out_channel_of_descr solver_in_fd in
-  Cudf_printer.pp_cudf oc cudf;
-  close_out oc ;
-  Util.Timer.stop timer3 ();
-
-  Util.Timer.start timer4;
-  let lines_cin = input_all_lines [] cin in
-  let lines = input_all_lines lines_cin cerr in
-  let stat = Unix.close_process_full (cin,cout,cerr) in
-  begin match stat with
-    |Unix.WEXITED 0 -> ()
-    |Unix.WEXITED i -> print_error "command '%s' failed with code %d" cmd i
-    |Unix.WSIGNALED i -> print_error "command '%s' killed by signal %d" cmd i
-    |Unix.WSTOPPED i -> print_error "command '%s' stopped by signal %d" cmd i
+  if OptParse.Opt.get Options.dump then begin
+    let cudfsol = Filename.temp_file "apt-cudf-solution" ".cudf" in
+    Printf.printf "Apt-cudf: dump cudf solution in %s\n" cudfsol;
+    let oc = open_out cudfsol in
+    Cudf_printer.pp_preamble oc default_preamble;
+    Printf.fprintf oc "\n";
+    Cudf_printer.pp_universe oc soluniv;
+    close_out oc
   end;
-  info "%s" cmd; 
-  debug "\n%s" (String.concat "\n" lines);
-  Util.Timer.stop timer4 ();
 
-  Util.Timer.start timer5;
-  if not(Sys.file_exists solver_out) then 
-    print_error "(CRASH) Solution file not found"
-  else if check_fail solver_out then
-    print_error "(UNSAT) No Solutions according to the give preferences"
-  else begin
-    try begin
-      let solpre,soluniv = 
-        if (Unix.stat solver_out).Unix.st_size <> 0 then
-          let cudf_parser = Cudf_parser.from_file solver_out in
-          try Cudf_parser.load_solution cudf_parser universe with
-          |Cudf_parser.Parse_error _
-          |Cudf.Constraint_violation _ as exn ->
-            print_error "(CRASH) Solution file contains an invalid solution"
-        else print_error "(CRASH) Solution file is empty"
-      in
+  let diff = CudfDiff.diff universe soluniv in
+  let empty = ref true in
+  Hashtbl.iter (fun pkgname s ->
+    let inst = s.CudfDiff.installed in
+    let rem = s.CudfDiff.removed in
+    match CudfAdd.Cudf_set.is_empty inst, CudfAdd.Cudf_set.is_empty rem with
+    |false,true -> begin
+        empty := false;
+        Format.printf "Install: %a@." pp_pkg (inst,univ)
+    end
+    |true,false -> begin
+        empty := false;
+        Format.printf "Remove: %a@." pp_pkg (rem,univ)
+    end
+    |false,false -> begin
+        empty := false;
+        Format.printf "Install: %a@." pp_pkg (inst,univ)
+    end
+    |true,true -> ()
+  ) diff;
 
-      if OptParse.Opt.get Options.dump then begin
-        let cudfsol = Filename.temp_file "apt-cudf-solution" ".cudf" in
-        Printf.printf "Apt-cudf: dump cudf solution in %s\n" cudfsol;
-        let oc = open_out cudfsol in
-        Cudf_printer.pp_preamble oc default_preamble;
-        Printf.fprintf oc "\n";
-        Cudf_printer.pp_universe oc soluniv;
-        close_out oc
-      end;
+  (* Print also all packages that are were requested, but don't show up in the 
+   * diff because already installed *)
+  List.iter (fun (n,c) ->
+    try
+      let s = Hashtbl.find diff n in
+      if (CudfAdd.Cudf_set.is_empty s.CudfDiff.installed) then begin
+        List.iter (fun pkg -> 
+          empty := false;
+          Format.printf "Install: %a@." pp_pkg ((CudfAdd.Cudf_set.singleton pkg),univ)
+        ) (CudfAdd.who_provides soluniv (n,c))
+      end
+    with Not_found -> ()
+  ) cudf_request.Cudf.install;
 
-      let diff = CudfDiff.diff universe soluniv in
-      let empty = ref true in
-      Hashtbl.iter (fun pkgname s ->
-        let inst = s.CudfDiff.installed in
-        let rem = s.CudfDiff.removed in
-        match CudfAdd.Cudf_set.is_empty inst, CudfAdd.Cudf_set.is_empty rem with
-        |false,true -> begin
-            empty := false;
-            Format.printf "Install: %a@." pp_pkg (inst,univ)
-        end
-        |true,false -> begin
-            empty := false;
-            Format.printf "Remove: %a@." pp_pkg (rem,univ)
-        end
-        |false,false -> begin
-            empty := false;
-            Format.printf "Install: %a@." pp_pkg (inst,univ)
-        end
-        |true,true -> ()
-      ) diff;
+  if OptParse.Opt.get Options.explain then begin
+    let (i,u,d,r) = CudfDiff.summary universe diff in
+    Format.printf "Summary: " ;
+    if i <> [] then
+      Format.printf "%d to install " (List.length i);
+    if r <> [] then
+      Format.printf "%d to remove " (List.length r);
+    if u <> [] then
+      Format.printf "%d to upgrade " (List.length u);
+    if d <> [] then
+      Format.printf "%d to downgrade " (List.length d);
+    Format.printf " @.";
 
-      if OptParse.Opt.get Options.explain then begin
-        let (i,u,d,r) = CudfDiff.summary universe diff in
-        Format.printf "Summary: " ;
-        if i <> [] then
-          Format.printf "%d to install " (List.length i);
-        if r <> [] then
-          Format.printf "%d to remove " (List.length r);
-        if u <> [] then
-          Format.printf "%d to upgrade " (List.length u);
-        if d <> [] then
-          Format.printf "%d to downgrade " (List.length d);
-        Format.printf " @.";
-
-        if i <> [] then
-          Format.printf "Installed: %a@." pp_pkg_list (i,univ);
-        if r <> [] then 
-          Format.printf "Removed: %a@." pp_pkg_list (r,univ);
-        if u <> [] then 
-          Format.printf "Upgraded: %a@." pp_pkg_list_tran (u,univ);
-        if d <> [] then 
-          Format.printf "Downgraded: %a@." pp_pkg_list_tran (d,univ);
-      end;
-      
-      if !empty then 
-        print_progress ~i:100 "No packages removed or installed"
-    end with Cudf.Constraint_violation s ->
-      print_error "(CUDF) Malformed solution: %s" s
+    if i <> [] then
+      Format.printf "Installed: %a@." pp_pkg_list (i,univ);
+    if r <> [] then 
+      Format.printf "Removed: %a@." pp_pkg_list (r,univ);
+    if u <> [] then 
+      Format.printf "Upgraded: %a@." pp_pkg_list_tran (u,univ);
+    if d <> [] then 
+      Format.printf "Downgraded: %a@." pp_pkg_list_tran (d,univ);
   end;
-  Util.Timer.stop timer5 ();
-  Sys.remove solver_in;
-  Sys.remove solver_out
+  
+  if !empty then 
+    print_progress ~i:100 "No packages removed or installed";
 ;;
 
 main ();;

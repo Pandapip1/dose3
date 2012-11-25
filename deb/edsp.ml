@@ -40,15 +40,23 @@ let default_request = {
 }
 
 (* convert a apt command line request to edsp request *)
-let from_apt_request request = function
+let from_apt_request arch request = function
   |Apt.Install vpkgreqlist ->
       List.fold_left (fun acc -> function
+        |(Some Format822.I, ((n,None),c), _) -> {acc with install = ((n,Some arch),c) :: acc.install}
+        |(Some Format822.R, ((n,None),c), _) -> {acc with remove =  ((n,Some arch),c) :: acc.remove}
+        |(None, ((n,None),c), _) -> {acc with install = ((n,Some arch),c) :: acc.install}
+
         |(Some Format822.I, vpkg, _) -> {acc with install = vpkg :: acc.install}
         |(Some Format822.R, vpkg, _) -> {acc with remove = vpkg :: acc.remove}
         |(None, vpkg, _) -> {acc with install = vpkg :: acc.install}
       ) request vpkgreqlist
   |Apt.Remove vpkgreqlist ->
       List.fold_left (fun acc -> function
+        |(Some Format822.I, ((n,None),c), _) -> {acc with install = ((n,Some arch),c) :: acc.install}
+        |(Some Format822.R, ((n,None),c), _) -> {acc with remove = ((n,Some arch),c) :: acc.remove}
+        |(None, ((n,None),c), _) -> {acc with remove = ((n,Some arch),c) :: acc.remove}
+
         |(Some Format822.I, vpkg, _) -> {acc with install = vpkg :: acc.install}
         |(Some Format822.R, vpkg, _) -> {acc with remove = vpkg :: acc.remove}
         |(None, vpkg, _) -> {acc with remove = vpkg :: acc.remove}
@@ -143,6 +151,17 @@ let input_raw_ch ?(archs=[]) ic =
   ) ic
 ;;
 
+let input_raw ?(archs=[]) file =
+  let ch =
+    match file with
+    |"-" -> IO.input_channel stdin
+    |_   -> Input.open_file file
+  in
+  let l = input_raw_ch ~archs ch in
+  let _ = Input.close_ch ch in
+  l
+;;
+
 let extras_tocudf =
   [
   ("Hold", ("hold", `Bool (Some false)));
@@ -161,7 +180,75 @@ let is_installed pkg =
     Packages.parse_bool (_loc,v)
   with Not_found -> false
 
+let is_on_hold pkg =
+  try
+    let _loc = Format822.dummy_loc in
+    let v = Packages.assoc "hold" pkg.Packages.extras in
+    (Packages.parse_bool (_loc,v))
+  with Not_found -> false
+
 let tocudf tables ?(options=Debcudf.default_options) ?(inst=false) pkg =
   let options = { options with Debcudf.extras_opt = extras_tocudf } in
-  Debcudf.tocudf tables ~options ~inst:(is_installed pkg) pkg 
+  let pkg = 
+    if is_installed pkg then
+      let s = 
+        if is_on_hold pkg then "hold ok installed" 
+        else "install ok installed"
+      in
+      { pkg with Packages.extras = ("status",s)::pkg.Packages.extras }
+    else pkg
+  in
+  Debcudf.tocudf tables ~options (* ~inst:(is_installed pkg) *) pkg
 ;;
+
+(* Only one version of a package can be installed at a given time.
+   Hence, when a remove request is issued without version constraint,
+   we return (candidate.Cudf.package,None) that designates the only
+   package installed.
+ *)
+let requesttocudf tables universe request =
+  let to_cudf (p,v) = (p,Debcudf.get_cudf_version tables (p,v)) in
+  let get_candidate (name,constr) =
+    try
+      List.find
+        (fun pkg ->
+          try (Cudf.lookup_package_property pkg "apt-candidate") = "true"
+          with Not_found -> false)
+        (CudfAdd.who_provides universe (name,constr))
+    with Not_found ->
+      fatal "Package %s does not have a suitable candidate" name
+  in
+  let select_packages ?(remove=false) l =
+    List.map (fun ((n,a),c) ->
+      let (name,constr) = Debutil.debvpkg to_cudf ((n,a),c) in
+      if remove then (name,None)
+      else begin
+        match constr, request.strict_pin with
+        |None, false -> (name, None)
+        |_, _ -> (name,Some(`Eq,(get_candidate (name,constr)).Cudf.version))
+        (* FIXME: when apt will accept version constraints different from `Eq,
+           we will need to pass them through. *)
+      end
+    ) l
+  in
+  if request.upgrade || request.distupgrade then
+    let to_upgrade = function
+      |[] ->
+        let filter pkg = pkg.Cudf.installed in
+        let l = Cudf.get_packages ~filter universe in
+        List.map (fun pkg -> (pkg.Cudf.package,None)) l
+      |l -> select_packages l
+    in
+    {Cudf.default_request with
+    Cudf.request_id = request.request;
+    Cudf.upgrade = to_upgrade request.install;
+    Cudf.remove = select_packages ~remove:true request.remove;
+    }
+  else
+    {Cudf.default_request with
+    Cudf.request_id = request.request;
+    Cudf.install = select_packages request.install;
+    Cudf.remove = select_packages ~remove:true request.remove;
+    }
+;;
+

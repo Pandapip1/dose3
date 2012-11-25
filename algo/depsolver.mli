@@ -40,11 +40,15 @@ val edos_coinstall : ?global_constraints:bool -> Cudf.universe -> Cudf.package l
     the cartesian product. *)
 val edos_coinstall_prod : ?global_constraints:bool -> Cudf.universe -> Cudf.package list list -> Diagnostic.diagnosis list
 
-(** remove uninstallable packages from the universe *)
+(** remove uninstallable packages from the universe . global_constraints is true
+    by default *)
 val trim : ?global_constraints:bool -> Cudf.universe -> Cudf.universe
 
-(** return the list of the broken packages *)
+(** return the list of broken packages *)
 val find_broken : ?global_constraints:bool -> Cudf.universe -> Cudf.package list
+
+(** return the list of installable packages *)
+val find_installable : ?global_constraints:bool -> Cudf.universe -> Cudf.package list
 
 (** [univcheck ] check if all packages in the universe can be installed.
     Since not all packages are directly tested for installation, if a packages
@@ -103,5 +107,16 @@ type enc = Cnf | Dimacs
   *)
 val output_clauses : ?global_constraints:bool -> ?enc:enc -> Cudf.universe -> string
 
-(* check if there exists a solution for the give cudf document *)
-val check_request : Cudf.cudf_doc -> Diagnostic.diagnosis
+type solver_result =
+  |Sat of (Cudf.preamble option * Cudf.universe)
+  |Unsat of Diagnostic.diagnosis option
+  |Error of string
+
+(** [check_request] check if there exists a solution for the give cudf document 
+    if ?cmd is specified, it will be used to call an external cudf solver to
+    satisfy the request.
+    if ?criteria is specified it will be used as optimization criteria. 
+    if ?explain is specified and there is no solution for the give request, the
+    result will contain the failure reason.
+*)
+val check_request : ?cmd : string -> ?criteria : string -> ?explain : bool -> Cudf.cudf -> solver_result

@@ -1,4 +1,4 @@
-AC_INIT(dose3, 3.0.1, pietro.abate@pps.jussieu.fr)
+AC_INIT(dose3, 3.1.3, pietro.abate@pps.jussieu.fr)
 
 AC_PROG_OCAML
 if test "$OCAMLC" = "no"; then
@@ -6,10 +6,17 @@ if test "$OCAMLC" = "no"; then
 fi
 
 AC_PROG_CAMLP4
-AC_SUBST(CAMLP4O)
 if test "$CAMLP4" = "no"; then
  AC_MSG_ERROR([You must install the Camlp4 pre-processor])
 fi
+
+if test "$CAMLP4OOPT" = "no" ; then
+  CAMLP4OMACRO="$CAMLP4O Camlp4MacroParser.cmx"
+else
+  CAMLP4OMACRO="$CAMLP4OOPT -I_build Camlp4MacroParser.cmxs"
+fi
+AC_SUBST(CAMLP4O)
+AC_SUBST(CAMLP4OMACRO)
 
 AC_PROG_FINDLIB
 AC_SUBST(OCAMLFIND)
@@ -41,6 +48,8 @@ PKG_OCAMLGRAPH=pkg_
 PKG_CURL=pkg_
 PKG_OUNIT=pkg_
 PKG_BENCHMARK=pkg_
+DOC_OCAMLGRAPH=""
+DOC_RPM=""
 
 AC_ARG_WITH(libcudf,
         [ --without-libcudf ],
@@ -51,13 +60,17 @@ if test "$HAS_LIBCUDF" = "yes" ; then
   AC_CHECK_OCAML_PKG([cudf])
   if (test "$OCAML_PKG_cudf" = "no"); then
     AC_MSG_NOTICE([you asked to use an external libcudf, but ocamlfind cannot find it])
-    AC_MSG_NOTICE([using local libcudf instead])
+    AC_MSG_ERROR([Please specify --without-libcudf to compile cudf locally])
     PKG_CUDF=use_cudf
   else
     PKG_CUDF="package(cudf)"
   fi
 else
-  AC_MSG_NOTICE([using local libcudf])
+  if test -f "cudf/cudf.mli" ; then
+    AC_MSG_NOTICE([using local libcudf])
+  else
+    AC_MSG_ERROR([you asked to compile cudf locally, but the cudf submodule is not present])
+  fi
 fi
 
 AC_CHECK_OCAML_PKG([extlib])
@@ -167,11 +180,9 @@ if test "$HAS_OCAMLGRAPH" = "yes" ; then
    AC_MSG_ERROR([Please install OCaml findlib module 'ocamlgraph'.])
   fi
   TMPVERSION=`$OCAMLFIND query -format %v ocamlgraph`
-#  if test $(echo "$TMPVERSION < 1.5" | bc) -eq 1; then
-#      AC_MSG_ERROR([found ocamlgraph with version $TMPVERSION (<= 1.5 is required )])
-#  fi
   PKG_OCAMLGRAPH="package(ocamlgraph)"
   MLPACK_OCAMLGRAPH="Defaultgraphs Statistics Dominators Strongdeps Strongdeps_int Strongconflicts Strongconflicts_int"
+  DOC_OCAMLGRAPH="algo/Strongdeps algo/Strongconflicts algo/Strongdeps_int algo/Strongconflicts_int algo/Defaultgraphs algo/Statistics"
   CONFIG_OCAMLGRAPH="-DHASOCAMLGRAPH"
 fi
 
@@ -247,6 +258,10 @@ if test "$HAS_RPM4" = "yes" ; then
   AC_CHECK_HEADERS([rpm/rpmtypes.h],,AC_MSG_ERROR([missing rpmtypes.h]))
   CONFIG_RPM="-DHASRPM"
   USE_RPM="use_rpm, use_rpm4"
+  DOC_RPM="#rpm/Packages
+  #rpm/Hdlists
+  #rpm/Version
+  #rpm/Rpmcudf"
   LINK_RPM="link_rpm4"
   HAS_RPM=yes
 fi
@@ -265,6 +280,10 @@ if test "$HAS_RPM5" = "yes"; then
 #  AC_CHECK_HEADERS([rpm/rpm4compat.h],,AC_MSG_ERROR([missing rpm4compat.h]))
   CONFIG_RPM="-DHASRPM"
   USE_RPM="use_rpm, use_rpm5"
+  DOC_RPM="#rpm/Packages
+  #rpm/Hdlists
+  #rpm/Version
+  #rpm/Rpmcudf"
   LINK_RPM="link_rpm5"
   HAS_RPM=yes
 fi
@@ -308,6 +327,7 @@ AC_SUBST(INCLUDE_RPM)
 AC_SUBST(USE_RPM)
 AC_SUBST(LINK_RPM)
 AC_SUBST(HAS_RPM)
+AC_SUBST(DOC_RPM)
 
 AC_SUBST(INCLUDE_CUDF)
 AC_SUBST(PKG_CUDF)
@@ -320,6 +340,7 @@ fi
 AC_SUBST(HAS_DB)
 
 AC_SUBST(MLPACK_OCAMLGRAPH)
+AC_SUBST(DOC_OCAMLGRAPH)
 AC_SUBST(PKG_OCAMLGRAPH)
 AC_SUBST(CONFIG_OCAMLGRAPH)
 
@@ -347,6 +368,7 @@ AC_CONFIG_FILES([
   Makefile.config
   _tags
   META
+  dose3.odocl
   db/db.mlpack
   algo/algo.mlpack
   common/versionInfo.ml

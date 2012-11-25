@@ -28,14 +28,15 @@ module Options = struct
   include Boilerplate.MakeOptions(struct let options = options end)
 
   exception Format
-  let out_option ?default ?(metavar = "<dot|cnf|dimacs|cudf|table>") () =
+  let out_option ?default ?(metavar = "<dot|gml|cnf|dimacs|cudf|table>") () =
     let corce = function
-      |("cnf"|"dimacs"|"cudf"|"dot"|"table") as s -> s
+      |("cnf"|"dimacs"|"cudf"|"dot"|"gml"|"table") as s -> s
       | _ -> raise Format
     in
     let error _ s = Printf.sprintf "%s format not supported" s in
     Opt.value_option metavar default corce error
 
+  let trim = StdOpt.store_true ()
   let src = Boilerplate.vpkglist_option ()
   let dst = Boilerplate.vpkg_option ()
   let cone = Boilerplate.vpkglist_option ()
@@ -47,6 +48,7 @@ module Options = struct
 
   open OptParser
 (*  add options ~short_name:'e' ~long_name:"extract" ~help:"dependency/conflict cone" extract; *)
+  add options                 ~long_name:"trim" ~help:"Consider only installable packages" trim;
   add options ~short_name:'c' ~long_name:"cone" ~help:"dependency cone" cone;
   add options ~short_name:'r' ~long_name:"rcone" ~help:"reverse dependency cone" reverse_cone;
   add options                 ~long_name:"depth" ~help:"max depth - in conjunction with cone" cone_maxdepth;
@@ -113,8 +115,13 @@ let main () =
     output_to_sqlite posargs
   else
   let (preamble,universe,from_cudf,to_cudf) = Boilerplate.load_universe ~options posargs in
+  let universe =
+    if OptParse.Opt.get Options.trim then
+      Depsolver.trim ~global_constraints universe
+    else universe
+  in
   let get_cudfpkg ((n,a),c) = 
-    let (name,filter) = Boilerplate.debvpkg to_cudf ((n,a),c) in
+    let (name,filter) = Debian.Debutil.debvpkg to_cudf ((n,a),c) in
     try List.hd(Cudf.lookup_packages ~filter universe name)
     with ExtList.List.Empty_list -> fatal "package %s not found" n
   in
@@ -187,10 +194,18 @@ let main () =
       begin match OptParse.Opt.get Options.out_type with
       |"dot" -> 
 IFDEF HASOCAMLGRAPH THEN
-          DGraph.D.output_graph oc (DGraph.dependency_graph u)
+          DGraph.DotPrinter.output_graph oc (DGraph.dependency_graph u)
 ELSE
         failwith ("dot not supported: needs ocamlgraph")
 END
+      |"gml" -> 
+IFDEF HASOCAMLGRAPH THEN
+          let fmt = Format.formatter_of_out_channel oc in
+          DGraph.GmlPrinter.print fmt (DGraph.dependency_graph u)
+ELSE
+        failwith ("dot not supported: needs ocamlgraph")
+END
+
       |"cnf" -> Printf.fprintf oc "%s" (Depsolver.output_clauses ~global_constraints ~enc:Depsolver.Cnf u)
       |"dimacs" -> Printf.fprintf oc "%s" (Depsolver.output_clauses ~global_constraints ~enc:Depsolver.Dimacs u)
       |"cudf" -> output_cudf oc preamble u
