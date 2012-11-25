@@ -69,10 +69,14 @@ let rec input_all_lines acc chan =
   with End_of_file -> acc
 
 let solver_dir = 
-  try Sys.getenv("CUDFSOLVERS") with Not_found -> "/usr/share/cudf/solvers"
+  try Sys.getenv("CUDFSOLVERS") 
+  with Not_found -> "/usr/share/cudf/solvers"
+;;
 
 let apt_get_cmdline = 
-  try Sys.getenv("APT_GET_CUDF_CMDLINE") with Not_found -> ""
+  try Sys.getenv("APT_GET_CUDF_CMDLINE")
+  with Not_found -> ""
+;;
 
 let pp_pkg fmt (s,univ) = 
   try
@@ -239,6 +243,10 @@ let main () =
   Boilerplate.enable_timers (OptParse.Opt.get Options.timers)
   ["parsing";"cudfio";"conversion";"solver";"solution"];
   Boilerplate.all_quiet (OptParse.Opt.get Options.quiet);
+  if apt_get_cmdline <> "" then
+    debug "APT_GET_CUDF_CMDLINE=%s" apt_get_cmdline;
+  debug "CUDFSOLVERS=%s" solver_dir;
+  (* debug "TMPDIR=%s" waiting for ocaml 4.0 *)
 
   let (native_arch,foreign_archs) = 
     get_architectures 
@@ -267,9 +275,10 @@ let main () =
   let request =
     match apt_get_cmdline with
     |"" -> request
-    |_ -> 
+    |_ -> begin
       let apt_req = Apt.parse_request_apt apt_get_cmdline in
-      Edsp.from_apt_request {request with Edsp.install = []; remove = []} apt_req
+      Edsp.from_apt_request native_arch {request with Edsp.install = []; remove = []} apt_req
+    end
   in
 
   Util.Timer.stop timer1 ();
@@ -379,6 +388,20 @@ let main () =
     end
     |true,true -> ()
   ) diff;
+
+  (* Print also all packages that are were requested, but don't show up in the 
+   * diff because already installed *)
+  List.iter (fun (n,c) ->
+    try
+      let s = Hashtbl.find diff n in
+      if (CudfAdd.Cudf_set.is_empty s.CudfDiff.installed) then begin
+        List.iter (fun pkg -> 
+          empty := false;
+          Format.printf "Install: %a@." pp_pkg ((CudfAdd.Cudf_set.singleton pkg),univ)
+        ) (CudfAdd.who_provides soluniv (n,c))
+      end
+    with Not_found -> ()
+  ) cudf_request.Cudf.install;
 
   if OptParse.Opt.get Options.explain then begin
     let (i,u,d,r) = CudfDiff.summary universe diff in
