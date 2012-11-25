@@ -104,10 +104,10 @@ let univcheck ?(global_constraints=true) ?callback universe =
     let size = (Cudf.universe_size univ) + 1 in
     let tested = Array.make size false in
     Util.Progress.set_total Depsolver_int.progressbar_univcheck size ;
-    let check = Depsolver_int.pkgcheck global_constraints callback solver tested in
+    let check = Depsolver_int.pkgcheck global_constraints callback solver failed tested in
     (* we do not test the last package that encodes the global constraints
      * on the universe as it is tested all the time with all other packages. *)
-    for i = 0 to size - 2 do if not(check i) then incr failed done;
+    for i = 0 to size - 2 do check i done;
     Util.Timer.stop timer !failed
   in
   let map = new Depsolver_int.identity in
@@ -133,8 +133,8 @@ let listcheck ?(global_constraints=true) ?callback universe pkglist =
     let size = (Cudf.universe_size univ) + 1 in
     let tested = Array.make size false in
     Util.Progress.set_total Depsolver_int.progressbar_univcheck size ;
-    let check = Depsolver_int.pkgcheck global_constraints callback solver tested in
-    List.iter (function id when id = size -> () |id -> if not(check id) then incr failed) idlist ;
+    let check = Depsolver_int.pkgcheck global_constraints callback solver failed tested in
+    List.iter (function id when id = size -> () |id -> check id) idlist ;
     Util.Timer.stop timer !failed
   in
   let idlist = List.map (CudfAdd.vartoint universe) pkglist in
@@ -208,7 +208,6 @@ let trim ?(global_constraints=true) universe =
   in
   ignore (univcheck ~global_constraints ~callback universe);
   Cudf.load_universe !trimmed_pkgs
-;;
 
 let find_broken ?(global_constraints=true) universe =
   let broken_pkgs = ref [] in
@@ -220,43 +219,6 @@ let find_broken ?(global_constraints=true) universe =
   in
   ignore (univcheck ~global_constraints ~callback universe);
   !broken_pkgs
-;;
-
-let find_installable ?(global_constraints=true) universe =
-  let acc = ref [] in
-  let callback d =
-    if Diagnostic.is_solution d then
-      match d.Diagnostic.request with
-      |Diagnostic.Package p -> acc := p::!acc
-      |_ -> assert false
-  in
-  ignore (univcheck ~global_constraints ~callback universe);
-  !acc
-;;
-
-let find_listbroken ?(global_constraints=true) universe pkglist =
-  let broken_pkgs = ref [] in
-  let callback d =
-    if not (Diagnostic.is_solution d) then
-      match d.Diagnostic.request with
-      |Diagnostic.Package p -> broken_pkgs := p::!broken_pkgs
-      |_ -> assert false
-  in
-  ignore (listcheck ~global_constraints ~callback universe pkglist);
-  !broken_pkgs
-;;
-
-let find_listinstallable ?(global_constraints=true) universe pkglist =
-  let acc = ref [] in
-  let callback d =
-    if Diagnostic.is_solution d then
-      match d.Diagnostic.request with
-      |Diagnostic.Package p -> acc := p::!acc
-      |_ -> assert false
-  in
-  ignore (listcheck ~global_constraints ~callback universe pkglist);
-  !acc
-;;
 
 let dependency_closure ?maxdepth ?conjunctive univ pkglist =
   Depsolver_int.dependency_closure ?maxdepth ?conjunctive univ pkglist
@@ -317,59 +279,38 @@ let output_clauses ?(global_constraints=true) ?(enc=Cnf) univ =
   Buffer.contents buff
 ;;
 
-type solver_result =
-  |Sat of (Cudf.preamble option * Cudf.universe)
-  |Unsat of Diagnostic.diagnosis option
-  |Error of string
-
 (** check if a cudf request is satisfiable. we do not care about
- * universe consistency . We try to install a dummy package *)
-let check_request ?cmd ?criteria ?(explain=false) (pre,universe,request) =
-  let intSolver universe request =
-    let deps = 
-      let k =
-        Cudf.fold_packages (fun acc pkg ->
-          if pkg.Cudf.installed then
-            match pkg.Cudf.keep with
-            |`Keep_package -> (pkg.Cudf.package,None)::acc
-            |`Keep_version -> (pkg.Cudf.package,Some(`Eq,pkg.Cudf.version))::acc
-            |_ -> acc
-          else acc
-        ) [] universe
-      in
-      let l = request.Cudf.install @ request.Cudf.upgrade in
-      debug "request consistency (keep %d) (install %d) (upgrade %d) (remove %d) (# %d)"
-      (List.length k) (List.length request.Cudf.install) 
-      (List.length request.Cudf.upgrade)
-      (List.length request.Cudf.remove)
-      (Cudf.universe_size universe);
-      List.fold_left (fun acc j -> [j]::acc) (List.map (fun j -> [j]) l) k
+ * universe consistency . We try to installa dummy package *)
+let check_request (_,pkglist,request) =
+  let deps = 
+    let k = 
+      List.filter_map (fun pkg ->
+        if pkg.Cudf.installed then
+          match pkg.Cudf.keep with
+          |`Keep_package -> Some(pkg.Cudf.package,None)
+          |`Keep_version -> Some(pkg.Cudf.package,Some(`Eq,pkg.Cudf.version))
+          |_ -> None
+        else None
+      ) pkglist
     in
-    let dummy = {
-      Cudf.default_package with
-      Cudf.package = "dose-dummy-request";
-      version = 1;
-      depends = deps;
-      conflicts = request.Cudf.remove}
-    in
-    (* XXX it should be possible to add a package to a cudf document ! *)
-    let pkglist = Cudf.get_packages universe in
-    let universe = Cudf.load_universe (dummy::pkglist) in
-    edos_install universe dummy
+    let l = request.Cudf.install @ request.Cudf.upgrade in
+    debug "request consistency (keep %d) (install %d) (upgrade %d) (remove %d) (# %d)"
+    (List.length k) (List.length request.Cudf.install) 
+    (List.length request.Cudf.upgrade)
+    (List.length request.Cudf.remove)
+    (List.length pkglist);
+    List.map (fun j -> [j]) (l @ k) 
   in
-  if Option.is_none cmd then begin
-    let d = intSolver universe request in
-    if Diagnostic.is_solution d then
-      let is = Diagnostic.get_installationset d in
-      Sat (Some pre,Cudf.load_universe is)
-    else
-      if explain then Unsat (Some d) else Unsat None
-  end else begin
-    let cmd = Option.get cmd in
-    let criteria = if Option.is_none criteria then "-removed,-new" else Option.get criteria in
-    try Sat(CudfSolver.execsolver cmd criteria (pre,universe,request)) with
-    |CudfSolver.Unsat when not explain -> Unsat None
-    |CudfSolver.Unsat when explain -> Unsat (Some (intSolver universe request))
-    |CudfSolver.Error s -> Error s
-  end
+  let dummy = {
+    Cudf.default_package with
+    Cudf.package = "dummy";
+    version = 1;
+    depends = deps;
+    conflicts = request.Cudf.remove}
+  in
+  let universe = Cudf.load_universe (dummy::pkglist) in
+(*  let solver = load ~check:false universe in
+  let solver = Depsolver_int.init_solver_closure pool closure in
+*)
+  edos_install universe dummy
 ;;
