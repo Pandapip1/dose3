@@ -1,4 +1,4 @@
-dose3 (3.1.3-1) UNRELEASED; urgency=low
+dose3 (3.1.3-1) experimental; urgency=low
 
   * New upstream version. This version fixes the invocation of the clean
     target in doc/ makefiles (closes: #687651).
@@ -13,11 +13,12 @@ dose3 (3.1.3-1) UNRELEASED; urgency=low
     the build-dependencies.
   * refreshed patch binaries-prefix-edos for the new upstream version
     (closes: #687576).
-  * debian/rules, debian/dose-distcheck.{docs,doc-base} the directory
+  * debian/rules, debian/dose-distcheck.{docs,doc-base}: the directory
     doc/debcheck-primer has been renamed to doc/debcheck.primer
-  * patch doc-makefile-html: do not generate html version of Makefiles
+  * patch doc-makefile-html: do not generate html version of man pages
+  * Standards-Version 3.9.4 (no change).
 
- -- Ralf Treinen <treinen@debian.org>  Sun, 25 Nov 2012 12:04:05 +0100
+ -- Ralf Treinen <treinen@debian.org>  Sun, 13 Jan 2013 21:57:55 +0100
 
 dose3 (3.0.2-3) unstable; urgency=low
 
