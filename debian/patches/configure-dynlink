@@ -1,0 +1,19 @@
+Author: Mehdi Dogguy <mehdi@dogguy.org>
+Description: use dynamic loading only where available. Load bytecode, not
+  native code, on bytecode architectures.
+
+Index: dose3/configure.ac
+===================================================================
+--- dose3.orig/configure.ac	2013-01-20 17:21:15.000000000 +0100
++++ dose3/configure.ac	2013-01-20 17:24:29.000000000 +0100
+@@ -10,8 +10,8 @@
+  AC_MSG_ERROR([You must install the Camlp4 pre-processor])
+ fi
+ 
+-if test "$CAMLP4OOPT" = "no" ; then
+-  CAMLP4OMACRO="$CAMLP4O Camlp4MacroParser.cmx"
++if test "$CAMLP4OOPT" = "no" || (test ! -f /usr/lib/ocaml/dynlink.cmxa) ; then
++  CAMLP4OMACRO="$CAMLP4O Camlp4MacroParser.cmo"
+ else
+   CAMLP4OMACRO="$CAMLP4OOPT -I_build Camlp4MacroParser.cmxs"
+ fi

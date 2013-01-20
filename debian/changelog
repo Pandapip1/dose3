@@ -1,3 +1,12 @@
+dose3 (3.1.3-2) experimental; urgency=low
+
+  * Fix FTBFS on architectures not supporting dynamic loading:
+    - new patch configure-dynlink, provided by Mehdi Dogguy
+    - debian/control: add build-dependency on automake, autoconf
+    - debian/rules: dh_auto_configure calls aclocal and autoconf
+  
+ -- Ralf Treinen <treinen@debian.org>  Sun, 20 Jan 2013 17:34:42 +0100
+
 dose3 (3.1.3-1) experimental; urgency=low
 
   * New upstream version. This version fixes the invocation of the clean
