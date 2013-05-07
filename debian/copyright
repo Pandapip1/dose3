@@ -1,7 +1,7 @@
 Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: dose
 Upstream-Contact: Pietro Abate <pietro.abate@pps.jussieu.fr>
-Source: http://gforge.info.ucl.ac.be/projects/mancoosi/
+Source: https://gforge.inria.fr/projects/dose/
 
 Files: *
 Copyright: © 2009-2012 Pietro Abate

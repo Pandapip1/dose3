@@ -1,5 +1,3 @@
 binaries-prefix-edos
-version-3.0.2
-multiarch-conflicts
-builddebcheck-manpage
-apt-cudf-pinning
+doc-makefile-html
+configure-dynlink
