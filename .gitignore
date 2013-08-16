@@ -13,4 +13,3 @@ doc/manpages/*.1
 *.native
 *.byte
 */*\.swp
-.pc
