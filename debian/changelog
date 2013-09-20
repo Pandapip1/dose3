@@ -1,3 +1,10 @@
+dose3 (3.1.3-5) unstable; urgency=low
+
+  * debian/rules: "make clean" only when Makefile.config exists
+    (closes: #723864)
+
+ -- Ralf Treinen <treinen@debian.org>  Fri, 20 Sep 2013 21:19:25 +0200
+
 dose3 (3.1.3-4) unstable; urgency=low
 
   * migrate doc/manpages/ceve.pod to the stricter format of pod2man from 
