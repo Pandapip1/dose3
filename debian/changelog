@@ -2,8 +2,9 @@ dose3 (3.1.3-6) unstable; urgency=low
 
   * patch ocaml-4.1: fix FTBFS with ocaml 4.01. Thanks a lot to Pietro
     Abate for his help (closes: #731277)
+  * Standards-version 3.9.5 (no change)
 
- -- Ralf Treinen <treinen@debian.org>  Fri, 06 Dec 2013 20:16:16 +0100
+ -- Ralf Treinen <treinen@debian.org>  Fri, 06 Dec 2013 20:23:42 +0100
 
 dose3 (3.1.3-5) unstable; urgency=low
 
