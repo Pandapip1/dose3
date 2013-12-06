@@ -2,3 +2,4 @@ pod2man-5.18
 binaries-prefix-edos
 doc-makefile-html
 configure-dynlink
+ocaml-4.1
