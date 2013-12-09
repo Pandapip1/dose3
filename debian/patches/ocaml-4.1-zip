@@ -1,0 +1,17 @@
+Author: Ralf Treinen <treinen@debian.org>
+Description: avoid multiple pp options in ocamlbuild configuration
+Debian-bug: #731701 
+
+Index: dose3/_tags.in
+===================================================================
+--- dose3.orig/_tags.in	2013-12-09 21:24:19.276880599 +0100
++++ dose3/_tags.in	2013-12-09 21:25:16.245092521 +0100
+@@ -1,7 +1,7 @@
+ true: -traverse
+ <{common,algo,doseparse,deb,rpm,applications,experimental}/**>: traverse
+ 
+-<*/*.ml{i,}>: pp(@CAMLP4OMACRO@)
++<*/*.ml{i,}> and not<{common,algo}/*.ml{i,}> : pp(@CAMLP4OMACRO@)
+ <*/*.ml{i,}>: package(extlib), @PKG_CUDF@, package(pcre)
+ 
+ <doseparse/boilerplateNoRpm.ml>: pp(@CAMLP4OMACRO@ @CONFIG_ZIP@ @CONFIG_BZ2@ @CONFIG_DB@ @CONFIG_OCAMLGRAPH@)
