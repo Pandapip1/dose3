@@ -8,6 +8,7 @@ dose3 (3.2-rc1-1) experimental; urgency=medium
   * Drop debian patches integrated by upstream:
     - pod2man-5.18
     - configure-dynlink
+    - ocaml-4.1
   * Refreshed patches:
     - binaries-prefix-edos
 
