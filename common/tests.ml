@@ -10,6 +10,8 @@
 (*  library, see the COPYING file for more information.                               *)
 (**************************************************************************************)
 
+module Pcre = Re_pcre
+
 open OUnit
 open Common
 
@@ -57,30 +59,6 @@ let test_cudf =
   )
 ;;
 
-let test_sqlite =
-  "sqlite" >:: (fun _ ->
-    let (protocol,(userOpt,passOpt,hostOpt,portOpt,path),queryOpt) =
-      Input.parse_uri "sqlite:///path/to/file" 
-    in assert_equal true (protocol = `Sqlite && path = "/path/to/file")
-  ) 
-;;
-
-let test_pgsql =
-  "pgsql" >:: (fun _ ->
-    let (protocol,(userOpt,passOpt,hostOpt,portOpt,path),queryOpt) =
-      Input.parse_uri "pgsql://test:tester@localhost:10/dbname?query=lalalal;v2=k2"
-    in assert_equal true (
-      protocol = `Pgsql && 
-      userOpt = Some "test" &&
-      passOpt = Some "tester" &&
-      hostOpt = Some "localhost" &&
-      portOpt = Some "10" &&
-      path = "dbname" &&
-      queryOpt = Some "lalalal;v2=k2"
-    )
-  ) 
-;;
-
 let parse_uri =
   "parse uri" >::: [
     test_deb_local;
@@ -88,8 +66,6 @@ let parse_uri =
     test_hdlist;
     test_synth;
     test_cudf;
-    test_sqlite;
-    (* test_pgsql; *)
   ]
 
 module S = CudfAdd.Cudf_set
@@ -139,10 +115,11 @@ let test_lookup_packages =
 
 let (test_encode, test_decode) =
   (* Some useful very long strings for testing encoding and decoding. *)
-  let a_lot_of =  (* a huge number *)
+(*  let a_lot_of =  (* a huge number *)
     (Pcre.config_match_limit + 111)
   in
-  let a_lot_of_a           = String.make a_lot_of 'a'
+  *)
+  let a_lot_of_a           = String.make 10000 'a'
   (* This test takes too much time... 
   and a_lot_of_pipes       = String.make a_lot_of '|' in
   let a_lot_of_hexed_pipes = ExtLib.String.replace_chars (fun _ -> "%7c") a_lot_of_pipes *)

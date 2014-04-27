@@ -37,7 +37,7 @@ module type Messages = sig
    * set to verbose using the function [make_verbose] and
    * either the handle [t] is enable or all handles were enabled with
    * the function [all_enabled] *)
-  val eprintf: t -> ('a, unit, string, unit) format4 -> 'a
+  val eprintf: ?raw : bool -> t -> ('a, unit, string, unit) format4 -> 'a
 
   (** [enable l] the handle with label [l] *)
   val enable : label -> unit
@@ -63,6 +63,7 @@ end
 module Debug : Messages
 module Warning : Messages
 module Info : Messages
+module Notice : Messages
 
 (** Ex : To use the Message framework, you should declare three functions
  * at the begin of each module as:
@@ -88,6 +89,8 @@ module Logging :
     sig
       val it : Info.t
       val info : ('a, unit, string, unit) format4 -> 'a
+      val nt : Notice.t
+      val notice : ('a, unit, string, unit) format4 -> 'a
       val wt : Warning.t
       val warning : ('a, unit, string, unit) format4 -> 'a
       val dt : Debug.t
@@ -153,3 +156,5 @@ module IntHashtbl : Hashtbl.S with type key = int
 module StringHashtbl : Hashtbl.S with type key = string
 
 val range : int -> int -> int list
+
+val string_of_list : ('a -> string) -> string -> 'a list -> string

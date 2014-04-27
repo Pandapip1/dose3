@@ -13,6 +13,9 @@ val compare : Cudf.package -> Cudf.package -> int
 (** A hash function for CUDF packages, using only their name and version. *)
 val hash : Cudf.package -> int
 
+(** Sort function: sorts a CUDF packages list using the standard CUDF comparison operator in ascending order *)
+val sort : Cudf.package list -> Cudf.package list
+
 (** Data structures: *)
 
 (** Specialized hashtable for CUDF packages. *)
@@ -23,6 +26,34 @@ module Cudf_set : (Set.S with type elt = Cudf.package)
 
 (** Convert a list of CUDF packages to a set of CUDF packages. *)
 val to_set : Cudf_set.elt list -> Cudf_set.t
+
+(** {2 Extended function on Cudf data types } *)
+
+(** Return the list of packages that that respect the given constraint *)
+val who_provides : Cudf.universe -> Cudf_types.vpkg -> Cudf.package list
+
+(** Return the list of packages satisfying the vpkg list *)
+val resolve_deps : Cudf.universe -> Cudf_types.vpkglist -> Cudf.package list
+
+(** Returns the list of packages that are dependencies of the given package *)
+val who_depends : Cudf.universe -> Cudf.package -> Cudf.package list list
+
+(** A table to associate to each id the list of packages id that are in
+    conflict with it. Reflexive conflicts are made explicit.
+*)
+type ctable = (int, int list ref) ExtLib.Hashtbl.t
+
+(** Create a ctable from a package universe *)
+val init_conflicts : Cudf.universe -> ctable
+
+(** Return the list of packages in conflict with the given package *)
+val who_conflicts : ctable -> Cudf.universe -> Cudf.package -> Cudf.package list
+
+(** Like who_provides but returns a list of cudf ids *)
+val resolve_vpkg_int : Cudf.universe -> Cudf_types.vpkg -> int list
+
+(** Like resolve_deps but returns a list of cudf ids *)
+val resolve_vpkgs_int : Cudf.universe -> Cudf_types.vpkglist -> int list
 
 (** {2 Functions to encode and decode strings. } *)
 (* TODO: What are these functions doing in this module? *)
@@ -59,7 +90,6 @@ val encode : string -> string
 *)
 val decode : string -> string
 
-
 (** {2 Formatting, printing, converting to string. } *)
 
 val string_of : (Format.formatter -> 'a -> 'b) -> 'a -> string
@@ -67,12 +97,12 @@ val string_of : (Format.formatter -> 'a -> 'b) -> 'a -> string
 val pp_version : Format.formatter -> Cudf.package -> unit
 val pp_package : Format.formatter -> Cudf.package -> unit
 
+(** return a string containg either the value of the optional field
+    "number" or the cudf version *)
 val string_of_version : Cudf.package -> string
+
+(** return a string of the form "name ( = version)" *)
 val string_of_package : Cudf.package -> string
-
-module StringSet : (Set.S with type elt = ExtLib.String.t)
-val pkgnames : Cudf.universe -> StringSet.t
-
 
 (** {2 Additional functions on the CUDF data types. } *)
 
@@ -80,42 +110,38 @@ val pkgnames : Cudf.universe -> StringSet.t
     latest version *)
 val latest: Cudf.package list -> Cudf.package list
 
-val add_properties :
-  Cudf.preamble -> (string * Cudf_types.typedecl1) list -> Cudf.preamble
+(** Set of strings *)
+module StringSet : (Set.S with type elt = ExtLib.String.t)
+
+(** Returns the set of all names in the given universe *)
+val pkgnames : Cudf.universe -> StringSet.t
+
+(** Add a new property to the given cudf preamble *)
+val add_properties : Cudf.preamble -> Cudf_types.typedecl -> Cudf.preamble
+
+(** return the value of the requested property. 
+ * emit a warning and raise Not_found if the property does not exists *)
+val get_property : string -> Cudf.package -> string
+
+(** Returns true if the package is essential, that is the cudf package has
+    a extra property named "essential" and its value is "yes" *)
 val is_essential : Cudf.package -> bool
 
 (** build a hash table that associates (package name, String version) to CUDF packages *)
-val realversionmap :
-  Cudf.package list ->
+val realversionmap : Cudf.package list ->
   (Cudf_types.pkgname * string, Cudf.package) ExtLib.Hashtbl.t
 
+(** Return the unique cudf id of a package in a universe *)
 val vartoint : Cudf.universe -> Cudf.package -> int
+
+(** Given a universe and a cudf id returns the corresponding package.
+    Raise Not_found if the id does not correspond to a package.
+*)
 val inttovar : Cudf.universe -> int -> Cudf.package
 
-val add_to_package_list :
-  ('a, 'b list ref) ExtLib.Hashtbl.t -> 'a -> 'b -> unit
-val get_package_list : ('a, 'b list ref) ExtLib.Hashtbl.t -> 'a -> 'b list
-val unique : 'a list -> 'a list
-val normalize_set : int list -> int list
-val who_provides :
-  Cudf.universe ->
-  Cudf_types.pkgname * Cudf_types.constr -> Cudf.package list
-val resolve_vpkg_int :
-  Cudf.universe -> Cudf_types.pkgname * Cudf_types.constr -> int list
-val resolve_vpkgs_int :
-  Cudf.universe -> (Cudf_types.pkgname * Cudf_types.constr) list -> int list
-val resolve_deps :
-  Cudf.universe ->
-  (Cudf_types.pkgname * Cudf_types.constr) list -> Cudf.package list
-val who_depends : Cudf.universe -> Cudf.package -> Cudf.package list list
-val who_conflicts :
-  (int, int list ref) ExtLib.Hashtbl.t ->
-  Cudf.universe -> Cudf.package -> Cudf.package list
-val init_conflicts : Cudf.universe -> (int, int list ref) ExtLib.Hashtbl.t
-val compute_pool : Cudf.universe -> int list list array * int list array
 val cudfop :
   (string * string) option ->
-  ([> `Eq | `Geq | `Gt | `Leq | `Lt ] * string) option
+  ([> `Eq | `Neq | `Geq | `Gt | `Leq | `Lt ] * string) option
 
 (** [pp ?decode from_cudf pkg] package pretty printer.
     [from_cudf] a function that gets a (name,cudfversion) pair and returns a 
@@ -131,3 +157,13 @@ val pp :
   (Cudf_types.pkgname * Cudf_types.version -> 'a * Cudf_types.pkgname) ->
   ?decode:(Cudf_types.pkgname -> string) ->
   Cudf.package -> string * string * (string * string) list
+
+val compute_pool : Cudf.universe -> int list list array * int list array
+
+val add_to_package_list :
+  ('a, 'b list ref) ExtLib.Hashtbl.t -> 'a -> 'b -> unit
+
+val get_package_list : ('a, 'b list ref) ExtLib.Hashtbl.t -> 'a -> 'b list
+
+(** normalize_set l returns the list l without any duplicate element. *)
+val normalize_set : int list -> int list

@@ -27,30 +27,25 @@ module Options = struct
   let options = OptParser.make ~description
   include Boilerplate.MakeOptions(struct let options = options end)
 
-  let successes = StdOpt.store_true ()
-  let failures = StdOpt.store_true ()
-  let explain = StdOpt.store_true ()
-  let checkonly = Boilerplate.vpkglist_option ()
-  let latest = StdOpt.store_true ()
-  let summary = StdOpt.store_true ()
-  let dump = StdOpt.str_option ()
+  include Boilerplate.DistcheckOptions
+  Boilerplate.DistcheckOptions.add_options options ;;
 
+  include Boilerplate.InputOptions
+  Boilerplate.InputOptions.add_options options ;;
+
+  include Boilerplate.DistribOptions;;
+  Boilerplate.DistribOptions.add_options options ;;
+
+  let dump = StdOpt.str_option ()
   let maforeign = StdOpt.store_true ()
+  let noindep = StdOpt.store_true ()
+  let includextra = StdOpt.store_true ()
 
   open OptParser
-  add options ~short_name:'e' ~long_name:"explain" ~help:"Explain the results" explain;
-  add options ~short_name:'f' ~long_name:"failures" ~help:"Only show failures" failures;
-  add options ~short_name:'s' ~long_name:"successes" ~help:"Only show successes" successes;
-
-  add options ~long_name:"checkonly" ~help:"Check only these package" checkonly;
-  add options ~long_name:"latest" ~help:"Check only the latest version of each package" latest;
-  add options ~long_name:"summary" ~help:"Print a detailed summary" summary;
-
   add options ~long_name:"defaultedMAforeign" ~help:"Convert Arch:all packages to Multi-Arch: foreign" maforeign;
-
+  add options ~long_name:"DropBuildIndep" ~help:"Drop Build-Indep dependencies" noindep;
+  add options ~long_name:"IncludeExtraSource" ~help:"Include packages with Extra-Source-Only:yes (dropped by default)" includextra;
   add options ~long_name:"dump" ~help:"dump the cudf file" dump;
-
-  include Boilerplate.MakeDistribOptions(struct let options = options end);;
 
 end
 
@@ -62,10 +57,20 @@ let main () =
   let posargs = OptParse.OptParser.parse_argv Options.options in
   Boilerplate.enable_debug (OptParse.Opt.get Options.verbose);
   Boilerplate.enable_timers (OptParse.Opt.get Options.timers) ["Solver"];
+  Util.Debug.disable "Depsolver_int";
+  Boilerplate.all_quiet (OptParse.Opt.get Options.quiet);
 
   let options = Options.set_deb_options () in
-  let target = options.Debian.Debcudf.target in
-  let builddepsarchs = Options.get_deb_buildarchs options in
+  let buildarch = options.Debian.Debcudf.native in
+  let hostarch = options.Debian.Debcudf.host in
+  let noindep = OptParse.Opt.get Options.noindep in
+
+  let filter_external_sources par =
+    if (OptParse.Opt.get Options.includextra) then true
+    else
+      try not(Debian.Packages.parse_bool (Debian.Packages.assoc "extra-source-only" par))
+      with Not_found -> true
+  in
 
   let pkglist, srclist =
     match posargs with
@@ -75,7 +80,7 @@ let main () =
     |l -> 
         begin match List.rev l with
         |h::t ->
-          let srclist = Boilerplate.deb_load_source target builddepsarchs h in
+          let srclist = Boilerplate.deb_load_source ~filter:filter_external_sources ~noindep buildarch hostarch h in
           let pkglist = Deb.input_raw t in
           (pkglist,srclist)
         |_ -> fatal "An impossible situation occurred ?!#"
@@ -109,8 +114,8 @@ let main () =
   let universe = Cudf.load_universe bl in
   let universe_size = Cudf.universe_size universe in
 
-  let failure = OptParse.Opt.get Options.failures in
-  let success = OptParse.Opt.get Options.successes in
+  let failure = OptParse.Opt.get Options.failure in
+  let success = OptParse.Opt.get Options.success in
   let explain = OptParse.Opt.get Options.explain in
   let summary = OptParse.Opt.get Options.summary in
 
@@ -134,17 +139,21 @@ let main () =
   if OptParse.Opt.is_set Options.deb_foreign_archs then
     Format.fprintf fmt "foreign-architecture: %s@." (String.concat "," (OptParse.Opt.get Options.deb_foreign_archs));
 
-  if OptParse.Opt.is_set Options.deb_target_arch then
-    Format.fprintf fmt "host-architecture: %s@." (OptParse.Opt.get Options.deb_target_arch);
+  if OptParse.Opt.is_set Options.deb_host_arch then
+    Format.fprintf fmt "host-architecture: %s@." (OptParse.Opt.get Options.deb_host_arch);
 
   if failure || success then Format.fprintf fmt "@[<v 1>report:@,";
   let callback d = 
     if summary then Diagnostic.collect results d ;
-    Diagnostic.fprintf ~pp ~failure ~success ~explain fmt d
+(*
+    if success && not explain && not failure then
+    else
+*)
+      Diagnostic.fprintf ~pp ~failure ~success ~explain fmt d
   in
 
   Util.Timer.start timer;
-  let i = Depsolver.listcheck ~callback universe checklist in
+  let nbp = Depsolver.listcheck ~callback universe checklist in
   ignore(Util.Timer.stop timer ());
 
   if failure || success then Format.fprintf fmt "@]@.";
@@ -153,7 +162,7 @@ let main () =
   let nf = List.length sl in
   Format.fprintf fmt "background-packages: %d@." nb;
   Format.fprintf fmt "foreground-packages: %d@." (if nf = 0 then nb else nf);
-  Format.fprintf fmt "broken-packages: %d@." i;
+  Format.fprintf fmt "broken-packages: %d@." nbp;
 
   if summary then
     Format.fprintf fmt "@[%a@]@." (Diagnostic.pp_summary ~pp ()) results;
@@ -165,8 +174,15 @@ let main () =
     Cudf_printer.pp_preamble oc Debcudf.preamble;
     Printf.fprintf oc "\n";
     Cudf_printer.pp_universe oc universe
-  end
+  end;
 
+  Boilerplate.exit(nbp)
 ;;
 
-main () ;;
+Boilerplate.if_application
+  ~alternatives:[
+    "deb-buildcheck"; "debbuildcheck";"dose-builddebcheck";
+    "deb-crossbuildcheck";"debcrossbuildcheck";
+    "dose-debcrossbuildcheck"]
+  __FILE__ main
+;;

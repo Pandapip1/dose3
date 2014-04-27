@@ -236,39 +236,76 @@ let rec assert_delay_stub l =
     end
 ;;
 
+module PkgSetTest = OUnitDiff.SetMake (struct
+  type t = (string * string)
+  let compare = compare
+  let pp_printer ppf (p,v) = Format.fprintf ppf "(%s,%s)" p v
+  let pp_print_sep = OUnitDiff.pp_comma_separator
+end)
+
+module SubClusterSetTest = OUnitDiff.SetMake (struct
+  type t = (string * string * PkgSetTest.t)
+  let compare = compare
+  let pp_printer ppf (p,v,s) = Format.fprintf ppf "(%s,%s,{%a})" p v PkgSetTest.pp_printer s
+  let pp_print_sep = OUnitDiff.pp_comma_separator
+end)
+
+module ClusterSetTest = OUnitDiff.SetMake (struct
+  type t = (string * string * SubClusterSetTest.t)
+  let compare = compare
+  let pp_printer ppf (p,v,s) = Format.fprintf ppf "(%s,%s,{%a})" p v SubClusterSetTest.pp_printer s
+  let pp_print_sep = OUnitDiff.pp_comma_separator
+end)
+
+
 let test_cluster =
   let packagelist = Packages.input_raw [f_discriminants] in
   let clusters = Debutil.cluster packagelist in
   "cluster" >::: [
     "groups" >:: (fun _ -> 
-      let assert_delay = 
-        assert_delay_stub [
-          ("bb","1",[("bb","1")]);
-          ("aa","1",[("aa","1")]);
-          ("ee_source","2",[("ff","2")]);
-          ("ee_source","1",[("gg","1");("ee","1")]);
-          ("cc_source","1",[("cc","2")]);
-          ("cc_source","1",[("dd","1")]);
+      let of_list ll = 
+        ClusterSetTest.of_list (
+          List.map (fun (p,v,l) -> (p,v,
+            SubClusterSetTest.of_list (
+              List.map (fun (v,rv,cl) ->
+                (v,rv,PkgSetTest.of_list cl)
+              ) l
+            ))
+          ) ll 
+        )
+      in
+      let expected = of_list [
+        (* sourcename, sourceversion, [ list of clusters
+         * cluster version (normalized), real version, [list of packages in the cluster]
+         * ] 
+         *)
+        ("bb","1",["1","1",[("bb","1")]]);
+        ("aa","1",["1","1",[("aa","1")]]);
+        ("ee_source","1",[
+          "1","1",[("gg","1");("ee","1")]]);
+        ("ee_source","2",["2","2",[("ff","2")]]);
+        ("cc_source","1",[
+          "1","1",[("dd","1")];
+          "2","2",[("cc","2")]
+          ]);
         ]
       in
-
-      Hashtbl.iter (fun (sourcename, sourceversion) l ->
-        (* Printf.eprintf "(1)cluster (%s,%s)\n%!" sourcename sourceversion; *)
-        List.iter (fun (version,realversion,cluster) ->
-          (* Printf.eprintf "(1)v %s\n%!" version; *)
-          let l = List.map(fun pkg -> (pkg.Packages.name,pkg.Packages.version)) cluster in
-          (*
-          List.iter (fun pkg ->
-            Printf.eprintf "(1)pkg %s %s\n%!" pkg.Packages.name pkg.Packages.version
-          ) cluster;
-          *)
-          assert_delay (sourcename,sourceversion,l);
-        ) l
-      ) clusters
+      let result =
+        ClusterSetTest.of_list (
+          Hashtbl.fold (fun (sn, sv) l acc ->
+            (sn,sv,SubClusterSetTest.of_list (
+              List.map (fun (v,rv,cluster) -> 
+                let cl = List.map(fun pkg -> (pkg.Packages.name,pkg.Packages.version)) cluster in
+                (v,rv,PkgSetTest.of_list cl)
+              ) l
+            ))::acc
+          ) clusters []
+        )
+      in
+      ClusterSetTest.assert_equal expected result
     ); 
   ]
 ;;
-
 
 let test_evolution =
   let packagelist = Packages.input_raw [f_discriminants] in
@@ -569,7 +606,7 @@ let parse_inst_triplets =
   ]
 
 let list_of_hashtbl ht = 
-  ExtLib.List.of_enum (ExtLib.Hashtbl.enum ht)
+  List.sort compare (ExtLib.List.of_enum (ExtLib.Hashtbl.enum ht))
 
 let test_parse_inst = 
   let parse_inst_test_cases =
@@ -754,8 +791,8 @@ Build-Depends-Indep: bin3
 let test_sources2packages =
   let data = IO.input_string test_sources_input in
   let packagelist = Sources.parse_sources_in "" data in
-  let builddeparch = "amd64" in
-  let sources = Sources.sources2packages ~profiles:true builddeparch packagelist in
+  let hostarch = "amd64" in
+  let sources = Sources.sources2packages ~profiles:true hostarch packagelist in
   let function_to_test src =
     let src = List.find (fun s -> s.Packages.name = src) sources in
     src.Packages.depends

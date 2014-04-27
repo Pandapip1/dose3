@@ -10,7 +10,7 @@ OBFLAGS := -j 10 -classic-display
 #OBFLAGS := $(OBFLAGS) -tag debug -tag profile
 #OBFLAGS := $(OBFLAGS) -classic-display
 
-all: $(CAMLP4CMXS) $(BYTELIBS) $(ALIBS) $(OPTLIBS) $(CMXSLIBS) man
+all: $(CAMLP4CMXS) cleandoselib $(BYTELIBS) $(ALIBS) $(OPTLIBS) $(CMXSLIBS) man
 	$(OCAMLBUILD) $(OBFLAGS) $(TARGETS)
 
 fast: $(CAMLP4CMXS) $(OPTLIBS)
@@ -20,6 +20,9 @@ apps:
 	$(OCAMLBUILD) $(OBFLAGS) $(TARGETS)
 
 DOSELIBS = _build/doselibs
+
+cleandoselib:
+	rm -Rf $(DOSELIBS)
 
 camlp4cmxs:
 	mkdir -p _build
@@ -126,15 +129,14 @@ $(DOSELIBS)/%:
 	@touch $@
 
 testapps: apps 
-	@applications/dose-tests.py -pwd `pwd` -v
+	@applications/dose-tests.py applications/dose-tests.list
 
 testlib: 
 	@for i in $(TESTS); do\
-		echo "#######TESTING $$i" ;\
+		echo "\n#######START TESTING $$i" ;\
 		$(OCAMLBUILD) $(OBFLAGS) $$i/tests.$(OCAMLBEST) ;\
 		./tests.$(OCAMLBEST) ;\
 	done
-	@make apps
 
 test: testapps testlib
 
@@ -204,6 +206,6 @@ man:
 
 upload: doc
 	(cd doc && $(MAKE) upload)
-	rsync -avz dose3.docdir/ scm.gforge.inria.fr:/home/groups/dose/htdocs/doc/api/
+	rsync -avz -O dose3.docdir/ scm.gforge.inria.fr:/home/groups/dose/htdocs/doc/api/
 
 .PHONY: all opt clean top-level headers test tags install uninstall dist doc man

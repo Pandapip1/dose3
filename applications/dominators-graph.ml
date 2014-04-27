@@ -19,8 +19,11 @@ module Options = struct
   open OptParse
   let description = "Compute the dominator graph"
   let options = OptParser.make ~description
-
   include Boilerplate.MakeOptions(struct let options = options end)
+
+  include Boilerplate.DistribOptions;;
+  Boilerplate.DistribOptions.add_options options ;;
+
   let naive = StdOpt.store_true ()
   let outfile = StdOpt.str_option ()
   let clean_threshold = StdOpt.int_option ()
@@ -32,7 +35,6 @@ module Options = struct
   add options ~long_name:"clean" ~help:"Remove all clusters with less then #n nodes" clean_threshold;
   add options ~long_name:"approx" ~help:"Use approximate strong dominance (with percentage)" approximate;
 
-  include Boilerplate.MakeDistribOptions(struct let options = options end);;
 end
 
 (* ----------------------------------- *)
@@ -94,7 +96,7 @@ let main () =
   Boilerplate.all_quiet (OptParse.Opt.get Options.quiet);
   (* let options = default_options (Input.guess_format [posargs]) in *)
   let options = Options.set_options (Input.guess_format [posargs]) in
-  let (_,universe,_,_) = Boilerplate.load_universe ~options posargs in
+  let (_,universe,_,_,_) = Boilerplate.load_universe ~options posargs in
 
   let dom_graph =
     if OptParse.Opt.get Options.naive then

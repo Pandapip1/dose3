@@ -21,6 +21,7 @@ type source = {
   name : Format822.name;
   version : Format822.version;
   architecture : Format822.architecture list;
+  binaries : string list ;
   build_depends : Format822.builddepsformula;
   build_depends_indep : Format822.builddepsformula;
   build_conflicts : Format822.builddepslist;
@@ -31,6 +32,7 @@ let default_source = {
   name = "";
   version = "";
   architecture = [];
+  binaries = [];
   build_depends = [];
   build_depends_indep = [];
   build_conflicts = [];
@@ -68,6 +70,7 @@ let parse_package_stanza filter archs par =
     name = parse_s ~err:"(MISSING NAME)" parse_name "Package" par;
     version = parse_s ~err:"(MISSING VERSION)" parse_version "Version" par;
     architecture = parse_s ~err:"(MISSING ARCH)" parse_archs "Architecture" par;
+    binaries = [];
     build_depends = 
       parse_s ~opt:[] ~multi:true parse_builddepsformula "Build-Depends" par; 
     build_depends_indep =
@@ -116,8 +119,8 @@ let sep = ":" ;;
  *
  * given archs, profile and a dependency with an architecture and profile list,
  * decide whether to select or drop that dependency *)
-let select builddeparch profile dep = 
-  let matcharch arch = Architecture.src_matches_arch arch builddeparch in
+let select hostarch profile dep =
+  let matcharch arch = Architecture.src_matches_arch arch hostarch in
   match dep,profile with
   (* positive arch list, negative profiles, no profile selected
    *  -> only select if any of archs is in the arch list *)
@@ -178,12 +181,13 @@ let select builddeparch profile dep =
   |_ -> None
 ;;
 
-(** transform a list of sources packages into dummy binary packages *)
-let sources2packages ?(profiles=false) ?(noindep=false) ?(src="src") builddeparch l =
-  let conflicts profile l = List.filter_map (select builddeparch profile) l in
+(** transform a list of sources packages into dummy binary packages.
+  * This function preserve the order *)
+let sources2packages ?(profiles=false) ?(noindep=false) ?(src="src") buildarch hostarch l =
+  let conflicts profile l = List.filter_map (select hostarch profile) l in
   let depends profile ll =
     List.filter_map (fun l ->
-      match List.filter_map (select builddeparch profile) l with
+      match List.filter_map (select hostarch profile) l with
       |[] -> None 
       |l -> Some l
     ) ll
@@ -210,12 +214,19 @@ let sources2packages ?(profiles=false) ?(noindep=false) ?(src="src") builddeparc
     let extras_profile  = match profile with None -> [] | Some s -> [("profile", s)] in
     let depends_indep   = if noindep then [] else add_native_ll srcpkg.build_depends_indep in
     let conflicts_indep = if noindep then [] else add_native_l srcpkg.build_conflicts_indep in
-    let build_essential = [(("build-essential", Some "native"), None)] in
+    (* when crossbuilding (host != build), implicitly depend on build-essential
+     * and crossbuild-essential-$hostarch. When compiling natively, implicitly
+     * depend on build-essential *)
+    let build_essential = if buildarch<>hostarch then
+      [[(("build-essential", Some buildarch), None)];[(("crossbuild-essential-"^hostarch, None), None)]]
+    else
+      [[(("build-essential", Some buildarch), None)]]
+    in
     { Packages.default_package with
       Packages.name = prefix ^ sep ^ srcpkg.name ;
       source = (srcpkg.name, Some srcpkg.version);
       version = srcpkg.version;
-      depends = build_essential::(depends profile (depends_indep @ srcpkg.build_depends));
+      depends = build_essential @ (depends profile (depends_indep @ srcpkg.build_depends));
       conflicts = conflicts profile (conflicts_indep @ srcpkg.build_conflicts);
       architecture = String.concat "," srcpkg.architecture;
       extras = extras_profile @ [("Type",src)]
@@ -233,15 +244,108 @@ let sources2packages ?(profiles=false) ?(noindep=false) ?(src="src") builddeparc
   (* right fold to not inverse the order *)
   (* if a profile is selected we add an encoding of the package for each profile *)
   List.fold_right (fun srcpkg al ->
-    (* let pkgarchs = srcpkg.architecture in
-      if List.exists (fun a -> List.mem a archs) pkgarchs then *)
-      let pkg = src2pkg srcpkg in
-      if profiles then
-        pkg :: (List.map (fun p -> src2pkg ~profile:(Some p) srcpkg) (getprofiles srcpkg)) @ al
-      else
-        pkg::al
-    (* else al *)
+    let pkg = src2pkg srcpkg in
+    if profiles then
+      pkg :: (List.map (fun p -> src2pkg ~profile:(Some p) srcpkg) (getprofiles srcpkg)) @ al
+    else
+      pkg::al
   ) l []
 ;;
 
+(** Check if a package is of "Type" source as encoded by the function sources2packages *)
 let is_source ?(src="src") pkg = List.mem ("Type", src) pkg.Packages.extras;;
+
+exception MismatchSrc of Cudf.package list
+exception NotfoundSrc
+
+(**
+ [get_src_package universe binpkg] returns the source package associate
+ with the given binary package.
+ 
+ precondition : the package has "type" bin and the universe contains
+ packages of "type" src encoded with sources2packages.
+ 
+ Raise MismatchSrc if there exists a source package with the same name
+ but with a different version . Raise NotfoundSrc if the univese does not
+ contain either a source package associated with the binary package or
+ a source package with the same name but different version.
+*)
+let get_src_package universe binpkg =
+  let sn = CudfAdd.encode ("src:"^(CudfAdd.get_property "source" binpkg)) in
+  let sv = int_of_string (CudfAdd.get_property "sourceversion" binpkg) in
+  try Cudf.lookup_package universe (sn,sv)
+  with Not_found -> begin
+    let name = CudfAdd.decode sn in
+    let number = CudfAdd.get_property "sourcenumber" binpkg in
+    match Cudf.lookup_packages universe sn with
+    |[] -> begin
+        debug "Cannot find source package %s %s associated to the binary package %s"
+        name number (CudfAdd.string_of_package binpkg);
+        raise NotfoundSrc
+    end
+    |othersl -> begin
+      let othersrcnumbers = 
+        List.map (fun othersrc ->
+          CudfAdd.get_property "number" othersrc
+        ) othersl
+      in
+      debug "Cannot find source package %s %s associated to the binary package %s"
+      name number (CudfAdd.string_of_package binpkg);
+      debug "There exist other versions (%s) of the source package %s in the repository"
+      (String.concat " , " othersrcnumbers) name;
+      raise (MismatchSrc othersl)
+    end
+  end
+;;
+
+(** Returns an hash table that associates source packages (encoded by the
+    function sources2packages) to binary packages in the universe. It is
+    possible that a source package is not associated with any binary
+    packages.
+*)
+let srcbin_table universe =
+  let h = CudfAdd.Cudf_hashtbl.create (Cudf.universe_size universe) in
+  let aux binpkg = 
+    if CudfAdd.get_property "type" binpkg = "bin" then begin
+      try
+        let srcpkg = get_src_package universe binpkg in
+        try let l = CudfAdd.Cudf_hashtbl.find h srcpkg in l := binpkg::!l
+        with Not_found -> CudfAdd.Cudf_hashtbl.add h srcpkg (ref [binpkg])
+      with
+      |NotfoundSrc -> () (* this binary is not associated to any src *)
+      |MismatchSrc sl ->
+          (* we add the src to the table, but we do not associate to any
+             binary *)
+        List.iter (fun srcpkg -> 
+          if not(CudfAdd.Cudf_hashtbl.mem h srcpkg) then
+            CudfAdd.Cudf_hashtbl.add h srcpkg (ref [])
+        ) sl
+    end
+  in
+  Cudf.iter_packages aux universe ;
+  h
+;;
+
+(** Returns the list of binary packages associated to a package of "Type" source
+    encoded by the function sources2packages. The table h associated each source
+    with a list of binaries *)
+let get_bin_packages h srcpkg =
+  try !(CudfAdd.Cudf_hashtbl.find h srcpkg)
+  with Not_found -> begin
+    let sn = CudfAdd.decode srcpkg.Cudf.package in
+    let sv = CudfAdd.get_property "number" srcpkg in
+    debug "Source package %s %s not associated with any binary package" sn sv;
+    raise Not_found
+  end
+;;
+
+(** Returns the set of binary packages generated by the packages in srclist.
+    The function get_bin_packages gets a source package and returns the set
+    of packages associated to it. If the source package is not known, then
+    it is ignored. *)
+let binset get_bin_packages srclist =
+  List.fold_left (fun acc srcpkg ->
+    try CudfAdd.Cudf_set.union acc (CudfAdd.to_set (get_bin_packages srcpkg))
+    with Not_found -> acc
+  ) CudfAdd.Cudf_set.empty srclist
+;;
