@@ -7,6 +7,7 @@ dose3 (3.2-rc1-1) experimental; urgency=medium
     - replace libpcre-ocaml-dev by libre-ocaml-dev
   * Drop debian patches integrated by upstream:
     - pod2man-5.18
+    - configure-dynlink
   * Refreshed patches:
     - binaries-prefix-edos
 
