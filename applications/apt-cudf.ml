@@ -21,18 +21,17 @@ include Util.Logging(struct let label = "apt-cudf backend" end) ;;
 
 module Options = struct
   open OptParse
-  let description = "apt-get backend (EDSP v. 0.4)"
+  let description = "apt-get backend (EDSP v. 0.5)"
   let options = OptParser.make ~description
   include Boilerplate.MakeOptions(struct let options = options end)
 
   let dump = StdOpt.store_true ()
   let noop = StdOpt.store_true ()
+  let human = StdOpt.store_true ()
   let solver = StdOpt.str_option ()
   let criteria = StdOpt.str_option ()
   let explain = StdOpt.store_true ()
   let conffile = StdOpt.str_option ~default:"/etc/apt-cudf.conf" ()
-  let native_arch = StdOpt.str_option ()
-  let foreign_archs = Boilerplate.str_list_option ()
 
   open OptParser
   add options ~long_name:"conf" ~help:"configuration file (default:/etc/apt-cudf.conf)" conffile;
@@ -40,19 +39,21 @@ module Options = struct
   add options ~long_name:"noop" ~help:"Do nothing, implies --dump" noop;
   add options ~short_name:'s' ~long_name:"solver" ~help:"external solver" solver;
   add options ~short_name:'c' ~long_name:"criteria" ~help:"optimization criteria" criteria;
-  add options ~short_name:'e' ~long_name:"explain" ~help:"summary" explain;
-
-  add options ~long_name:"native-arch" ~help:"Native architecture" native_arch;
-  add options ~long_name:"foreign-archs" ~help:"Foreign architectures" foreign_archs;
+  add options ~short_name:'e' ~long_name:"explain" ~help:"print installation summary" explain;
+  add options ~long_name:"human" ~help:"print human readable installation errors" human;
 
 end
 
 let fatal fmt =
   Printf.kprintf (fun s ->
-    Format.printf "Error: %s (%s)@." 
-      (OptParse.Opt.get Options.solver) (OptParse.Opt.get Options.criteria) ;
+    if OptParse.Opt.is_set Options.solver then begin
+      Format.printf "Error: %s" (OptParse.Opt.get Options.solver);
+      if OptParse.Opt.is_set Options.criteria then
+        Format.printf " \"%s\"" (OptParse.Opt.get Options.criteria);
+      Format.printf "@."
+    end;
     Format.printf "Message: %s@." s;
-    exit 0
+    exit 1
   ) fmt
 ;;
 
@@ -163,12 +164,12 @@ let choose_criteria ?(criteria=None) ~conffile solver request =
     with Not_found ->
       try List.assoc "*" conf 
       with Not_found -> [
-        ("install", "-removed,-changed");
-        ("remove", "-removed,-changed");
-        ("upgrade","-new,-removed,-notuptodate");
-        ("dist-upgrade","-notuptodate,-new,-removed");
-        ("trendy","-removed,-notuptodate,-unsat_recommends,-new");
-        ("paranoid","-removed,-changed")
+        "upgrade", "-count(new),-count(removed),-notuptodate(solution)";
+        "dist-upgrade", "-notuptodate(solution),-count(new)";
+        "install", "-count(removed),-count(changed)";
+        "remove", "-count(removed),-count(changed)";
+        "trendy", "-count(removed),-notuptodate(solution),-unsat_recommends(solution),-count(new)";
+        "paranoid", "-count(removed),-count(changed)";
       ]
   in
   match criteria,request.Edsp.preferences with
@@ -184,21 +185,24 @@ let choose_criteria ?(criteria=None) ~conffile solver request =
 let parse_solver_spec filename =
   let (exec, version) = (ref "", ref "") in
   begin try
-    let ic = open_in filename in
-    while true do
-      let l = input_line ic in
-      if String.starts_with l "exec: " then
-        exec := String.strip (snd (String.split l " "))
-      else if String.starts_with l "cudf-version: " then
-        Scanf.sscanf l "cudf-version: %s " (fun s -> version := s);
-    done;
-    close_in ic
-    with
-      | Sys_error _ -> fatal "cannot parse CUDF solver specification %s" filename
-      | End_of_file -> ()
-      | Scanf.Scan_failure err ->
-        fatal "parse error while reading CUDF solver specification %s: %s"
-	  filename err
+    if Sys.file_exists filename then begin
+      let ic = open_in filename in
+      while true do
+        let l = input_line ic in
+        if String.starts_with l "exec: " then
+          exec := String.strip (snd (String.split l " "))
+        else if String.starts_with l "cudf-version: " then
+          Scanf.sscanf l "cudf-version: %s " (fun s -> version := s);
+      done;
+      close_in ic
+    end else
+      fatal "Solver %s not found" filename
+  with
+    | Sys_error _ -> fatal "cannot parse CUDF solver specification %s" filename
+    | End_of_file -> ()
+    | Scanf.Scan_failure err ->
+      fatal "parse error while reading CUDF solver specification %s: %s"
+        filename err
   end;
   if !exec = "" || !version = "" then
     fatal "incomplete CUDF solver specification %s" filename;
@@ -208,30 +212,6 @@ let parse_solver_spec filename =
       "Incomplete solver specification %s: one or more of $in, $out, $pref is missing in exec line"
       filename;
   (!exec,!version)
-;;
-
-let get_architectures native_opt foreign =
-  let cmd = "apt-config dump" in
-  let arch = ref "" in
-  let archs = ref [] in
-  let aux () =
-    let out = Std.input_list (Unix.open_process_in cmd) in
-    List.iter (fun s ->
-      let key, value =  ExtString.String.split s " " in
-      if key = "APT::Architecture" then
-        arch := ExtString.String.slice ~first: 1 ~last:(-2) value
-      else if key = "APT::Architectures::" || key = "APT::Architectures" then
-        let s = ExtString.String.slice ~first:1 ~last:(-2) value in
-        if s <> "" then
-          archs := (ExtString.String.slice ~first:1 ~last:(-2) value)::!archs
-    ) out;
-    debug "Atomatically set native as %s and foreign archs as %s" !arch (String.concat "," !archs);
-  in
-  match native_opt, foreign with 
-  |None,None     -> aux () ; (!arch,List.filter ((<>) !arch) !archs)
-  |None,Some l   -> fatal "Native arch is missing while Foregin archs are specified"
-  |Some a,None   -> (a,[])
-  |Some a,Some l -> (a,l)
 ;;
 
 let main () =
@@ -248,12 +228,6 @@ let main () =
   debug "CUDFSOLVERS=%s" solver_dir;
   (* debug "TMPDIR=%s" waiting for ocaml 4.0 *)
 
-  let (native_arch,foreign_archs) = 
-    get_architectures 
-      (OptParse.Opt.opt Options.native_arch) 
-      (OptParse.Opt.opt Options.foreign_archs)
-  in
-
   let solver = 
     if OptParse.Opt.is_set Options.solver then
       OptParse.Opt.get Options.solver
@@ -269,15 +243,13 @@ let main () =
   in
   
   Util.Timer.start timer1;
-  (* archs are inferred by calling apt-config dump *)
-  let archs = native_arch::foreign_archs in
-  let (request,pkglist) = Edsp.input_raw_ch ~archs ch in
+  let (request,pkglist) = Edsp.input_raw_ch ch in
   let request =
     match apt_get_cmdline with
     |"" -> request
     |_ -> begin
       let apt_req = Apt.parse_request_apt apt_get_cmdline in
-      Edsp.from_apt_request native_arch {request with Edsp.install = []; remove = []} apt_req
+      Edsp.from_apt_request request.Edsp.architecture {request with Edsp.install = []; remove = []} apt_req
     end
   in
 
@@ -295,8 +267,8 @@ let main () =
   let univ = Hashtbl.create (2*(List.length pkglist)-1) in
   let options = {
     Debcudf.default_options with 
-    Debcudf.native = native_arch;
-    Debcudf.foreign = foreign_archs }
+    Debcudf.native = request.Edsp.architecture;
+    Debcudf.foreign = request.Edsp.architectures }
   in 
   let cudfpkglist = 
     List.filter_map (fun pkg ->
@@ -351,10 +323,18 @@ let main () =
   OptParse.Opt.set Options.criteria criteria ;
 
   let solpre,soluniv = 
-    let explain = OptParse.Opt.get Options.explain in
+    let from_cudf (p,v) = (p,Debian.Debcudf.get_real_version tables (p,v)) in
+    let pp = CudfAdd.pp from_cudf in
+    let explain = OptParse.Opt.get Options.human in
     match Algo.Depsolver.check_request ~cmd:exec_pat ~criteria ~explain cudf with
     |Algo.Depsolver.Error s -> fatal "%s" s
-    |Algo.Depsolver.Unsat _ -> fatal "(UNSAT) No Solutions according to the give preferences"
+    |Algo.Depsolver.Unsat None ->
+      fatal "(UNSAT) No Solutions according to the given preferences"
+    |Algo.Depsolver.Unsat Some d -> begin
+      Format.printf "Error: (UNSAT) No Solutions according to the given preferences@.";
+      Format.printf "%a@." (Algo.Diagnostic.fprintf_human ~prefix:"Message: " ~pp) d;
+      exit 1
+    end
     |Algo.Depsolver.Sat s -> s
   in
 
@@ -370,21 +350,19 @@ let main () =
 
   let diff = CudfDiff.diff universe soluniv in
   let empty = ref true in
+  let cache = CudfAdd.Cudf_hashtbl.create 1023 in
   Hashtbl.iter (fun pkgname s ->
     let inst = s.CudfDiff.installed in
     let rem = s.CudfDiff.removed in
     match CudfAdd.Cudf_set.is_empty inst, CudfAdd.Cudf_set.is_empty rem with
-    |false,true -> begin
-        empty := false;
-        Format.printf "Install: %a@." pp_pkg (inst,univ)
+    |false,_ -> begin
+      empty := false;
+      List.iter (fun pkg -> CudfAdd.Cudf_hashtbl.add cache pkg ()) (CudfAdd.Cudf_set.elements inst);
+      Format.printf "Install: %a@." pp_pkg (inst,univ)
     end
     |true,false -> begin
-        empty := false;
-        Format.printf "Remove: %a@." pp_pkg (rem,univ)
-    end
-    |false,false -> begin
-        empty := false;
-        Format.printf "Install: %a@." pp_pkg (inst,univ)
+      empty := false;
+      Format.printf "Remove: %a@." pp_pkg (rem,univ)
     end
     |true,true -> ()
   ) diff;
@@ -397,7 +375,11 @@ let main () =
       if (CudfAdd.Cudf_set.is_empty s.CudfDiff.installed) then begin
         List.iter (fun pkg -> 
           empty := false;
-          Format.printf "Install: %a@." pp_pkg ((CudfAdd.Cudf_set.singleton pkg),univ)
+          if CudfAdd.Cudf_hashtbl.mem cache pkg then () 
+          else begin
+            CudfAdd.Cudf_hashtbl.add cache pkg ();
+            Format.printf "Install: %a@." pp_pkg ((CudfAdd.Cudf_set.singleton pkg),univ);
+          end
         ) (CudfAdd.who_provides soluniv (n,c))
       end
     with Not_found -> ()

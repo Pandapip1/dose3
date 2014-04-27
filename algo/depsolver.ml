@@ -146,14 +146,41 @@ let listcheck ?(global_constraints=true) ?callback universe pkglist =
       aux ~callback:callback_int universe idlist
 ;;
 
-let edos_install ?(global_constraints=false) univ pkg =
-  let pool = Depsolver_int.init_pool_univ ~global_constraints univ in
+(* callback : Diagnostic.result -> unit *)
+let minimize ?(global_constraints=false) ?callback criteria univ pkg =
+  let cudfpool = Depsolver_int.init_pool_univ ~global_constraints univ in
   let id = CudfAdd.vartoint univ pkg in
   (* globalid is a fake package indentifier used to encode global
    * constraints in the universe *)
   let globalid = Cudf.universe_size univ in
-  let closure = Depsolver_int.dependency_closure_cache pool [id; globalid] in
-  let solver = Depsolver_int.init_solver_closure pool closure in
+  let closure = Depsolver_int.dependency_closure_cache cudfpool [id; globalid] in
+  let pbopool = Depsolver_int.init_criteria ~closure criteria univ in
+  let solver = Depsolver_int.init_solver_closure ~pbopool cudfpool closure in
+  let req = 
+    if global_constraints then
+      Diagnostic_int.Sng (Some globalid,id) 
+    else
+      Diagnostic_int.Sng (None,id)
+  in
+  let callback =
+    match callback with
+    |None -> fun _ -> ()
+    |Some f -> (fun (criteria,res) ->
+        f (criteria,diagnosis solver.Depsolver_int.map univ res req)
+        )
+  in
+  let finalres = Depsolver_int.solve_pbo ~callback solver req in
+  diagnosis solver.Depsolver_int.map univ finalres req
+;;
+
+let edos_install ?(global_constraints=false) univ pkg =
+  let cudfpool = Depsolver_int.init_pool_univ ~global_constraints univ in
+  let id = CudfAdd.vartoint univ pkg in
+  (* globalid is a fake package indentifier used to encode global
+   * constraints in the universe *)
+  let globalid = Cudf.universe_size univ in
+  let closure = Depsolver_int.dependency_closure_cache cudfpool [id; globalid] in
+  let solver = Depsolver_int.init_solver_closure cudfpool closure in
   let req = 
     if global_constraints then
       Diagnostic_int.Sng (Some globalid,id) 
@@ -164,11 +191,11 @@ let edos_install ?(global_constraints=false) univ pkg =
   diagnosis solver.Depsolver_int.map univ res req
 ;;
 
-let edos_coinstall_cache global_constraints univ pool pkglist =
+let edos_coinstall_cache global_constraints univ cudfpool pkglist =
   let idlist = List.map (CudfAdd.vartoint univ) pkglist in
   let globalid = Cudf.universe_size univ in
-  let closure = Depsolver_int.dependency_closure_cache pool (globalid::idlist) in
-  let solver = Depsolver_int.init_solver_closure pool closure in
+  let closure = Depsolver_int.dependency_closure_cache cudfpool (globalid::idlist) in
+  let solver = Depsolver_int.init_solver_closure cudfpool closure in
   let req =
     if global_constraints then
       Diagnostic_int.Lst (Some globalid,idlist) 
@@ -180,12 +207,12 @@ let edos_coinstall_cache global_constraints univ pool pkglist =
 ;;
 
 let edos_coinstall ?(global_constraints=false) univ pkglist =
-  let pool = Depsolver_int.init_pool_univ ~global_constraints univ in
-  edos_coinstall_cache global_constraints univ pool pkglist
+  let cudfpool = Depsolver_int.init_pool_univ ~global_constraints univ in
+  edos_coinstall_cache global_constraints univ cudfpool pkglist
 ;;
 
 let edos_coinstall_prod ?(global_constraints=false) univ ll =
-  let pool = Depsolver_int.init_pool_univ ~global_constraints univ in
+  let cudfpool = Depsolver_int.init_pool_univ ~global_constraints univ in
   let return a = [a] in
   let bind m f = List.flatten (List.map f m) in
   let rec permutation = function
@@ -195,7 +222,7 @@ let edos_coinstall_prod ?(global_constraints=false) univ ll =
           List.map (fun h1 -> h1 :: t1) h
         )
   in
-  List.map (edos_coinstall_cache global_constraints univ pool) (permutation ll)
+  List.map (edos_coinstall_cache global_constraints univ cudfpool) (permutation ll)
 ;;
 
 let trim ?(global_constraints=true) universe =
@@ -222,15 +249,26 @@ let find_broken ?(global_constraints=true) universe =
   !broken_pkgs
 ;;
 
+let callback_aux acc d =
+  match d.Diagnostic.request with
+  |Diagnostic.Package p when (Diagnostic.is_solution d) -> 
+      acc := p::!acc
+  |Diagnostic.Package p ->
+      warning "Package %s is not installable" (CudfAdd.string_of_package p)
+  |_ -> ()
+;;
+
 let find_installable ?(global_constraints=true) universe =
   let acc = ref [] in
-  let callback d =
-    if Diagnostic.is_solution d then
-      match d.Diagnostic.request with
-      |Diagnostic.Package p -> acc := p::!acc
-      |_ -> assert false
-  in
+  let callback = callback_aux acc in
   ignore (univcheck ~global_constraints ~callback universe);
+  !acc
+;;
+
+let find_listinstallable ?(global_constraints=true) universe pkglist =
+  let acc = ref [] in
+  let callback = callback_aux acc in
+  ignore (listcheck ~global_constraints ~callback universe pkglist);
   !acc
 ;;
 
@@ -244,18 +282,6 @@ let find_listbroken ?(global_constraints=true) universe pkglist =
   in
   ignore (listcheck ~global_constraints ~callback universe pkglist);
   !broken_pkgs
-;;
-
-let find_listinstallable ?(global_constraints=true) universe pkglist =
-  let acc = ref [] in
-  let callback d =
-    if Diagnostic.is_solution d then
-      match d.Diagnostic.request with
-      |Diagnostic.Package p -> acc := p::!acc
-      |_ -> assert false
-  in
-  ignore (listcheck ~global_constraints ~callback universe pkglist);
-  !acc
 ;;
 
 let dependency_closure ?maxdepth ?conjunctive univ pkglist =
@@ -322,10 +348,32 @@ type solver_result =
   |Unsat of Diagnostic.diagnosis option
   |Error of string
 
+(* XXX this should be replaced by a proper parser *)
+let criteria_parser s =
+  let open Depsolver_int in
+  List.map (function
+    |"-count(new)" -> Count(New)
+    |"-count(removed)" -> Count(Removed)
+    |"-count(changed)" -> Count(Changed)
+    |"-notuptodate(solution)" -> NotUpToDate(Solution)
+    |"-unsat_recommends(solution)" -> UnsatRecommends(Solution)
+    |s -> fatal "Criteria parsing error : %s" s
+  ) (String.nsplit s ",")
+
+(* add a version constraint to ensure name is upgraded *)
+let upgrade_constr universe name = 
+  match Cudf.get_installed universe name with
+  | [] -> name,None
+  |[p] -> name,Some(`Geq,p.Cudf.version)
+  | pl ->
+      let p = List.hd(List.sort ~cmp:Cudf.(>%) pl) 
+      in (name,Some(`Geq,p.Cudf.version))
+
 (** check if a cudf request is satisfiable. we do not care about
  * universe consistency . We try to install a dummy package *)
-let check_request ?cmd ?criteria ?(explain=false) (pre,universe,request) =
-  let intSolver universe request =
+let check_request ?cmd ?callback ?criteria ?(explain=false) (pre,universe,request) =
+  let intSolver ?(explain=false) universe request =
+
     let deps = 
       let k =
         Cudf.fold_packages (fun acc pkg ->
@@ -337,7 +385,11 @@ let check_request ?cmd ?criteria ?(explain=false) (pre,universe,request) =
           else acc
         ) [] universe
       in
-      let l = request.Cudf.install @ request.Cudf.upgrade in
+      let il = request.Cudf.install in
+      (* we preserve the user defined constraints, while adding the upgrade constraint *)
+      let ulc = List.filter (function (_,Some _) -> true | _ -> false) request.Cudf.upgrade in
+      let ulnc = List.map (fun (name,_) -> upgrade_constr universe name) request.Cudf.upgrade in
+      let l = il @ ulc @ ulnc in
       debug "request consistency (keep %d) (install %d) (upgrade %d) (remove %d) (# %d)"
       (List.length k) (List.length request.Cudf.install) 
       (List.length request.Cudf.upgrade)
@@ -355,7 +407,11 @@ let check_request ?cmd ?criteria ?(explain=false) (pre,universe,request) =
     (* XXX it should be possible to add a package to a cudf document ! *)
     let pkglist = Cudf.get_packages universe in
     let universe = Cudf.load_universe (dummy::pkglist) in
-    edos_install universe dummy
+    if Option.is_none criteria || explain then
+      edos_install universe dummy
+    else
+      let criteria_array = Array.of_list (criteria_parser (Option.get criteria)) in
+      minimize ?callback criteria_array universe dummy
   in
   if Option.is_none cmd then begin
     let d = intSolver universe request in
@@ -369,7 +425,7 @@ let check_request ?cmd ?criteria ?(explain=false) (pre,universe,request) =
     let criteria = if Option.is_none criteria then "-removed,-new" else Option.get criteria in
     try Sat(CudfSolver.execsolver cmd criteria (pre,universe,request)) with
     |CudfSolver.Unsat when not explain -> Unsat None
-    |CudfSolver.Unsat when explain -> Unsat (Some (intSolver universe request))
+    |CudfSolver.Unsat when explain -> Unsat (Some (intSolver ~explain universe request))
     |CudfSolver.Error s -> Error s
   end
 ;;

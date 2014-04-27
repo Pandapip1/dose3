@@ -29,11 +29,14 @@ let f_strongdeps_conflict = Filename.concat test_dir "strongdep-conflict.cudf"
 let f_strongdeps_cycle = Filename.concat test_dir "strongdep-cycle.cudf"
 let f_strongdeps_conj = Filename.concat test_dir "strongdep-conj.cudf"
 
+let f_strongdeps_deep_dsj = Filename.concat test_dir "strongdep-deep-dsj.cudf"
+
 let f_strongcfl_simple = Filename.concat test_dir "strongcfl-simple.cudf"
 let f_strongcfl_triangle = Filename.concat test_dir "strongcfl-triangle.cudf"
 
 let f_selfprovide = Filename.concat test_dir "selfprovide.cudf"
 let f_coinst = Filename.concat test_dir "coinst.cudf"
+let f_coinst_constraints = Filename.concat test_dir "coinst-constraints.cudf"
 
 let f_legacy = Filename.concat cudf_dir "legacy.cudf"
 let f_legacy_sol = Filename.concat cudf_dir "legacy-sol.cudf"
@@ -86,9 +89,59 @@ let test_coinst_real =
     let exim4 = Cudf.lookup_package universe_debian ("exim4",1) in
     let sendmail = Cudf.lookup_package universe_debian ("sendmail",3) in
     let d = Depsolver.edos_coinstall universe_debian [exim4;sendmail] in
-    match d.Diagnostic.result with
-    |Diagnostic.Success f -> assert_failure "fail"
-    |Diagnostic.Failure f -> assert_bool "pass" true 
+    assert_bool "pass" (not(Diagnostic.is_solution d))
+  )
+
+(* try to coinstall a and b while b has a conflict with c
+ * that is declared as keep. Since global_constraints:true
+ * this should not be possible *)
+let test_coinst_constraints =
+  "coinst constraints" >:: (fun _ ->
+    let a = { Cudf.default_package with 
+      Cudf.package = "a";
+      Cudf.version = 1;
+    } in
+    let b = { Cudf.default_package with 
+      Cudf.package = "b";
+      Cudf.version = 1;
+      conflicts = [("c",None)];
+    } in
+    let c = { Cudf.default_package with 
+      Cudf.package = "c";
+      Cudf.version = 1;
+      keep = `Keep_package;
+    } in
+    let d = { Cudf.default_package with 
+      Cudf.package = "d";
+      Cudf.version = 1;
+      keep = `Keep_version;
+    } in
+    let universe = Cudf.load_universe [a;b;c;d] in
+    let d = Depsolver.edos_coinstall ~global_constraints:true universe [a;b] in
+    assert_bool "pass" (not(Diagnostic.is_solution d))
+  )
+
+(* Like above but since the default for global_constraints is false
+ * then a and b can be co-installed *)
+let test_coinst_negative_constraints =
+  "coinst constraints" >:: (fun _ ->
+    let a = { Cudf.default_package with 
+      Cudf.package = "a";
+      Cudf.version = 1;
+    } in
+    let b = { Cudf.default_package with 
+      Cudf.package = "b";
+      Cudf.version = 1;
+      conflicts = [("c",None)];
+    } in
+    let c = { Cudf.default_package with 
+      Cudf.package = "c";
+      Cudf.version = 1;
+      keep = `Keep_package;
+    } in
+    let universe = Cudf.load_universe [a;b;c] in
+    let d = Depsolver.edos_coinstall universe [a;b] in
+    assert_bool "pass" (Diagnostic.is_solution d)
   )
 
 let test_coinst_prod = 
@@ -138,9 +191,7 @@ let test_essential_broken =
     } in
     let universe = Cudf.load_universe [pkg1;pkg2] in
     let d = Depsolver.edos_install ~global_constraints:true universe pkg2 in
-    match d.Diagnostic.result with
-    |Diagnostic.Success _ -> assert_failure "fail"
-    |Diagnostic.Failure _ -> assert_bool "pass" true
+    assert_bool "pass" (not(Diagnostic.is_solution d))
   ) 
 
 let test_essential_multi =
@@ -162,11 +213,8 @@ let test_essential_multi =
     } in
     let universe = Cudf.load_universe [pkg1a;pkg1b;pkg2] in
     let d = Depsolver.edos_install ~global_constraints:true universe pkg2 in
-    match d.Diagnostic.result with
-    |Diagnostic.Failure _ -> assert_failure "fail"
-    |Diagnostic.Success _ -> assert_bool "pass" true
+    assert_bool "pass" (Diagnostic.is_solution d)
   ) 
-
 
 (* debian testing 18/11/2009 *)
 let test_distribcheck =
@@ -292,6 +340,8 @@ let test_depsolver =
     test_coinst_real ;
     test_coinst_legacy ;
     test_coinst_prod ;
+    test_coinst_constraints ;
+    test_coinst_negative_constraints ;
     test_trim ;
     test_essential_broken ;
     test_essential_multi ;
@@ -308,10 +358,16 @@ let solution_set =
   let (_,pl,_) = Cudf_parser.parse_from_file f_legacy_sol in
   List.fold_right S.add pl S.empty
 
-let test_strong ?(transitive=true) file l =
+let test_strong ?(transitive=true) file ?(checkonly=[]) l =
   let module G = Defaultgraphs.PackageGraph.G in
   let (_,universe,_) = Cudf_parser.load_from_file file in
-  let g = Strongdeps.strongdeps_univ ~transitive universe in
+  let g = 
+    if List.length checkonly = 0 then
+      Strongdeps.strongdeps_univ ~transitive universe
+    else
+      let cl = List.map (Cudf.lookup_package universe) checkonly in
+      Strongdeps.strongdeps ~transitive universe cl
+  in
   let sdedges = G.fold_edges (fun p q l -> (p,q)::l) g [] in
   let testedges =
     List.map (fun (v,z) ->
@@ -405,6 +461,16 @@ let strongdep_conj =
     test_strong f_strongdeps_conj edge_list
   )
 
+let strongdep_deep_dsj =
+  "strongdep deep disj" >:: (fun _ ->
+    let edge_list = [
+      (("f",1),("b",1)) ;
+      (("f",1),("c",1)) ;
+      ]
+    in
+    test_strong ~checkonly:[("f",1)] f_strongdeps_deep_dsj edge_list
+  )
+
 (* This test is no longer true.
  * transitive = false does not mean that the result is
  * the transitive reduction of the strong dependency
@@ -446,6 +512,7 @@ let test_strongdep =
     strongdep_conflict ;
     strongdep_cycle ;
     strongdep_conj ;
+    strongdep_deep_dsj ;
   ]
 
 let test_strongcfl = 

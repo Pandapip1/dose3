@@ -50,6 +50,14 @@ val find_broken : ?global_constraints:bool -> Cudf.universe -> Cudf.package list
 (** return the list of installable packages *)
 val find_installable : ?global_constraints:bool -> Cudf.universe -> Cudf.package list
 
+(** return the list of broken packages *)
+val find_listbroken : ?global_constraints:bool -> Cudf.universe ->
+  Cudf.package list -> Cudf.package list
+
+(** return the list of installable packages *)
+val find_listinstallable : ?global_constraints:bool -> Cudf.universe ->
+  Cudf.package list -> Cudf.package list
+
 (** [univcheck ] check if all packages in the universe can be installed.
     Since not all packages are directly tested for installation, if a packages
     is installable, the installation might be empty. To obtain an installation
@@ -119,4 +127,5 @@ type solver_result =
     if ?explain is specified and there is no solution for the give request, the
     result will contain the failure reason.
 *)
-val check_request : ?cmd : string -> ?criteria : string -> ?explain : bool -> Cudf.cudf -> solver_result
+val check_request : ?cmd : string -> ?callback:(int array * Diagnostic.diagnosis -> unit) -> 
+  ?criteria:string -> ?explain : bool -> Cudf.cudf -> solver_result

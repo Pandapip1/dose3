@@ -44,7 +44,7 @@ IFDEF HASPARMAP THEN
 END
 
   add options ~long_name:"checkonly"
-    ~help:"Check only these package ex. (sn1,sv1),(sn2,sv2)" checkonly;
+    ~help:"Check only these package ex. sn1 (=sv1),sn2 (=sv2)" checkonly;
   add options ~long_name:"broken" ~short_name:'b' 
     ~help:"Print the list of broken packages" brokenlist;
   add options ~long_name:"downgrade" ~short_name:'d' 
@@ -159,8 +159,12 @@ let pp tables pkg =
       if (pkg.Cudf.version mod 2) = 1 then
         Debian.Debcudf.get_real_version tables
         (pkg.Cudf.package,pkg.Cudf.version)
+      else if pkg.Cudf.version = 0 then
+        (* this is a dependency without constraint *)
+        ""
       else
-        fatal "Real package without Debian Version"
+        fatal "Package %s without debian version" 
+        (CudfAdd.string_of_package pkg)
   in
   let l =
     List.filter_map (fun k ->
@@ -203,7 +207,7 @@ let challenged
       begin try
         let l = Hashtbl.find clusters (sn,sv) in
         cluster_iter (sn,sv) l
-      with Not_found -> fatal "cluster %s %s is not correctly specified" sn sv end
+      with Not_found -> fatal "Cluster %s %s is not correctly specified" sn sv end
     ) (Option.get clusterlist) 
   ;
 
@@ -255,11 +259,11 @@ END
       let discr = Debian.Evolution.discriminant ~bottom:true (evalsel getv) vl constr in
       debug "Discriminants: %d" (List.length discr);
       if print_cluster then begin
-        let pp fmt pkg = 
+        let pp_item fmt pkg = 
           let pp_io_property fmt (n, s) = Format.fprintf fmt "%s: %s@," n s in
           Cudf_printer.pp_package_gen pp_io_property fmt pkg
         in
-        let pp_list = Diagnostic.pp_list pp in
+        let pp_list = Diagnostic.pp_list pp_item in
         let cudf_cluster = 
           List.map (fun pkg -> 
             let (pn,pv) = (pkg.Debian.Packages.name, getv pkg.Debian.Packages.version) in
@@ -290,7 +294,7 @@ END
               let fmt = Format.std_formatter in
               if broken then Diagnostic.fprintf ~pp ~failure:true ~explain:true fmt d 
             in
-            if broken then Format.printf "Distcheck: @,";
+            if broken then Format.printf "distcheck: @,";
             let i = Depsolver.univcheck ~callback future in
             if broken then Format.printf "@.";
 
@@ -308,6 +312,7 @@ let main () =
   Boilerplate.enable_debug (OptParse.Opt.get Options.verbose);
   Boilerplate.enable_bars (OptParse.Opt.get Options.progress) ["challenged"] ;
   Boilerplate.enable_timers (OptParse.Opt.get Options.timers) [];
+  Util.Debug.disable "Depsolver_int";
   let clusterlist = OptParse.Opt.opt Options.checkonly in 
   let broken = OptParse.Opt.get Options.brokenlist in
   let cluster = OptParse.Opt.get Options.cluster in
@@ -323,10 +328,11 @@ let main () =
     ));
     Format.printf "breaks: %d@." broken;
     Format.printf "---@."
-  ) pred
+  ) pred;
+
+  Boilerplate.exit(0)
 ;;
 
 Boilerplate.if_application 
 ~alternatives:["dose-challenged";"dose3-challenged";"edos-challenged";"deb-challenged"]
 __FILE__ main ;;
-

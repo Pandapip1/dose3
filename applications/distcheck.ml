@@ -21,49 +21,23 @@ open Algo
 
 module Options = struct
   open OptParse
-  let description = "Report the broken packages in a Packages list"
+  let description = "Compute the list broken packages in a repository"
   let options = OptParser.make ~description
   include Boilerplate.MakeOptions(struct let options = options end)
 
-  let inputtype = StdOpt.str_option ()
-  let successes = StdOpt.store_true ()
-  let failures = StdOpt.store_true ()
-  let explain = StdOpt.store_true ()
-  let minimal = StdOpt.store_true ()
-  let summary = StdOpt.store_true ()
-  let latest = StdOpt.store_true ()
-  let checkonly = Boilerplate.vpkglist_option ()
+  include Boilerplate.DistcheckOptions
+  Boilerplate.DistcheckOptions.add_options options ;;
+
+  include Boilerplate.InputOptions
+  Boilerplate.InputOptions.add_options options ;;
+
+  include Boilerplate.DistribOptions;;
+  let default = List.remove Boilerplate.DistribOptions.default_options "deb-host-arch" in
+  Boilerplate.DistribOptions.add_options ~default options ;;
+
   let coinst = Boilerplate.vpkglist_option ()
-
-  let outfile = StdOpt.str_option ()
-  let background = Boilerplate.incr_str_list ()
-  let foreground = Boilerplate.incr_str_list ()
-
   open OptParser
-
-  add options ~short_name:'t' ~help:"input type format" inputtype;
-
-  add options ~short_name:'e' ~long_name:"explain" ~help:"Explain the results" explain;
-  add options ~short_name:'m' ~long_name:"explain-minimal" ~help:"" minimal;
-  add options ~short_name:'f' ~long_name:"failures" ~help:"Only show failures" failures;
-  add options ~short_name:'s' ~long_name:"successes" ~help:"Only show successes" successes;
-
-  add options ~long_name:"checkonly" ~help:"Check only these package" checkonly;
-  add options ~long_name:"summary" ~help:"Print a detailed summary" summary;
-
-  add options ~long_name:"latest" ~help:"Check only the latest version of each package" latest;
-
   add options ~long_name:"coinst" ~help:"Check if these packages are coinstallable" coinst;
-
-  add options ~long_name:"fg" 
-  ~help:"Additional Packages lists that are checked and used for resolving dependencies (can be repeated)" foreground;
-
-  add options ~long_name:"bg" 
-  ~help:"Additional Packages lists that are NOT checked but used for resolving dependencies (can be repeated)" background;
-
-  add options ~short_name:'o' ~long_name:"outfile" ~help:"output file" outfile;
-
-  include Boilerplate.MakeDistribOptions(struct let options = options end);;
 
 end
 
@@ -83,12 +57,10 @@ let guess_format t l =
   |_ -> (Input.guess_format [l], false)
 ;;
 
-let add_format t = List.map (fun s -> (Url.scheme_to_string t)^"://"^s)
-
 let main () =
   let posargs = OptParse.OptParser.parse_argv Options.options in
   let inputlist = posargs@(OptParse.Opt.get Options.foreground) in
-  let (input_format,implicit_format) = guess_format Options.inputtype inputlist in
+  let (input_type,implicit) = guess_format Options.inputtype inputlist in
 
   Boilerplate.enable_debug (OptParse.Opt.get Options.verbose);
   Boilerplate.enable_timers (OptParse.Opt.get Options.timers) ["Solver"];
@@ -96,22 +68,10 @@ let main () =
     ["Depsolver_int.univcheck";"Depsolver_int.init_solver"] ;
   Boilerplate.all_quiet (OptParse.Opt.get Options.quiet);
 
-  let options = Options.set_options input_format in
+  let options = Options.set_options input_type in
+  let (fg,bg) = Options.parse_cmdline (input_type,implicit) posargs in
 
-  let fg = OptParse.Opt.get Options.foreground in
-  let bg = OptParse.Opt.get Options.background in
-  let fg =
-    let pos =
-      if List.length (posargs@fg@bg) = 0 && implicit_format then 
-        ["-"] 
-      else 
-        posargs
-    in
-    if implicit_format then add_format input_format (pos@fg) else (pos@fg)
-  in
-  let bg = if implicit_format then add_format input_format bg else bg in
-
-  let (preamble,pkgll,from_cudf,to_cudf) = Boilerplate.load_list ~options [fg;bg] in
+  let (preamble,pkgll,_,from_cudf,to_cudf) = Boilerplate.load_list ~options [fg;bg] in
   let (fg_pkglist, bg_pkglist) = match pkgll with [fg;bg] -> (fg,bg) | _ -> assert false in
   let fg_pkglist = 
     if OptParse.Opt.get Options.latest then CudfAdd.latest fg_pkglist
@@ -151,8 +111,8 @@ let main () =
   let pp = CudfAdd.pp from_cudf in
 
   info "Solving..." ;
-  let failure = OptParse.Opt.get Options.failures in
-  let success = OptParse.Opt.get Options.successes in
+  let failure = OptParse.Opt.get Options.failure in
+  let success = OptParse.Opt.get Options.success in
   let explain = OptParse.Opt.get Options.explain in
   let minimal = OptParse.Opt.get Options.minimal in
   let summary = OptParse.Opt.get Options.summary in
@@ -169,7 +129,7 @@ let main () =
   let callback d =
     if summary then Diagnostic.collect results d ;
     let pp =
-      if input_format = `Cudf then 
+      if input_type = `Cudf then 
         fun pkg -> pp ~decode:(fun x -> x) pkg 
       else fun pkg -> pp pkg
     in
@@ -177,57 +137,61 @@ let main () =
   in
   Util.Timer.start timer;
 
-  let number_broken =
-    if OptParse.Opt.is_set Options.coinst then 
-      let rl = Depsolver.edos_coinstall_prod universe coinstlist in
-      let nbt = List.length (List.filter (fun r -> not (Diagnostic.is_solution r)) rl) in
-      let number_checks = List.length rl in 
-      ignore(Util.Timer.stop timer ());
-      List.iter callback rl;
-      if failure || success then Format.fprintf fmt "@]@.";
-      Format.fprintf fmt "total-packages: %d@." universe_size;
-      Format.fprintf fmt "total-tuples: %d@." number_checks;
-      Format.fprintf fmt "broken-tuples: %d@." nbt;
-      nbt
-    else begin 
-      let global_constraints = not(OptParse.Opt.get Options.deb_ignore_essential) in
-      let nbp =
-	if OptParse.Opt.is_set Options.checkonly then 
-	  Depsolver.listcheck ~global_constraints ~callback universe checklist
-	else
-	  if bg_pkglist = [] then
-            Depsolver.univcheck ~global_constraints ~callback universe 
-	  else
-            Depsolver.listcheck ~global_constraints ~callback universe fg_pkglist
-      in
-      ignore(Util.Timer.stop timer ());
-      
-      if failure || success then Format.fprintf fmt "@]@.";
-      
-      let fn = List.length fg_pkglist in
-      let bn = List.length bg_pkglist in
-      
-      let nb,nf = 
-	let cl = List.length checklist in
-	if cl != 0 then ((fn + bn) - cl,cl) else (bn,fn)
-      in
-      
+  if OptParse.Opt.is_set Options.coinst then begin
+    let rl = Depsolver.edos_coinstall_prod universe coinstlist in
+    let nbt = List.length (List.filter (fun r -> not (Diagnostic.is_solution r)) rl) in
+    let number_checks = List.length rl in 
+    ignore(Util.Timer.stop timer ());
+    List.iter callback rl;
+    if failure || success then Format.fprintf fmt "@]@.";
+    Format.fprintf fmt "total-packages: %d@." universe_size;
+    Format.fprintf fmt "total-tuples: %d@." number_checks;
+    Format.fprintf fmt "broken-tuples: %d@." nbt;
+    Boilerplate.exit(nbt)
+  end else begin 
+    let global_constraints = not(OptParse.Opt.get Options.deb_ignore_essential) in
+    let nbp =
+      if OptParse.Opt.is_set Options.checkonly then 
+        Depsolver.listcheck ~global_constraints ~callback universe checklist
+      else
+        if bg_pkglist = [] then
+          Depsolver.univcheck ~global_constraints ~callback universe 
+        else
+          Depsolver.listcheck ~global_constraints ~callback universe fg_pkglist
+    in
+    ignore(Util.Timer.stop timer ());
+    
+    if failure || success then Format.fprintf fmt "@]@.";
+    
+    let fn = List.length fg_pkglist in
+    let bn = List.length bg_pkglist in
+    
+    let nb,nf = 
+      let cl = List.length checklist in
+      if cl != 0 then ((fn + bn) - cl,cl) else (bn,fn)
+    in
+    
+    if nb > 0 then begin
       Format.fprintf fmt "background-packages: %d@." nb;
-      Format.fprintf fmt "foreground-packages: %d@." nf;
-      Format.fprintf fmt "total-packages: %d@." universe_size;
-      (*
-      Format.fprintf fmt "broken-percent: %0.2f%%@." 
-       ( (float_of_int nbp) /.  (float_of_int universe_size) *. 100. ) ;
-      *)
-      Format.fprintf fmt "broken-packages: %d@." nbp;
-      if summary then 
-	Format.fprintf fmt "@[%a@]@." (Diagnostic.pp_summary ~pp ()) results;
-      nbp
-    end
-      
-  in
-  (* if at least one broken package then we set the exit code = 1 *)
-  if number_broken > 0 then exit(1);
+      Format.fprintf fmt "foreground-packages: %d@." nf
+    end;
+
+    Format.fprintf fmt "total-packages: %d@." universe_size;
+    (*
+    Format.fprintf fmt "broken-percent: %0.2f%%@." 
+     ( (float_of_int nbp) /.  (float_of_int universe_size) *. 100. ) ;
+    *)
+    Format.fprintf fmt "broken-packages: %d@." nbp;
+    if summary then 
+      Format.fprintf fmt "@[%a@]@." (Diagnostic.pp_summary ~pp ()) results;
+    Boilerplate.exit(nbp)
+  end
 ;;
 
-main () ;;
+Boilerplate.if_application
+~alternatives:[
+  "debcheck";"dose-debcheck"; "dose-distcheck";
+  "eclipsecheck";"dose-eclipsecheck";
+  "rpmcheck";"dose-rpmcheck"]
+__FILE__ main ;;
+

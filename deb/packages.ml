@@ -1,14 +1,19 @@
-(**************************************************************************************)
-(*  Copyright (C) 2009 Pietro Abate <pietro.abate@pps.jussieu.fr>                     *)
-(*  Copyright (C) 2009 Mancoosi Project                                               *)
-(*                                                                                    *)
-(*  This library is free software: you can redistribute it and/or modify              *)
-(*  it under the terms of the GNU Lesser General Public License as                    *)
-(*  published by the Free Software Foundation, either version 3 of the                *)
-(*  License, or (at your option) any later version.  A special linking                *)
-(*  exception to the GNU Lesser General Public License applies to this                *)
-(*  library, see the COPYING file for more information.                               *)
-(**************************************************************************************)
+(******************************************************************************)
+(*  This file is part of the Dose library http://www.irill.org/software/dose  *)
+(*                                                                            *)
+(*  Copyright (C) 2009-2011 Pietro Abate <pietro.abate@pps.jussieu.fr>        *)
+(*                                                                            *)
+(*  This library is free software: you can redistribute it and/or modify      *)
+(*  it under the terms of the GNU Lesser General Public License as            *)
+(*  published by the Free Software Foundation, either version 3 of the        *)
+(*  License, or (at your option) any later version.  A special linking        *)
+(*  exception to the GNU Lesser General Public License applies to this        *)
+(*  library, see the COPYING file for more information.                       *)
+(*                                                                            *)
+(*  Work developed with the support of the Mancoosi Project                   *)
+(*  http://www.mancoosi.org                                                   *)
+(*                                                                            *)
+(******************************************************************************)
 
 (** Representation of a debian package description item. *)
 
@@ -25,6 +30,7 @@ type package = {
   multiarch : Format822.multiarch ;
   essential : bool;
   build_essential : bool;
+  extra_source_only : bool;
   priority : string;
   source : (Format822.name * Format822.version option) ;
   depends : Format822.vpkgformula ;
@@ -45,6 +51,7 @@ let default_package = {
   architecture = "";
   multiarch = `None;
   essential = false;
+  extra_source_only = false;
   build_essential = false;
   priority = "";
   depends = [];
@@ -153,6 +160,7 @@ let parse_package_stanza filter archs extras par =
       source = parse_s ~opt:("",None) parse_source "Source" par;
 
       essential = parse_s ~opt:false parse_bool "Essential" par;
+      extra_source_only = parse_s ~opt:false parse_bool "Extra-Source-Only" par;
       build_essential = parse_s ~opt:false parse_bool "Build-Essential" par;
       priority = parse_s ~opt:"" parse_string "Priority" par;
 
@@ -229,8 +237,9 @@ module Set = struct
     type t = package
     let compare x y =
       let c = x >% y in 
-      if c = 0 then 
-        debug "the input contains two packages with the same name, version and architecture (%s,%s,%s). Only the latter will be considered."
+      if c = 0 && x.architecture <> "all" then
+        debug
+        "the input contains two packages with the same name, version and architecture (%s,%s,%s). Only the latter will be considered."
         x.name x.version x.architecture;
       c
   end)
@@ -238,24 +247,29 @@ end
 (**/**)
 
 let merge status packages =
-  info "Merging status file";
-  let merge_aux p1 p2 =
-    if (p1 >% p2) = 0 then begin
-      {p1 with
-        essential = p1.essential || p2.essential;
-        extras = List.unique (p1.extras @ p2.extras)
-      }
-    end else fatal "Something went wrong while merging status+packages"
-  in
-  let h = Hashtbl.create (List.length status) in
-  List.iter (fun p -> Hashtbl.add h (id p) p) status ;
-  let ps =
-    List.fold_left (fun acc p ->
-      try Set.add (merge_aux p (Hashtbl.find h (id p))) acc
-      with Not_found -> Set.add p acc
-    ) Set.empty (status @ packages)
-  in
-  Set.elements ps 
+  if List.length status > 0 then begin
+    info "Merging status file";
+    let merge_aux p1 p2 =
+      if (p1 >% p2) = 0 then begin
+        {p1 with
+          essential = p1.essential || p2.essential;
+          extras = List.unique (p1.extras @ p2.extras)
+        }
+      end else fatal "Something went wrong while merging status+packages"
+    in
+    let h = Hashtbl.create (List.length status) in
+    List.iter (fun p -> Hashtbl.add h (id p) p) status ;
+    let ps =
+      List.fold_left (fun acc p ->
+        try Set.add (merge_aux p (Hashtbl.find h (id p))) acc
+        with Not_found -> Set.add p acc
+      ) Set.empty (status @ packages)
+    in
+    Set.elements ps 
+  end
+  else 
+    packages
+;;
 
 let is_installed pkg =
   try match String.nsplit (assoc "status" pkg.extras) " " with
@@ -273,6 +287,7 @@ let default_extras = [
   ("Status", None);
   ("Size", None);
   ("Installed-Size", None);
+  ("Multi-Arch", None);
   ("Filename", None);
 ]
 

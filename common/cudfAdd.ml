@@ -10,7 +10,7 @@
 (*  library, see the COPYING file for more information.                               *)
 (**************************************************************************************)
 
-
+module Pcre = Re_pcre
 (* Remember the original hashtable module from Ocaml standard library,
     whose name will be overriden by opening Extlib. *)
 module OCAMLHashtbl = Hashtbl
@@ -23,6 +23,7 @@ include Util.Logging(struct let label = __FILE__ end) ;;
 let equal = Cudf.(=%)
 let compare = Cudf.(<%)
 
+let sort = List.sort ~cmp:compare
 let hash p = Hashtbl.hash (p.Cudf.package,p.Cudf.version)
 
 module Cudf_hashtbl =
@@ -39,7 +40,6 @@ module Cudf_set =
   end)
 
 let to_set l = List.fold_right Cudf_set.add l Cudf_set.empty
-
 
 (* encode - decode *)
 
@@ -59,7 +59,6 @@ module DecodingHashtable =
     let hash = (fun s -> (Char.code s.[1]) * 1000 + (Char.code s.[2]) )
   end)
 
-
 (*  "hex_char char" returns the ASCII code of the given character
     in the hexadecimal form, prefixed with the '%' sign.
     e.g. hex_char '+' = "%2b" *)
@@ -75,31 +74,15 @@ let hex_char char = Printf.sprintf "%%%02x" (Char.code char);;
     e.g. DecodingHashtable.find dec_ht "%2b" = "+" 
 *)
 let init_hashtables enc_ht dec_ht =
-
-  (* "all_ascii_chars" is a list containing characters with 
-     all possible ASCII codes (i.e. between 0 and 255). *)
-  let all_ascii_chars = 
-    (*  "all_numbers_from_to first last" generates a list of
-	all integers between the first one and the last one
-	(including both ends). *)
-    let rec all_numbers_from_to first last =
-      if first <= last
-      then first :: (all_numbers_from_to (first + 1) last)
-      else []
-    in
-    (* Convert each number from 0 to 255 to a character with the given ASCII code. *)
-    List.map Char.chr (all_numbers_from_to 0 255)
-      
-  in
-  (* One by one add all the possible pairs (char, hexed_char)
-      to both hashtables. *)
-  List.iter (fun char -> 
-    let char_as_string = String.make 1 char in
-    let hexed_char = hex_char char in
-    EncodingHashtable.add enc_ht char_as_string hexed_char;
-    DecodingHashtable.add dec_ht hexed_char char_as_string
-      ) all_ascii_chars
-    ;;
+  let n = ref 255 in
+  while !n >= 0 do
+    let schr = String.make 1 (Char.chr !n) in
+    let hchr = Printf.sprintf "%%%02x" !n in
+    EncodingHashtable.add enc_ht schr hchr;
+    DecodingHashtable.add dec_ht hchr schr;
+    decr n;
+  done
+;;
 
 (* Create and initialize twin hashtables,
    one for encoding and one for decoding. *)
@@ -108,7 +91,7 @@ let dec_ht = DecodingHashtable.create 256;;
 init_hashtables enc_ht dec_ht;;
 
 (* encode *)
-let encode_single s   = EncodingHashtable.find enc_ht s;;
+let encode_single s = EncodingHashtable.find enc_ht s;;
 let not_allowed_regexp = Pcre.regexp "[^a-zA-Z0-9@/+().-]";;
 
 let encode s =
@@ -141,19 +124,38 @@ let string_of_package = string_of pp_package
 
 module StringSet = Set.Make(String)
 
+let add_to_package_list h n p =
+  try let l = Hashtbl.find h n in l := p :: !l
+  with Not_found -> Hashtbl.add h n (ref [p])
+
+let get_package_list h n = try !(Hashtbl.find h n) with Not_found -> []
+
 let pkgnames universe =
   Cudf.fold_packages (fun names pkg ->
     StringSet.add pkg.Cudf.package names
   ) StringSet.empty universe
 
+let pkgnames_ universe =
+  let h = Hashtbl.create (Cudf.universe_size universe) in
+  Cudf.iter_packages (fun pkg ->
+    add_to_package_list h pkg.Cudf.package pkg
+  ) universe
 
 let add_properties preamble l =
   List.fold_left (fun pre prop ->
     {pre with Cudf.property = prop :: pre.Cudf.property }
   ) preamble l
 
+let get_property prop pkg =
+   try Cudf.lookup_package_property pkg prop
+   with Not_found -> begin
+     warning "%s missing" prop;
+     raise Not_found
+   end
+;;
+
 let is_essential pkg =
-  try (Cudf.lookup_package_property pkg "essential") = "yes"
+  try Cudf.lookup_package_property pkg "essential" = "yes"
   with Not_found -> false
 
 let realversionmap pkglist =
@@ -163,25 +165,30 @@ let realversionmap pkglist =
   ) pkglist ;
   h
 
-let vartoint = Cudf.uid_by_package 
+let vartoint universe p =
+  try Cudf.uid_by_package universe p
+  with Not_found-> begin
+    warning 
+    "package %s is not associate with an integer in the given universe"
+    (string_of_package p);
+    raise Not_found
+  end
+
 let inttovar = Cudf.package_by_uid
 
-let add_to_package_list h n p =
-  try let l = Hashtbl.find h n in l := p :: !l
-  with Not_found -> Hashtbl.add h n (ref [p])
-
-let get_package_list h n = try !(Hashtbl.find h n) with Not_found -> []
-
-let unique l = 
-  List.rev (List.fold_left (fun results x -> 
-    if List.mem x results then results 
+let normalize_set (l : int list) = 
+  (* List.rev(Util.list_unique l) *)
+  List.rev (List.fold_left (fun results x ->
+    if List.mem x results then results
     else x::results) [] l
   )
-;;
+(*
+  let module Int = struct type t = int let compare = (-) end in
+  let module ISet = Set.Make(Int) in
+  ISet.elements (List.fold_left (fun acc x -> ISet.add x acc) ISet.empty l)
+*)
 
-let normalize_set (l : int list) = unique l
-
-(* (pkgname,constr) -> pkg *)
+(* vpkg -> pkg list *)
 let who_provides univ (pkgname,constr) = 
   let pkgl = Cudf.lookup_packages ~filter:constr univ pkgname in
   let prol = Cudf.who_provides ~installed:false univ (pkgname,constr) in
@@ -202,6 +209,8 @@ let resolve_deps univ vpkgs =
 (* pkg -> pkg list list *)
 let who_depends univ pkg = 
   List.map (resolve_deps univ) pkg.Cudf.depends
+
+type ctable = (int, int list ref) ExtLib.Hashtbl.t
 
 let who_conflicts conflicts_packages univ pkg = 
   if (Hashtbl.length conflicts_packages) = 0 then
@@ -248,6 +257,7 @@ let cudfop = function
   |Some("<=",v) -> Some(`Leq,v)
   |Some(">=",v) -> Some(`Geq,v)
   |Some("=",v) -> Some(`Eq,v)
+  |Some("!=",v) -> Some(`Neq,v)
   |Some("ALL",v) -> None
   |None -> None
   |Some(c,v) -> fatal "%s %s" c v

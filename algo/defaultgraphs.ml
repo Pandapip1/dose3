@@ -12,6 +12,7 @@
 
 (** Specialized Ocamlgraph modules *)
 
+open ExtLib
 open Graph
 open Common
 
@@ -28,7 +29,6 @@ module GraphOper (G : Sig.I) = struct
       with the proviso that we know that our graph already is a transitive 
       closure *)
   (* this is a VERY expensive operation on Labelled graphs ... *)
-
   let transitive_reduction graph =
     Util.Progress.set_total trbar (G.nb_vertex graph);
     Util.Timer.start tr_timer;
@@ -47,6 +47,23 @@ module GraphOper (G : Sig.I) = struct
   ;;
 
   module O = Oper.I(G) 
+  module S = Set.Make(G.V)
+
+  (** extract the subgraph induced by the list l *)
+  let subgraph g l =
+    let to_set l = List.fold_left (fun s v -> S.add v s) S.empty l in
+    let s = to_set l in
+    let sg = G.create () in
+    S.iter (fun v1 ->
+      G.add_vertex sg v1;
+      List.iter (fun e ->
+        let v2 = G.E.dst e in
+        if S.mem v2 s then
+          G.add_edge_e sg e
+      ) (G.succ_e g v1)
+    ) s;
+    sg
+  ;;
 
 end
 
@@ -100,45 +117,89 @@ module SyntacticDependencyGraph = struct
     let src = G.E.src edge in
     let dst = G.E.dst edge in
     Printf.sprintf "%s %s %s"
-    (string_of_vertex src)
-    label
-    (string_of_vertex dst)
+      (string_of_vertex src)
+      label
+      (string_of_vertex dst)
 
-  module Display = struct
-      include G
-      let vertex_name v =
-        match G.V.label v with
-        |PkgV.Pkg i -> Printf.sprintf "\"%s\"" (CudfAdd.string_of_package i)
-        |PkgV.Or (i,c) -> Printf.sprintf "\"Or%s-%d\"" (CudfAdd.string_of_package i) c
+  module DotPrinter = struct
+    module Display = struct
+        include G
+        let vertex_name v =
+          match G.V.label v with
+          |PkgV.Pkg i -> Printf.sprintf "\"%s\"" (CudfAdd.string_of_package i)
+          |PkgV.Or (i,c) -> Printf.sprintf "\"Or%s-%d\"" (CudfAdd.string_of_package i) c
 
-      let graph_attributes = fun _ -> [`Rankdir `LeftToRight]
-      let get_subgraph = fun _ -> None
+        let graph_attributes = fun _ -> [`Rankdir `LeftToRight]
+        let get_subgraph = fun _ -> None
 
-      let default_edge_attributes = fun _ -> []
-      let default_vertex_attributes = fun _ -> [`Shape `Box]
+        let default_edge_attributes = fun _ -> []
+        let default_vertex_attributes = fun _ -> [`Shape `Box]
 
-      let vertex_attributes v =
-        match G.V.label v with
-        |PkgV.Or _ -> [`Label "Or" ; `Shape `Diamond]
-        |PkgV.Pkg p when p.Cudf.installed -> [ `Color 0x00FF00 ]
-        |_ -> []
+        let vertex_attributes v =
+          match G.V.label v with
+          |PkgV.Or _ -> [`Label "Or" ; `Shape `Diamond]
+          |PkgV.Pkg p when p.Cudf.installed -> [ `Color 0x00FF00 ]
+          |_ -> []
 
-      let edge_attributes e =
-        match G.E.label e with
-        |PkgE.DirDepends -> [`Style `Solid]
-        |PkgE.OrDepends -> [`Style `Dashed]
-        |PkgE.Conflict -> [`Color 0xFF0000; `Style `Solid; `Label "#"]
-    end
-
-  (** Graphviz outoput module *)
-  module DotPrinter = Graph.Graphviz.Dot(Display) 
+        let edge_attributes e =
+          match G.E.label e with
+          |PkgE.DirDepends -> [`Style `Solid]
+          |PkgE.OrDepends -> [`Style `Dashed]
+          |PkgE.Conflict -> [`Color 0xFF0000; `Style `Solid; `Label "#"]
+(*
+          |PkgE.DirDepends -> [`Style [`Solid]]
+          |PkgE.OrDepends -> [`Style [`Dashed]]
+          |PkgE.Conflict -> [`Color 0xFF0000; `Style [`Solid]; `Label "#"]
+*)
+      end
+    include Graph.Graphviz.Dot(Display)
+    let print fmt g = fprint_graph fmt g
+  end 
   module S = Set.Make(PkgV)
 
   module GmlPrinter = Gml.Print (G) (
     struct
        let node (v: G.V.label) = []
        let edge (e: G.E.label) = []
-     end)
+    end)
+
+  module GraphmlPrinter = Graphml.Print (G) (
+    struct
+        let vertex_properties =
+            ["package","string",None;
+             "version","string",None;
+             "architecture","string",None;
+             "type","string",None;
+             "source","string",None;
+             "sourcenumber","string",None;
+             "multiarch","string",None;
+            ]
+       
+        let edge_properties = [
+          "vpkglist","string",None;
+          "binaries","string",None;
+          ]
+
+        let map_edge e = []
+        let map_vertex = function
+          |PkgV.Pkg pkg ->
+            let name = ("package",CudfAdd.decode pkg.Cudf.package) in
+            let version = ("version",CudfAdd.string_of_version pkg) in
+       
+            let props =
+              List.filter_map (fun (key,_,_) ->
+                try let value = Cudf.lookup_package_property pkg key in
+                Some(key,value)
+                with Not_found -> None
+              ) vertex_properties
+            in
+            name :: version :: props
+          |PkgV.Or (pkg, _) -> []
+
+        let edge_uid e = Hashtbl.hash e
+        let vertex_uid v = Hashtbl.hash v
+
+    end)
 
   let depgraphbar = Util.Progress.create "SyntacticDependencyGraph.dependency_graph"
 
@@ -152,6 +213,7 @@ module SyntacticDependencyGraph = struct
     Cudf.iter_packages (fun pkg ->
       Util.Progress.progress depgraphbar;
       let vpid = G.V.create (PkgV.Pkg pkg) in
+      G.add_vertex gr vpid;
       let c = ref 0 in
       List.iter (fun vpkgs ->
         match CudfAdd.resolve_deps univ vpkgs with 
@@ -200,8 +262,9 @@ module MakePackageGraph(PkgV : Sig.COMPARABLE with type t = Cudf.package )= stru
   module O = GraphOper(G)
   module S = Set.Make(PkgV)
 
-  module DisplayF (G : Sig.I) =
-    struct
+ 
+  module DotPrinter = struct
+  module Display = struct
       include G
       let vertex_name v = Printf.sprintf "\"%s\"" (CudfAdd.string_of_package v)
 
@@ -216,8 +279,9 @@ module MakePackageGraph(PkgV : Sig.COMPARABLE with type t = Cudf.package )= stru
 
       let edge_attributes e = []
     end
-  module Display = DisplayF(G)
-  module DotPrinter = Graph.Graphviz.Dot(Display)
+    include Graph.Graphviz.Dot(Display)
+    let print fmt g = fprint_graph fmt g
+  end 
 
   module GmlPrinter = Gml.Print (G) (
     struct
@@ -225,6 +289,42 @@ module MakePackageGraph(PkgV : Sig.COMPARABLE with type t = Cudf.package )= stru
        let edge (e: G.E.label) = []
      end
   )
+
+  module GraphmlPrinter = Graphml.Print (G)(
+    struct
+        let vertex_properties =
+            ["package","string",None;
+             "version","string",None;
+             "architecture","string",None;
+             "type","string",None;
+             "source","string",None;
+             "sourcenumber","string",None;
+             "multiarch","string",None;
+            ]
+       
+        let edge_properties = [
+          "vpkglist","string",None;
+          "binaries","string",None;
+          ]
+
+        let map_edge e = []
+        let map_vertex pkg =
+          let name = ("package",CudfAdd.decode pkg.Cudf.package) in
+          let version = ("version",CudfAdd.string_of_version pkg) in
+     
+          let props =
+            List.filter_map (fun (key,_,_) ->
+              try let value = Cudf.lookup_package_property pkg key in
+              Some(key,value)
+              with Not_found -> None
+            ) vertex_properties
+          in
+          name :: version :: props
+
+        let edge_uid e = Hashtbl.hash e
+        let vertex_uid v = Hashtbl.hash v
+
+    end)
 
   (* Maintenance Of Transitive Closures And Transitive Reductions Of Graphs *)
   (* J.A. La Poutre and J. van Leeuwen *)
@@ -370,7 +470,7 @@ module MakePackageGraph(PkgV : Sig.COMPARABLE with type t = Cudf.package )= stru
       (* Somewhere, v should be in path. This is the cycle. *)
       let (other, c) = get_cycle [] path v in
       let nv = 
-        let name = String.concat "/" (List.sort compare (List.map (fun p -> p.Cudf.package) (v::c))) in
+        let name = String.concat "/" (List.sort ~cmp:compare (List.map (fun p -> p.Cudf.package) (v::c))) in
         { Cudf.default_package with
           Cudf.package = CudfAdd.encode name;
           Cudf.version = 1;
@@ -447,7 +547,6 @@ module MakePackageGraph(PkgV : Sig.COMPARABLE with type t = Cudf.package )= stru
     in
     Util.Timer.stop timer sg
 
-
 end
 
 (******************************************************)
@@ -483,23 +582,24 @@ module IntPkgGraph = struct
   module S = Set.Make(PkgV)
   module O = GraphOper(G)
 
-  module Display =
-    struct
-      include G
-      let vertex_name uid = Printf.sprintf "\"%d\"" uid
+  module DotPrinter = struct
+    module Display = struct
+        include G
+        let vertex_name uid = Printf.sprintf "\"%d\"" uid
 
-      let graph_attributes = fun _ -> []
-      let get_subgraph = fun _ -> None
+        let graph_attributes = fun _ -> []
+        let get_subgraph = fun _ -> None
 
-      let default_edge_attributes = fun _ -> []
-      let default_vertex_attributes = fun _ -> []
+        let default_edge_attributes = fun _ -> []
+        let default_vertex_attributes = fun _ -> []
 
-      let vertex_attributes v = []
+        let vertex_attributes v = []
 
-      let edge_attributes e = []
-    end
-
-  module DotPrinter = Graph.Graphviz.Dot(Display)
+        let edge_attributes e = []
+      end
+    include Graph.Graphviz.Dot(Display)
+    let print fmt g = fprint_graph fmt g
+  end 
 
   module DIn = Dot.Parse (Builder.I(G))(
     struct
@@ -640,3 +740,5 @@ module IntPkgGraph = struct
     Util.Timer.stop timer sg
 
 end
+
+

@@ -12,6 +12,8 @@
 (*  library, see the COPYING file for more information.                   *)
 (**************************************************************************)
 
+module Pcre = Re_pcre
+
 open ExtLib
 include Util.Logging(struct let label = __FILE__ end) ;;
 
@@ -27,7 +29,7 @@ let check_fail file =
 (** see mktemp(1) for the syntax of [tmp_pattern] *)
 let mktmpdir tmp_pattern =
   let ic =
-    Unix.open_process_in (Printf.sprintf "mktemp --tmpdir -d %s" tmp_pattern) in
+    Unix.open_process_in (Printf.sprintf "(mktemp --tmpdir -d %s || mktemp -d -t %s) 2>/dev/null" tmp_pattern tmp_pattern) in
   let path = input_line ic in
   ignore (Unix.close_process_in ic);
   path
@@ -38,13 +40,6 @@ let rmtmpdir path =
     ignore (Unix.system (Printf.sprintf "rm -rf %s" path))
 ;;
 
-let check_exit_status cmd = function
-  |Unix.WEXITED 0   -> ()
-  |Unix.WEXITED i   -> fatal "command '%s' failed with code %d" cmd i
-  |Unix.WSIGNALED i -> fatal "command '%s' killed by signal %d" cmd i
-  |Unix.WSTOPPED i  -> fatal "command '%s' stopped by signal %d" cmd i
-;;
-
 let rec input_all_lines acc chan =
   try input_all_lines ((input_line chan)::acc) chan
   with End_of_file -> acc
@@ -53,11 +48,17 @@ let rec input_all_lines acc chan =
 (** Solver "exec:" line. Contains three named wildcards to be interpolated:
    "$in", "$out", and "$pref"; corresponding to, respectively, input CUDF
    document, output CUDF universe, user preferences. *)
+
+(* quote string for the shell, after removing all characters disallowed in criteria *)
+let quote s = Printf.sprintf "\"%s\"" s;;
+let sanitize s = quote (Pcre.substitute ~rex:(Pcre.regexp "[^+()a-z,\"-]") ~subst:(fun _ -> "") s);;
+
 let interpolate_solver_pat exec cudf_in cudf_out pref =
-  let _, exec = String.replace ~str:exec ~sub:"$in"   ~by:cudf_in  in
-  let _, exec = String.replace ~str:exec ~sub:"$out"  ~by:cudf_out in
-  let _, exec = String.replace ~str:exec ~sub:"$pref" ~by:pref     in
-  exec
+  let (|>) f g = fun x -> g(f x) in
+  let dequote s = Pcre.regexp ("\"*"^(Pcre.quote s)^"\"*") in
+  (Pcre.substitute ~rex:(dequote "$in")   ~subst: (fun _ -> (quote cudf_in))  |>
+   Pcre.substitute ~rex:(dequote "$out")  ~subst: (fun _ -> (quote cudf_out)) |>
+   Pcre.substitute ~rex:(dequote "$pref") ~subst: (fun _ -> (sanitize pref))) exec
 ;;
 
 exception Error of string
@@ -67,6 +68,13 @@ let fatal fmt =
   Printf.kprintf (fun s ->
     raise (Error s)
   ) fmt
+;;
+
+let check_exit_status cmd = function
+  |Unix.WEXITED 0   -> ()
+  |Unix.WEXITED i   -> fatal "command '%s' failed with code %d" cmd i
+  |Unix.WSIGNALED i -> fatal "command '%s' killed by signal %d" cmd i
+  |Unix.WSTOPPED i  -> fatal "command '%s' stopped by signal %d" cmd i
 ;;
 
 (** [execsolver] execute an external cudf solver.
@@ -86,13 +94,13 @@ let execsolver exec_pat criteria cudf =
   let solver_out = Filename.concat tmpdir "out-cudf" in
   let cmd = interpolate_solver_pat exec_pat solver_in solver_out criteria in
 
-  debug "%s" cmd;
+  notice "%s" cmd;
 
   let env = Unix.environment () in
   let (cin,cout,cerr) = Unix.open_process_full cmd env in
 
   Util.Timer.start timer3;
-  let solver_in_fd = Unix.openfile solver_in [Unix.O_WRONLY ; Unix.O_SYNC] 0 in
+  let solver_in_fd = Unix.openfile solver_in [Unix.O_WRONLY;Unix.O_SYNC] 0 in
   let oc = Unix.out_channel_of_descr solver_in_fd in
   Cudf_printer.pp_cudf oc cudf;
   close_out oc ;
@@ -103,7 +111,7 @@ let execsolver exec_pat criteria cudf =
   let lines = input_all_lines lines_cin cerr in
   let exit_code = Unix.close_process_full (cin,cout,cerr) in
   check_exit_status cmd exit_code;
-  debug "\n%s" (String.concat "\n" lines);
+  notice "\n%s" (String.concat "\n" lines);
   Util.Timer.stop timer4 ();
 
   if not(Sys.file_exists solver_out) then
@@ -112,14 +120,12 @@ let execsolver exec_pat criteria cudf =
     raise Unsat
   else 
     try begin
-      if (Unix.stat solver_out).Unix.st_size <> 0 then
-        let cudf_parser = Cudf_parser.from_file solver_out in
-        Sys.remove solver_in; Sys.remove solver_out ;
-        try Cudf_parser.load_solution cudf_parser universe with
-        |Cudf_parser.Parse_error _
-        |Cudf.Constraint_violation _ ->
-          fatal "(CRASH) Solution file contains an invalid solution"
-      else fatal "(CRASH) Solution file is empty"
+      let cudf_parser = Cudf_parser.from_file solver_out in
+      Sys.remove solver_in; Sys.remove solver_out ;
+      try Cudf_parser.load_solution cudf_parser universe with
+      |Cudf_parser.Parse_error _
+      |Cudf.Constraint_violation _ ->
+        fatal "(CRASH) Solution file contains an invalid solution"
    end with Cudf.Constraint_violation s ->
      fatal "(CUDF) Malformed solution: %s" s ;
 ;;

@@ -12,6 +12,7 @@
 
 (** Representation of a apt-get <-> solvers protocol edsp 0.3 *)
 
+module Pcre = Re_pcre
 open ExtLib
 open Common
 
@@ -21,22 +22,28 @@ type request = {
   request : string;
   install : Format822.vpkg list;
   remove : Format822.vpkg list;
+  architecture : Format822.architecture;
+  architectures : Format822.architectures;
   autoremove : bool;
   upgrade : bool;
   distupgrade : bool;
   strict_pin : bool;
   preferences: string;
+  cmdline: string;
 }
 
 let default_request = {
   request = "";
   install = [];
   remove = [];
+  architecture = "";
+  architectures = [];
   autoremove = false;
   upgrade = false;
   distupgrade = false;
   strict_pin = false;
-  preferences = ""
+  preferences = "";
+  cmdline = ""
 }
 
 (* convert a apt command line request to edsp request *)
@@ -67,22 +74,60 @@ let from_apt_request arch request = function
 
 let parse_s = Packages.parse_s
 let parse_string (_,s) = s
+let parse_string_list (_,s) = String.nsplit s " "
 let parse_int_s (_,s) = string_of_int(int_of_string s)
 let parse_req (loc,s) = 
   let aux = Packages.lexbuf_wrapper Packages_parser.vpkg_top in
   let l = Pcre.split ~rex:Apt.blank_regexp s in 
   List.map (fun s -> aux (loc,s)) l
 
+let parse_edsp_version (_,s) =
+  match String.nsplit s " " with
+  |["EDSP";"0.5"] -> s
+  |["EDSP";"0.4"] -> raise Not_found
+  |_ -> raise Not_found
+
+(*
+let get_architectures native_opt foreign =
+  let cmd = "apt-config dump" in
+  let arch = ref "" in
+  let archs = ref [] in
+  let aux () =
+    let out = Std.input_list (Unix.open_process_in cmd) in
+    List.iter (fun s ->
+      let key, value =  ExtString.String.split s " " in
+      if key = "APT::Architecture" then
+        arch := ExtString.String.slice ~first: 1 ~last:(-2) value
+      else if key = "APT::Architectures::" || key = "APT::Architectures" then
+        let s = ExtString.String.slice ~first:1 ~last:(-2) value in
+        if s <> "" then
+          archs := (ExtString.String.slice ~first:1 ~last:(-2) value)::!archs
+    ) out;
+    debug "Atomatically set native as %s and foreign archs as %s" !arch (String.concat "," !archs);
+  in
+  match native_opt, foreign with 
+  |None,None     -> aux () ; (!arch,List.filter ((<>) !arch) !archs)
+  |None,Some l   -> fatal "Native arch is missing while Foregin archs are specified"
+  |Some a,None   -> (a,[])
+  |Some a,Some l -> (a,l)
+;;
+*)
+
 let parse_request_stanza par =
+  (* request must be parse before any other fields *)
+  let request = parse_s ~err:"(Invalid Request/Compatibility version)" parse_edsp_version "Request" par in
   {
-    request = parse_s ~err:"(Empty REQUEST)" parse_string "Request" par;
+    request = request; 
     install = parse_s ~opt:[] parse_req "Install" par;
     remove = parse_s ~opt:[] parse_req "Remove" par;
     upgrade = parse_s ~opt:false Packages.parse_bool "Upgrade" par;
+    architecture = parse_s ~err:"(MISSING ARCH)" Packages.parse_string "Architecture" par;
+    architectures = parse_s ~opt:[] parse_string_list "Architectures" par;
     distupgrade = parse_s ~opt:false Packages.parse_bool "Dist-Upgrade" par;
     autoremove = parse_s ~opt:false Packages.parse_bool "Autoremove" par;
     strict_pin = parse_s ~opt:true Packages.parse_bool "Strict-Pinning" par;
     preferences = parse_s ~opt:"" Packages.parse_string "Preferences" par;
+    cmdline = parse_s ~opt:"" Packages.parse_string "Command-Line" par;
   }
 ;;
 
@@ -109,10 +154,13 @@ let extras = [
   ("APT-Candidate", Some parse_candidate);
   ("APT-Automatic", Some parse_automatic);
   ("Section", Some parse_section);
+  ("APT-Release", None);
   ]
 
 (* parse the entire file while filtering out unwanted stanzas *)
-let rec packages_parser ?(request=false) archs (req,acc) p =
+let rec packages_parser ?(request=false) (req,acc) p =
+  (* if strict pin = true we filter packages that are installed and
+     apt-candidate *)
   let filter par = 
     let match_field f p =
       try 
@@ -127,37 +175,38 @@ let rec packages_parser ?(request=false) archs (req,acc) p =
     let candidate () = match_field "apt-candidate" par in
     ((inst ()) || (candidate ()))
   in
+  let archs = req.architecture::req.architectures in
   match Format822_parser.stanza_822 Format822_lexer.token_822 p.Format822.lexbuf with
   |None -> (req,acc) (* end of file *)
   |Some stanza when request = true -> 
       let req = parse_request_stanza stanza in
-      packages_parser archs (req,acc) p
+      packages_parser (req,acc) p
   |Some stanza when req.strict_pin = true -> begin
     match (Packages.parse_package_stanza (Some(filter)) archs extras stanza) with
-    |None -> packages_parser archs (req,acc) p
-    |Some st -> packages_parser archs (req,st::acc) p
+    |None -> packages_parser (req,acc) p
+    |Some st -> packages_parser (req,st::acc) p
   end
   |Some stanza when req.strict_pin = false -> begin
     match (Packages.parse_package_stanza None archs extras stanza) with
     |None -> assert false (* this is not possible in this branch *)
-    |Some st -> packages_parser archs (req,st::acc) p
+    |Some st -> packages_parser (req,st::acc) p
   end
   |_ -> assert false
 ;;
 
-let input_raw_ch ?(archs=[]) ic =
+let input_raw_ch ic =
   Format822.parse_from_ch (
-    packages_parser ~request:true archs (default_request,[])
+    packages_parser ~request:true (default_request,[])
   ) ic
 ;;
 
-let input_raw ?(archs=[]) file =
+let input_raw file =
   let ch =
     match file with
     |"-" -> IO.input_channel stdin
     |_   -> Input.open_file file
   in
-  let l = input_raw_ch ~archs ch in
+  let l = input_raw_ch ch in
   let _ = Input.close_ch ch in
   l
 ;;

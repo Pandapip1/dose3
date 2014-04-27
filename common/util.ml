@@ -60,7 +60,7 @@ type label = string
 module type Messages = sig
   type t
   val create: ?enabled:bool -> label -> t
-  val eprintf: t -> ('a, unit, string, unit) format4 -> 'a
+  val eprintf: ?raw:bool -> t -> ('a, unit, string, unit) format4 -> 'a
   val enable : label -> unit
   val disable : label -> unit
   val all_disabled : unit -> unit
@@ -78,7 +78,7 @@ module MakeMessages(X : sig val label : string end) = struct
   } 
   let messages = Hashtbl.create 10
 
-  let clean label = 
+  let clean label =
     try 
       let s = Filename.chop_extension (Filename.basename label) in
       String.capitalize s
@@ -90,14 +90,19 @@ module MakeMessages(X : sig val label : string end) = struct
       Hashtbl.add messages (clean label) t ;
       t
     else begin
-      Format.eprintf "The label (%s) %s already exists@." X.label label;
+      Printf.eprintf "The label (%s) %s already exists\n" X.label label;
       exit (64);
     end
 
-  let eprintf t fmt =
+  let eprintf ?(raw=false) t fmt =
     Printf.kprintf (
       if t.enabled then begin
-        (fun s -> Format.eprintf "(%s)%s: %s@." X.label t.label s)
+        (fun s -> 
+          if raw then
+            Printf.eprintf "(%s)%s: %s" X.label t.label s
+          else
+            Printf.eprintf "(%s)%s: %s\n%!" X.label t.label s
+        )
       end else ignore
     ) fmt
 
@@ -123,6 +128,7 @@ end
 
 (* this way we can have the same label for different messages *)
 module Info = MakeMessages(struct let label = "I" end)
+module Notice = MakeMessages(struct let label = "N" end)
 module Warning = MakeMessages(struct let label = "W" end)
 module Debug = MakeMessages(struct let label = "D" end)
 
@@ -130,6 +136,9 @@ module Logging(X : sig val label : string end) = struct
 
   let it = Info.create X.label
   let info fmt = Info.eprintf it fmt
+
+  let nt = Notice.create X.label
+  let notice fmt = Notice.eprintf nt fmt
 
 (* warning is enabled by default *)
   let wt = Warning.create ~enabled:true X.label
@@ -270,8 +279,8 @@ end
 
 let pp_process_time fmt () =
   let pt = Unix.times () in
-  Format.fprintf fmt "Process time (user):  %5.2f@." pt.Unix.tms_utime;
-  Format.fprintf fmt "Process time (sys):   %5.2f@." pt.Unix.tms_stime
+  Printf.fprintf fmt "Process time (user):  %5.2f\n%!" pt.Unix.tms_utime;
+  Printf.fprintf fmt "Process time (sys):   %5.2f\n%!" pt.Unix.tms_stime
 ;;
 
 module StringHashtbl = Hashtbl.Make (
@@ -296,3 +305,20 @@ let range i j =
  in aux [] j
 ;;
 
+let string_of_list string_of_item sep l =
+  let buf = Buffer.create 1023 in
+  let rec aux = function
+    | [] -> assert false
+    | [last] -> (* last item, no trailing sep *)
+        Buffer.add_string buf (string_of_item last)
+    | item :: tl -> (* at least one item in tl *)
+        Buffer.add_string buf (string_of_item item);
+        Buffer.add_string buf sep;
+        aux tl in
+  let _ =
+    match l with
+      | [] -> ()
+      | [sole] -> Buffer.add_string buf (string_of_item sole)
+      | _ -> aux l in
+  Buffer.contents buf
+;;
