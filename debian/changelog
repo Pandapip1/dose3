@@ -1,4 +1,4 @@
-dose3 (3.2-rc1-1) experimental; urgency=medium
+dose3 (3.2-rc1-1) UNRELEASED; urgency=low
   
   * New upstream release. This release fixes a bug related to multiarch
     (closes: #727642)
