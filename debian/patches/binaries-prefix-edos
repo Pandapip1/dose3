@@ -3,8 +3,8 @@ Description: all binaries have prefix dose-
 
 Index: dose3/doc/manpages/distcheck.pod
 ===================================================================
---- dose3.orig/doc/manpages/distcheck.pod	2012-10-16 20:45:16.000000000 +0200
-+++ dose3/doc/manpages/distcheck.pod	2012-10-16 20:45:18.000000000 +0200
+--- dose3.orig/doc/manpages/distcheck.pod	2014-04-27 17:37:27.812132813 +0200
++++ dose3/doc/manpages/distcheck.pod	2014-04-27 17:37:27.812132813 +0200
 @@ -1,25 +1,25 @@
  =head1 NAME
  
@@ -96,9 +96,9 @@ Index: dose3/doc/manpages/distcheck.pod
  =cut
 Index: dose3/doc/manpages/buildcheck.pod
 ===================================================================
---- dose3.orig/doc/manpages/buildcheck.pod	2012-10-16 20:45:16.000000000 +0200
-+++ dose3/doc/manpages/buildcheck.pod	2012-10-16 20:45:18.000000000 +0200
-@@ -125,7 +125,7 @@
+--- dose3.orig/doc/manpages/buildcheck.pod	2014-04-27 17:37:27.812132813 +0200
++++ dose3/doc/manpages/buildcheck.pod	2014-04-27 17:37:27.812132813 +0200
+@@ -127,7 +127,7 @@
  =head1 SEE ALSO
  
  L<B<deb-control>(5)>, 
@@ -109,8 +109,8 @@ Index: dose3/doc/manpages/buildcheck.pod
  <http://www.mancoosi.org> is the home page of the Mancoosi project. 
 Index: dose3/doc/manpages/outdated.pod
 ===================================================================
---- dose3.orig/doc/manpages/outdated.pod	2012-10-16 20:45:16.000000000 +0200
-+++ dose3/doc/manpages/outdated.pod	2012-10-16 20:50:31.000000000 +0200
+--- dose3.orig/doc/manpages/outdated.pod	2014-04-27 17:37:27.812132813 +0200
++++ dose3/doc/manpages/outdated.pod	2014-04-27 17:37:27.812132813 +0200
 @@ -1,16 +1,16 @@
  =head1 NAME
  
@@ -140,7 +140,7 @@ Index: dose3/doc/manpages/outdated.pod
  
  =head1 OPTIONS
  
-@@ -74,7 +74,7 @@
+@@ -77,7 +77,7 @@
  
  =head1 EXAMPLE
  
@@ -149,7 +149,7 @@ Index: dose3/doc/manpages/outdated.pod
  
  =cut
  
-@@ -86,8 +86,8 @@
+@@ -89,8 +89,8 @@
  
  =head1 SEE ALSO
  
@@ -162,8 +162,8 @@ Index: dose3/doc/manpages/outdated.pod
   
 Index: dose3/doc/manpages/challenged.pod
 ===================================================================
---- dose3.orig/doc/manpages/challenged.pod	2012-10-16 20:45:16.000000000 +0200
-+++ dose3/doc/manpages/challenged.pod	2012-10-16 20:45:18.000000000 +0200
+--- dose3.orig/doc/manpages/challenged.pod	2014-04-27 17:37:27.812132813 +0200
++++ dose3/doc/manpages/challenged.pod	2014-04-27 17:37:27.812132813 +0200
 @@ -1,19 +1,19 @@
  =head1 NAME
  
@@ -203,7 +203,7 @@ Index: dose3/doc/manpages/challenged.pod
  
  =cut
  
-@@ -71,7 +71,7 @@
+@@ -74,7 +74,7 @@
  
  =head1 EXAMPLE
  
@@ -212,7 +212,7 @@ Index: dose3/doc/manpages/challenged.pod
  
  =cut
  
-@@ -85,8 +85,8 @@
+@@ -88,8 +88,8 @@
  
  =head1 SEE ALSO
  
@@ -225,8 +225,8 @@ Index: dose3/doc/manpages/challenged.pod
  
 Index: dose3/doc/manpages/ceve.pod
 ===================================================================
---- dose3.orig/doc/manpages/ceve.pod	2012-10-16 20:45:16.000000000 +0200
-+++ dose3/doc/manpages/ceve.pod	2012-10-16 20:45:18.000000000 +0200
+--- dose3.orig/doc/manpages/ceve.pod	2014-04-27 17:37:27.812132813 +0200
++++ dose3/doc/manpages/ceve.pod	2014-04-27 17:40:06.076641425 +0200
 @@ -1,18 +1,18 @@
  =head1 NAME
  
@@ -237,8 +237,8 @@ Index: dose3/doc/manpages/ceve.pod
  
  =over 
  
--=item B<ceve> [-h] [-v] [-e I<pkgspec>] [-c I<pkgspec>] [-r I<pkgspec>] [--depth=I<n>]I<> [-t I<format>] [-o I<filename>] I<input-spec> 
-+=item B<dose-ceve> [-h] [-v] [-e I<pkgspec>] [-c I<pkgspec>] [-r I<pkgspec>] [--depth=I<n>]I<> [-t I<format>] [-o I<filename>] I<input-spec> 
+-=item B<ceve> [-h] [-v] [-e I<pkgspec>] [-c I<pkgspec>] [-r I<pkgspec>] [--depth=I<n>]I<> [-T I<format>] [-G I<graph type>] [-o I<filename>] I<input-spec> 
++=item B<dose-ceve> [-h] [-v] [-e I<pkgspec>] [-c I<pkgspec>] [-r I<pkgspec>] [--depth=I<n>]I<> [-T I<format>] [-G I<graph type>] [-o I<filename>] I<input-spec> 
  
  =back
  
