@@ -8,9 +8,9 @@ Build-Depends: debhelper (>= 7.0.50~), dh-ocaml (>= 0.9~),
 # use the following line only when autoconf stuff has been patched:
  automake, autoconf,
  ocaml-nox (>= 3.11.1-3~), camlp4,
- libpcre-ocaml-dev,
+ libre-ocaml-dev,
  libextlib-ocaml-dev,
- libocamlgraph-ocaml-dev (>= 1.8.5-1) | libocamlgraph-ocaml-dev (<< 1.8.4-1),
+ libocamlgraph-ocaml-dev (>= 1.8.5),
  libcudf-ocaml-dev (>= 0.6.2),
  libzip-ocaml-dev, libbz2-ocaml-dev, librpm-dev (>= 4.8),
  perl, graphviz, hevea, texlive-latex-base, texlive-latex-extra
