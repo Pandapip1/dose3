@@ -6,11 +6,12 @@ dose3 (3.2-rc1-1) UNRELEASED; urgency=low
     - libocamlgraph-ocaml-dev: >= 1.8.5
     - replace libpcre-ocaml-dev by libre-ocaml-dev
     - bump libcudf to >= 0.7
-  * Drop debian patches integrated by upstream:
+  * Drop debian patches that have become obsolete:
     - pod2man-5.18
     - configure-dynlink
     - ocaml-4.1
     - ocaml-4.1-zip
+    - doc-makefile-html
   * Refreshed patches:
     - binaries-prefix-edos
 
