@@ -5,6 +5,7 @@ dose3 (3.2-rc1-1) UNRELEASED; urgency=low
   * Update build-dependency according to upstream's INSTALL instructions:
     - libocamlgraph-ocaml-dev: >= 1.8.5
     - replace libpcre-ocaml-dev by libre-ocaml-dev
+    - bump libcudf to >= 0.7
   * Drop debian patches integrated by upstream:
     - pod2man-5.18
     - configure-dynlink
