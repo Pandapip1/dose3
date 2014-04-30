@@ -6,6 +6,8 @@ dose3 (3.2~rc1-1) experimental; urgency=low
     - libocamlgraph-ocaml-dev: >= 1.8.5 (closes: #745307)		
     - replace libpcre-ocaml-dev by libre-ocaml-dev
     - bump libcudf to >= 0.7
+    - drop automake, autoconf
+  * debian/rules: don't run aclocal & autoconf
   * Drop debian patches that have become obsolete:
     - pod2man-5.18
     - configure-dynlink

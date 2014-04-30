@@ -7,7 +7,7 @@ RELEASE = $(shell dpkg-parsechangelog | grep ^Version: | cut -f 2 -d' ')
 override_dh_auto_configure:
 	rm -f doc/debcheck.primer/version.tex
 	# use the following line when autoconf stuff is patched
-	aclocal -I m4 && autoconf
+	# aclocal -I m4 && autoconf
 	./configure --with-ocamlgraph --with-zip --with-bz2 --with-rpm4
 
 override_dh_auto_install:
