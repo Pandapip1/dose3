@@ -34,17 +34,22 @@ module Options = struct
   Boilerplate.InputOptions.add_options options ;;
 
   include Boilerplate.DistribOptions;;
-  Boilerplate.DistribOptions.add_options options ;;
+  let default = ["deb-triplettable";"deb-cputable"]@Boilerplate.DistribOptions.default_options in
+  Boilerplate.DistribOptions.add_options ~default options ;;
 
   let dump = StdOpt.str_option ()
   let maforeign = StdOpt.store_true ()
   let noindep = StdOpt.store_true ()
   let includextra = StdOpt.store_true ()
+  let triplettable = StdOpt.str_option ()
+  let cputable = StdOpt.str_option ()
 
   open OptParser
   add options ~long_name:"defaultedMAforeign" ~help:"Convert Arch:all packages to Multi-Arch: foreign" maforeign;
   add options ~long_name:"DropBuildIndep" ~help:"Drop Build-Indep dependencies" noindep;
   add options ~long_name:"IncludeExtraSource" ~help:"Include packages with Extra-Source-Only:yes (dropped by default)" includextra;
+  add options ~long_name:"deb-triplettable" ~help:"Path to an architecture triplet table like /usr/share/dpkg/triplettable" triplettable;
+  add options ~long_name:"deb-cputable" ~help:"Path to a cpu table like /usr/share/dpkg/cputable" cputable;
   add options ~long_name:"dump" ~help:"dump the cudf file" dump;
 
 end
@@ -65,12 +70,35 @@ let main () =
   let hostarch = options.Debian.Debcudf.host in
   let noindep = OptParse.Opt.get Options.noindep in
 
+  let fmt = Format.std_formatter in
+  if OptParse.Opt.is_set Options.deb_native_arch then
+    Format.fprintf fmt "native-architecture: %s@." (OptParse.Opt.get Options.deb_native_arch)
+  else
+    fatal "You must at least specify the native architecture";
+
+  if OptParse.Opt.is_set Options.deb_foreign_archs then
+    Format.fprintf fmt "foreign-architecture: %s@." (String.concat "," (OptParse.Opt.get Options.deb_foreign_archs));
+
+  if OptParse.Opt.is_set Options.deb_host_arch then
+    Format.fprintf fmt "host-architecture: %s@." (OptParse.Opt.get Options.deb_host_arch);
+
   let filter_external_sources par =
     if (OptParse.Opt.get Options.includextra) then true
     else
       try not(Debian.Packages.parse_bool (Debian.Packages.assoc "extra-source-only" par))
       with Not_found -> true
   in
+
+  if (OptParse.Opt.is_set Options.triplettable)
+  || OptParse.Opt.is_set Options.cputable then begin
+    let ttfile = if OptParse.Opt.is_set Options.triplettable then
+        Some (OptParse.Opt.get Options.triplettable)
+      else None in
+    let ctfile = if OptParse.Opt.is_set Options.cputable then
+        Some (OptParse.Opt.get Options.triplettable)
+      else None in
+    Architecture.read_triplettable ~ttfile ~ctfile ()
+  end;
 
   let pkglist, srclist =
     match posargs with
@@ -130,17 +158,8 @@ let main () =
     end else sl
   in
 
-  let fmt = Format.std_formatter in
 
   let results = Diagnostic.default_result universe_size in
-
-  Format.fprintf fmt "native-architecture: %s@." (OptParse.Opt.get Options.deb_native_arch);
-
-  if OptParse.Opt.is_set Options.deb_foreign_archs then
-    Format.fprintf fmt "foreign-architecture: %s@." (String.concat "," (OptParse.Opt.get Options.deb_foreign_archs));
-
-  if OptParse.Opt.is_set Options.deb_host_arch then
-    Format.fprintf fmt "host-architecture: %s@." (OptParse.Opt.get Options.deb_host_arch);
 
   if failure || success then Format.fprintf fmt "@[<v 1>report:@,";
   let callback d = 

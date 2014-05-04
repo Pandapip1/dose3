@@ -138,7 +138,11 @@ let architecture_test_cases = [
   ("linux-any", "netbsd-alpha", false);
   ("any-any", "linux-i386", true);     (* OS and CPU pattern *)
   ("any-any", "hurd-i386", true);
-  ("any-any", "amd64", true)
+  ("any-any", "amd64", true);
+  ("any-arm", "armhf", true);          (* arch name is not equal cpu name *)
+  ("any-i386", "lpia", true);
+  ("any-amd64", "x32", true);
+  ("any-powerpc", "powerpcspe", true)
 ];;
 
 let test_architecture_matching =
@@ -531,8 +535,8 @@ let test_mapping =
 
 (* Useful test functions *)
 
-let returns_result function_to_test expected_result =
-  (fun args () -> assert_equal (function_to_test args) expected_result)
+let returns_result ?(printer=(fun _ -> "(FIXME)")) function_to_test expected_result =
+  (fun args () -> assert_equal ~printer (function_to_test args) expected_result)
 and raises_failure function_to_test failure_text =
   (fun args () -> assert_raises (Failure failure_text) (fun () -> function_to_test args) )
 
@@ -792,16 +796,18 @@ let test_sources2packages =
   let data = IO.input_string test_sources_input in
   let packagelist = Sources.parse_sources_in "" data in
   let hostarch = "amd64" in
-  let sources = Sources.sources2packages ~profiles:true hostarch packagelist in
+  let buildarch = "amd64" in
+  let sources = Sources.sources2packages ~profiles:true buildarch hostarch packagelist in
   let function_to_test src =
     let src = List.find (fun s -> s.Packages.name = src) sources in
     src.Packages.depends
   in
-  let returns = returns_result function_to_test in
+  let printer = Printer.string_of_vpkgformula in
+  let returns = returns_result ~printer function_to_test in
   [
     (
       "any/native", "src:source1", returns [
-        [(("build-essential", Some "native"), None)];
+        [(("build-essential", Some hostarch), None)];
         [(("bin1", None), None)];
         [(("bin2", Some "any"), None)];
         [(("bin3", Some "native"), None)]
@@ -809,14 +815,14 @@ let test_sources2packages =
     );
     (
       "default", "src:source2", returns [
-        [(("build-essential", Some "native"), None)];
+        [(("build-essential", Some hostarch), None)];
         [(("bin1", None), None)];
         [(("bin2", None), None)]
       ]
     );
     (
       "stage1", "src-stage1:source2", returns [
-        [(("build-essential", Some "native"), None)];
+        [(("build-essential", Some hostarch), None)];
         [
           (("bin2", None), None);
           (("bin3", None), None)
@@ -825,7 +831,7 @@ let test_sources2packages =
     );
     (
       "indep", "src:source3", returns [
-        [(("build-essential", Some "native"), None)];
+        [(("build-essential", Some hostarch), None)];
         [(("bin3", Some "native"), None)];
         [(("bin1",None), None)];
         [(("bin2",None), None)]
