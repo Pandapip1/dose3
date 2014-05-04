@@ -1,7 +1,13 @@
+dose3 (3.2~rc2-1) experimental; urgency=medium
+
+  * New upstream release candidate.
+
+ -- Ralf Treinen <treinen@debian.org>  Sun, 04 May 2014 22:37:11 +0200
+
 dose3 (3.2~rc1-1) experimental; urgency=low
   
-  * New upstream release. This release fixes a bug related to multiarch
-    (closes: #727642)
+  * New upstream release candidate. This release fixes a bug related to
+    multiarch (closes: #727642)
   * Update build-dependency according to upstream's INSTALL instructions:
     - libocamlgraph-ocaml-dev: >= 1.8.5 (closes: #745307)		
     - replace libpcre-ocaml-dev by libre-ocaml-dev
