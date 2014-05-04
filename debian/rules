@@ -17,7 +17,8 @@ override_dh_auto_install:
 		&& mv deb-buildcheck dose-builddebcheck \
 		&& mv outdated dose-outdated \
 		&& mv challenged dose-challenged \
-		&& mv ceve dose-ceve
+		&& mv ceve dose-ceve \
+		&& mv deb-coinstall dose-deb-coinstall
 
 override_dh_installman:
 	dh_installman
@@ -27,6 +28,7 @@ override_dh_installman:
 		&& mv outdated.1 dose-outdated.1 \
 		&& mv challenged.1 dose-challenged.1 \
 		&& mv ceve.1 dose-ceve.1 
+#		&& mv deb-coinstall.1 dose-deb-coinstall.1
 	cd debian/dose-builddebcheck/usr/share/man/man1 \
 		&& mv buildcheck.1 dose-builddebcheck.1
 

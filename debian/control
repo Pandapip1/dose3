@@ -102,6 +102,8 @@ Description: Extra QA tools from the Dose3-library
   - dose-challenged, a debian-specific tool for checking which packages
     will certainly become uninstallable when some existing package is upgraded
     to a newer version.
+  - dose-deb-coinstall, a debian-specific tool for checking whether a set of
+    packages can be installed all together.
  The tools dose-distcheck and dose-builddebcheck are packaged in their
  own resepective packages.
 

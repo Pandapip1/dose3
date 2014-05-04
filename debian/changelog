@@ -1,8 +1,9 @@
 dose3 (3.2~rc2-1) experimental; urgency=medium
 
   * New upstream release candidate.
+  * Install deb-coinstall in the dose-extra package.
 
- -- Ralf Treinen <treinen@debian.org>  Sun, 04 May 2014 22:37:11 +0200
+ -- Ralf Treinen <treinen@debian.org>  Sun, 04 May 2014 22:42:34 +0200
 
 dose3 (3.2~rc1-1) experimental; urgency=low
   
