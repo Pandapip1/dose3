@@ -2,8 +2,10 @@ dose3 (3.2~rc3-1) experimental; urgency=low
 
   * New upstream release candidate
   * Install dose-deb-coinstall manpage
+  * patch coinstall-binary-name: accept "dose-deb-coinstall" as alternative
+    name of the coinstall binary.
 
- -- Ralf Treinen <treinen@debian.org>  Tue, 06 May 2014 19:37:57 +0200
+ -- Ralf Treinen <treinen@debian.org>  Tue, 06 May 2014 20:00:50 +0200
 
 dose3 (3.2~rc2-1) experimental; urgency=medium
 
