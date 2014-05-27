@@ -176,7 +176,7 @@ module InputOptions = struct
 
       if List.mem "checkonly" default then
         add options ~group ~long_name:"checkonly" 
-        ~help:"Check only these package" checkonly;
+        ~help:"Check only these packages" checkonly;
 
       if List.mem "trim" default then
         add options ~group ~long_name:"trim" 
@@ -228,17 +228,13 @@ module DistribOptions = struct
   ]
 
   let set_deb_options () =
-    let native =
-      if Opt.is_set deb_native_arch then
-        Opt.get deb_native_arch
-      else ""
-    in
+    let native = Opt.opt deb_native_arch in
     let host =
       if Opt.is_set deb_host_arch then begin
         (* if host arch is set, native arch must be set *)
-        if native = "" then
+        if Option.is_none native then
           fatal "you must specify at least the native architecture" ;
-        Opt.get deb_host_arch
+        Opt.opt deb_host_arch
       end
       else native
     in
@@ -247,12 +243,12 @@ module DistribOptions = struct
       if Opt.is_set deb_foreign_archs then begin
         let f = Opt.get deb_foreign_archs in
         if Opt.is_set deb_host_arch then
-          host::f
+          (Option.get host)::f
         else
           f
       end else begin
         if Opt.is_set deb_host_arch then
-          [host]
+          [Option.get host]
         else
           []
       end
@@ -313,5 +309,3 @@ module DistribOptions = struct
     let eclipse_group = add_group options "Eclipse Specific Options" in
 *)
 end
-
-
