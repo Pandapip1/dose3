@@ -1,6 +1,9 @@
 dose3 (3.2.2-1) unstable; urgency=medium
 
   * New upstream release.
+  * Adapt patch binaries-prefix-edos, the target override_dh_installman
+    in debian/rules, and debian/dose-extra.manpages to the new name of
+    the debcoinstall manpage.
 
  -- Ralf Treinen <treinen@debian.org>  Tue, 27 May 2014 08:55:50 +0200
 
