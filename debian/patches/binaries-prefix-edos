@@ -3,8 +3,8 @@ Description: all binaries have prefix dose-
 
 Index: dose3/doc/manpages/distcheck.pod
 ===================================================================
---- dose3.orig/doc/manpages/distcheck.pod	2014-05-06 19:52:40.105958614 +0200
-+++ dose3/doc/manpages/distcheck.pod	2014-05-06 19:52:40.105958614 +0200
+--- dose3.orig/doc/manpages/distcheck.pod	2014-05-27 08:57:39.036999728 +0200
++++ dose3/doc/manpages/distcheck.pod	2014-05-27 08:57:39.036999728 +0200
 @@ -1,25 +1,25 @@
  =head1 NAME
  
@@ -96,8 +96,8 @@ Index: dose3/doc/manpages/distcheck.pod
  =cut
 Index: dose3/doc/manpages/buildcheck.pod
 ===================================================================
---- dose3.orig/doc/manpages/buildcheck.pod	2014-05-06 19:52:40.105958614 +0200
-+++ dose3/doc/manpages/buildcheck.pod	2014-05-06 19:52:40.105958614 +0200
+--- dose3.orig/doc/manpages/buildcheck.pod	2014-05-27 08:57:39.036999728 +0200
++++ dose3/doc/manpages/buildcheck.pod	2014-05-27 08:57:39.036999728 +0200
 @@ -127,7 +127,7 @@
  =head1 SEE ALSO
  
@@ -109,8 +109,8 @@ Index: dose3/doc/manpages/buildcheck.pod
  <http://www.mancoosi.org> is the home page of the Mancoosi project. 
 Index: dose3/doc/manpages/outdated.pod
 ===================================================================
---- dose3.orig/doc/manpages/outdated.pod	2014-05-06 19:52:40.105958614 +0200
-+++ dose3/doc/manpages/outdated.pod	2014-05-06 19:52:40.105958614 +0200
+--- dose3.orig/doc/manpages/outdated.pod	2014-05-27 08:57:39.036999728 +0200
++++ dose3/doc/manpages/outdated.pod	2014-05-27 08:57:39.036999728 +0200
 @@ -1,16 +1,16 @@
  =head1 NAME
  
@@ -162,8 +162,8 @@ Index: dose3/doc/manpages/outdated.pod
   
 Index: dose3/doc/manpages/challenged.pod
 ===================================================================
---- dose3.orig/doc/manpages/challenged.pod	2014-05-06 19:52:40.105958614 +0200
-+++ dose3/doc/manpages/challenged.pod	2014-05-06 19:52:40.105958614 +0200
+--- dose3.orig/doc/manpages/challenged.pod	2014-05-27 08:57:39.036999728 +0200
++++ dose3/doc/manpages/challenged.pod	2014-05-27 08:57:39.036999728 +0200
 @@ -1,19 +1,19 @@
  =head1 NAME
  
@@ -225,8 +225,8 @@ Index: dose3/doc/manpages/challenged.pod
  
 Index: dose3/doc/manpages/ceve.pod
 ===================================================================
---- dose3.orig/doc/manpages/ceve.pod	2014-05-06 19:52:40.105958614 +0200
-+++ dose3/doc/manpages/ceve.pod	2014-05-06 19:52:40.105958614 +0200
+--- dose3.orig/doc/manpages/ceve.pod	2014-05-27 08:57:39.036999728 +0200
++++ dose3/doc/manpages/ceve.pod	2014-05-27 08:57:39.036999728 +0200
 @@ -1,18 +1,18 @@
  =head1 NAME
  
@@ -249,55 +249,3 @@ Index: dose3/doc/manpages/ceve.pod
  extracts package metadata from them, performs some manipulations, and outputs
  the package metadata in one of several formats. 
  
-Index: dose3/doc/manpages/coinstall.pod
-===================================================================
---- dose3.orig/doc/manpages/coinstall.pod	2014-05-06 19:52:40.105958614 +0200
-+++ dose3/doc/manpages/coinstall.pod	2014-05-06 19:53:37.118162721 +0200
-@@ -1,19 +1,19 @@
- =head1 NAME
- 
--dose-debcoinstall - calculate a coinstallation set of a given set of Debian binary packages
-+dose-deb-coinstall - calculate a coinstallation set of a given set of Debian binary packages
- 
- =head1 SYNOPSIS
- 
- =over
- 
--=item B<dose-debcoinstall> [options] I<binary-repositories>
-+=item B<dose-deb-coinstall> [options] I<binary-repositories>
- 
- =back
- =cut
- 
- =head1 DESCRIPTION
- 
--dose-debcoinstall determines whether a set of foreground Debian binary packages
-+dose-deb-coinstall determines whether a set of foreground Debian binary packages
- can be installed together given a set of background Debian binary packages. If
- yes, then a valid coinstallation set is printed on standard output. If the
- B<--src> option is given, then the associated source packages are printed on
-@@ -118,13 +118,13 @@
-  /var/lib/apt/lists/ftp.fr.debian.org_debian_dists_sid_main_binary-amd64_Packages \
-  > essential
- 
-- dose-debcoinstall --deb-native-arch=amd64 \
-+ dose-deb-coinstall --deb-native-arch=amd64 \
-  --bg /var/lib/apt/lists/ftp.fr.debian.org_debian_dists_sid_main_binary-amd64_Packages \
-  --fg essential > essential_coinstall
- 
- Compute the list of source packages needed to build these packages:
- 
-- dose-debcoinstall --deb-native-arch=amd64 \
-+ dose-deb-coinstall --deb-native-arch=amd64 \
-  --src /var/lib/apt/lists/ftp.fr.debian.org_debian_dists_sid_main_source_Sources \
-  --bg /var/lib/apt/lists/ftp.fr.debian.org_debian_dists_sid_main_binary-amd64_Packages \
-  --fg essential > essential_coinstall_src
-@@ -139,7 +139,7 @@
- =head1 SEE ALSO
- 
- L<B<deb-control>(5)>,
--L<B<dose3-distcheck>(1)>
-+L<B<dose-debcheck>(1)>
- 
- <http://www.edos-project.org> is the home page of the EDOS project.
- <http://www.mancoosi.org> is the home page of the Mancoosi project.
