@@ -1,0 +1,18 @@
+Author: Daniel Lintott <daniel@serverb.co.uk>
+Description: extend explanation of the -e option of buildcheck
+Debian-Bug: #750078
+
+--- dose3.orig/doc/manpages/buildcheck.pod	2014-06-06 22:11:43.966609739 +0200
++++ dose3/doc/manpages/buildcheck.pod	2014-06-06 22:11:43.966609739 +0200
+@@ -81,7 +81,10 @@
+ 
+ =item B<-e --explain> 
+ 
+-Explain the results in more detail. 
++Give explanations. If used together with --failures then the explanation
++consists of dependency chains leading to a conflict or a dependency on a
++missing package. If used together with --successes then the explanation
++consists of an installation set.
+ 
+ =item B<-v>
+ 
