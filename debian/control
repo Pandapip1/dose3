@@ -128,3 +128,12 @@ Description: CUDF solver integration for APT
  .
  Several CUDF solvers are available in Debian. They all provide the cudf-solver
  virtual package.
+
+Package: edos-distcheck
+Section: oldlibs
+Priority: extra
+Architecture: all
+Depends: ${misc:Depends}, dose-distcheck, dose-builddebcheck
+Description: Checks dependencies of packages (transitional package)
+ This is a transitional package which can be safely removed, its only
+ purpose is to ease the transition to the dose3 tools.

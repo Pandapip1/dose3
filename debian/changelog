@@ -1,9 +1,11 @@
-dose3 (3.2.2-2) UNRELEASED; urgency=medium
+dose3 (3.2.2-2) unstable; urgency=medium
 
   * patch buildcheck-manpage: extend explanation of the -e option of
     dose-builddebcheck (closes: #750078)
+  * Add a transitional package for edos-distcheck. This makes the
+    following source packages obsolete: pkglab, dose2.
 
- -- Ralf Treinen <treinen@debian.org>  Fri, 06 Jun 2014 22:14:41 +0200
+ -- Ralf Treinen <rt@seneca.home.org>  Sun, 27 Jul 2014 20:48:31 +0200
 
 dose3 (3.2.2-1) unstable; urgency=low
 
