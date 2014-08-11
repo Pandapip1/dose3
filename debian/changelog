@@ -1,8 +1,11 @@
 dose3 (3.2.2-3) UNRELEASED; urgency=medium
 
   * debian/changelog: fix my email address in previous changelog entry.
+  * add patch buildcheck-manpage-native-arch: specify in the manpage that
+    the --deb-native-arch argument is mandatory to debbuildcheck
+    (closes: #757641).
 
- -- Ralf Treinen <treinen@debian.org>  Mon, 11 Aug 2014 19:22:31 +0200
+ -- Ralf Treinen <treinen@debian.org>  Mon, 11 Aug 2014 19:32:32 +0200
 
 dose3 (3.2.2-2) unstable; urgency=medium
 
