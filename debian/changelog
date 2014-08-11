@@ -1,3 +1,9 @@
+dose3 (3.2.2-3) UNRELEASED; urgency=medium
+
+  * debian/changelog: fix my email address in previous changelog entry.
+
+ -- Ralf Treinen <treinen@debian.org>  Mon, 11 Aug 2014 19:22:31 +0200
+
 dose3 (3.2.2-2) unstable; urgency=medium
 
   * patch buildcheck-manpage: extend explanation of the -e option of
@@ -5,7 +11,7 @@ dose3 (3.2.2-2) unstable; urgency=medium
   * Add a transitional package for edos-distcheck. This makes the
     following source packages obsolete: pkglab, dose2.
 
- -- Ralf Treinen <rt@seneca.home.org>  Sun, 27 Jul 2014 20:48:31 +0200
+ -- Ralf Treinen <treinen@debian.org>  Sun, 27 Jul 2014 20:48:31 +0200
 
 dose3 (3.2.2-1) unstable; urgency=low
 
