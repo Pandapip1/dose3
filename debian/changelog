@@ -4,8 +4,11 @@ dose3 (3.2.2-3) UNRELEASED; urgency=medium
   * add patch buildcheck-manpage-native-arch: specify in the manpage that
     the --deb-native-arch argument is mandatory to debbuildcheck
     (closes: #757641).
+  * add patch multiarch-accept-value-no: when parsing debian metadata,
+    accept "no" as alias for "none" as value of Multiarch. Thanks to
+    Pietro Abate for the patch (closes: #759372).
 
- -- Ralf Treinen <treinen@debian.org>  Mon, 11 Aug 2014 19:32:32 +0200
+ -- Ralf Treinen <treinen@debian.org>  Sun, 14 Sep 2014 19:51:14 +0200
 
 dose3 (3.2.2-2) unstable; urgency=medium
 

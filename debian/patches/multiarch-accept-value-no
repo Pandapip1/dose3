@@ -1,0 +1,20 @@
+Author: Pietro Abate <pietro.abate@pps.jussieu.fr>
+Debian-bug: #759372
+Description: when parsing debian package data, accept "no" as alias
+	     for "none" as value for Multiarch
+Upstream-commit: f453cd423c181e4549742fbcb12b54377938f601
+
+
+Index: dose3/deb/packages_parser.mly
+===================================================================
+--- dose3.orig/deb/packages_parser.mly	2014-09-14 19:57:40.833179444 +0200
++++ dose3/deb/packages_parser.mly	2014-09-14 19:57:40.829179444 +0200
+@@ -13,7 +13,7 @@
+   | _ -> assert false   (* lexer shouldn't have returned such a RELOP! *)
+ 
+ let parse_multiarch = function
+-  |("None"|"none") -> `None
++  |("None"|"none"|"no") -> `None
+   |("Allowed"|"allowed") -> `Allowed
+   |("Foreign"|"foreign") -> `Foreign
+   |("Same"|"same") -> `Same
