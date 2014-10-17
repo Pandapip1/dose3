@@ -1,0 +1,15 @@
+Package: aaa
+Architecture: toaster
+Version: 2.1
+Depends: bbb
+
+Package: bbb
+Architecture: toaster
+Version: 3.2
+Depends: ccc
+
+Package: ccc
+Architecture: toaster
+Version: 4.3
+Conflicts: ddd
+

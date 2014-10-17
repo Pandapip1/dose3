@@ -1,3 +1,9 @@
+dose3 (3.2.2-4) UNRELEASED; urgency=medium
+
+  * add rudimentary as-installed package checks
+
+ -- Ralf Treinen <treinen@debian.org>  Fri, 17 Oct 2014 20:54:48 +0200
+
 dose3 (3.2.2-3) unstable; urgency=medium
 
   * debian/changelog: fix my email address in previous changelog entry.

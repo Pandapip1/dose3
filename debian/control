@@ -18,6 +18,7 @@ Standards-Version: 3.9.5
 Homepage: http://www.mancoosi.org/software/
 Vcs-Browser: http://git.debian.org/?p=pkg-ocaml-maint/packages/dose3.git
 Vcs-Git: git://git.debian.org/git/pkg-ocaml-maint/packages/dose3.git
+XS-Testsuite: autopkgtest
 
 Package: libdose3-ocaml-dev
 Architecture: any
