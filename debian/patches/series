@@ -1,6 +1,3 @@
 binaries-prefix-edos
 coinstall-binary-name
-buildcheck-manpage
-buildcheck-manpage-native-arch
-multiarch-accept-value-no
 buildcheck-redirect-output

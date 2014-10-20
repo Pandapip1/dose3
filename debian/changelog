@@ -1,8 +1,13 @@
-dose3 (3.2.2-4) UNRELEASED; urgency=medium
+dose3 (3.3~beta1-1) UNRELEASED; urgency=low
 
+  * new upstream version:
+    - refreshed patches:
+      binaries-prefix-edos,coinstall-binary-name,buildcheck-redirect-output
+    - dropped patches that were integrated upstream: 
+      buildcheck-manpage,buildcheck-manpage-native-arch,multiarch-accept-value-no
   * add rudimentary as-installed package checks
 
- -- Ralf Treinen <treinen@debian.org>  Fri, 17 Oct 2014 20:54:48 +0200
+ -- Ralf Treinen <treinen@debian.org>  Mon, 20 Oct 2014 19:59:11 +0200
 
 dose3 (3.2.2-3) unstable; urgency=medium
 

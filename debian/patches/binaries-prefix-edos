@@ -3,8 +3,8 @@ Description: all binaries have prefix dose-
 
 Index: dose3/doc/manpages/distcheck.pod
 ===================================================================
---- dose3.orig/doc/manpages/distcheck.pod	2014-05-27 08:57:39.036999728 +0200
-+++ dose3/doc/manpages/distcheck.pod	2014-05-27 08:57:39.036999728 +0200
+--- dose3.orig/doc/manpages/distcheck.pod	2014-10-20 19:59:39.694565274 +0200
++++ dose3/doc/manpages/distcheck.pod	2014-10-20 19:59:39.694565274 +0200
 @@ -1,25 +1,25 @@
  =head1 NAME
  
@@ -78,7 +78,7 @@ Index: dose3/doc/manpages/distcheck.pod
  
  =cut
  
-@@ -272,13 +272,13 @@
+@@ -278,13 +278,13 @@
  Check which packages in contrib are not installable when dependencies may
  be satisfied from main:
   
@@ -96,9 +96,9 @@ Index: dose3/doc/manpages/distcheck.pod
  =cut
 Index: dose3/doc/manpages/buildcheck.pod
 ===================================================================
---- dose3.orig/doc/manpages/buildcheck.pod	2014-05-27 08:57:39.036999728 +0200
-+++ dose3/doc/manpages/buildcheck.pod	2014-05-27 08:57:39.036999728 +0200
-@@ -127,7 +127,7 @@
+--- dose3.orig/doc/manpages/buildcheck.pod	2014-10-20 19:59:39.694565274 +0200
++++ dose3/doc/manpages/buildcheck.pod	2014-10-20 19:59:39.694565274 +0200
+@@ -172,7 +172,7 @@
  =head1 SEE ALSO
  
  L<B<deb-control>(5)>, 
@@ -109,8 +109,8 @@ Index: dose3/doc/manpages/buildcheck.pod
  <http://www.mancoosi.org> is the home page of the Mancoosi project. 
 Index: dose3/doc/manpages/outdated.pod
 ===================================================================
---- dose3.orig/doc/manpages/outdated.pod	2014-05-27 08:57:39.036999728 +0200
-+++ dose3/doc/manpages/outdated.pod	2014-05-27 08:57:39.036999728 +0200
+--- dose3.orig/doc/manpages/outdated.pod	2014-10-20 19:59:39.694565274 +0200
++++ dose3/doc/manpages/outdated.pod	2014-10-20 19:59:39.694565274 +0200
 @@ -1,16 +1,16 @@
  =head1 NAME
  
@@ -140,7 +140,7 @@ Index: dose3/doc/manpages/outdated.pod
  
  =head1 OPTIONS
  
-@@ -77,7 +77,7 @@
+@@ -83,7 +83,7 @@
  
  =head1 EXAMPLE
  
@@ -149,7 +149,7 @@ Index: dose3/doc/manpages/outdated.pod
  
  =cut
  
-@@ -89,8 +89,8 @@
+@@ -95,8 +95,8 @@
  
  =head1 SEE ALSO
  
@@ -162,8 +162,8 @@ Index: dose3/doc/manpages/outdated.pod
   
 Index: dose3/doc/manpages/challenged.pod
 ===================================================================
---- dose3.orig/doc/manpages/challenged.pod	2014-05-27 08:57:39.036999728 +0200
-+++ dose3/doc/manpages/challenged.pod	2014-05-27 08:57:39.036999728 +0200
+--- dose3.orig/doc/manpages/challenged.pod	2014-10-20 19:59:39.694565274 +0200
++++ dose3/doc/manpages/challenged.pod	2014-10-20 19:59:39.694565274 +0200
 @@ -1,19 +1,19 @@
  =head1 NAME
  
@@ -225,8 +225,8 @@ Index: dose3/doc/manpages/challenged.pod
  
 Index: dose3/doc/manpages/ceve.pod
 ===================================================================
---- dose3.orig/doc/manpages/ceve.pod	2014-05-27 08:57:39.036999728 +0200
-+++ dose3/doc/manpages/ceve.pod	2014-05-27 08:57:39.036999728 +0200
+--- dose3.orig/doc/manpages/ceve.pod	2014-10-20 19:59:39.694565274 +0200
++++ dose3/doc/manpages/ceve.pod	2014-10-20 19:59:39.694565274 +0200
 @@ -1,18 +1,18 @@
  =head1 NAME
  

@@ -4,12 +4,12 @@ Description: accept "dose-deb-coinstall" as alternative name of the
 
 Index: dose3/applications/deb-coinstall.ml
 ===================================================================
---- dose3.orig/applications/deb-coinstall.ml	2014-05-06 08:53:17.634759160 +0200
-+++ dose3/applications/deb-coinstall.ml	2014-05-06 19:59:02.267325553 +0200
-@@ -255,5 +255,5 @@
+--- dose3.orig/applications/deb-coinstall.ml	2014-10-20 20:01:54.970567462 +0200
++++ dose3/applications/deb-coinstall.ml	2014-10-20 20:02:19.098567853 +0200
+@@ -256,5 +256,5 @@
  ;;
  
- Boilerplate.if_application
+ StdUtils.if_application
 -~alternatives:["dose-debcoinstall";"deb-coinstall"] __FILE__ main ;;
 +~alternatives:["dose-deb-coinstall";"deb-coinstall"] __FILE__ main ;;
  
