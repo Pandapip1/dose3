@@ -1,11 +1,12 @@
 dose3 (3.3~beta1-1) UNRELEASED; urgency=low
 
   * new upstream version:
-    - refreshed patches:
-      binaries-prefix-edos,coinstall-binary-name,buildcheck-redirect-output
-    - dropped patches that were integrated upstream: 
-      buildcheck-manpage,buildcheck-manpage-native-arch,multiarch-accept-value-no
-  * add rudimentary as-installed package checks
+    - refreshed patches: binaries-prefix-edos, coinstall-binary-name,
+      buildcheck-redirect-output
+    - dropped patches that were integrated upstream: buildcheck-manpage,
+      buildcheck-manpage-native-arch, multiarch-accept-value-no
+  * add rudimentary as-installed package tests for dose-debcheck,
+    dose-builddebcheck, dose-outdated
 
  -- Ralf Treinen <treinen@debian.org>  Mon, 20 Oct 2014 19:59:11 +0200
 

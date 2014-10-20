@@ -13,3 +13,7 @@ Architecture: toaster
 Version: 4.3
 Conflicts: ddd
 
+Package: build-essential
+Architecture: toaster
+Version: 5.5-5
+Depends: ccc
