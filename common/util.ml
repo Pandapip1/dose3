@@ -91,7 +91,7 @@ module MakeMessages(X : sig val label : string end) = struct
       t
     else begin
       Printf.eprintf "The label (%s) %s already exists\n" X.label label;
-      exit (64);
+      Pervasives.exit (64);
     end
 
   let eprintf ?(raw=false) t fmt =
@@ -149,7 +149,10 @@ module Logging(X : sig val label : string end) = struct
 
   let fatal fmt = 
     let l = Printf.sprintf "Fatal error in module %s: " X.label in
-    Printf.kprintf (fun s -> Printf.eprintf "%s\n %s\n%!" l s; exit (64)) fmt
+    Printf.kprintf (fun s ->
+      Printf.eprintf "%s\n %s\n%!" l s; 
+      Pervasives.exit (64)
+    ) fmt
 end
 
 include Logging(struct let label = __FILE__ end) ;;
@@ -266,7 +269,6 @@ module Timer = struct
   let available () = Hashtbl.fold (fun k _ acc -> k::acc) timers []
 
   let start c =
-    assert(not c.is_in);
     c.is_in <- true;
     c.last <- !gettimeofday()
 
@@ -321,7 +323,7 @@ let range i j =
  in aux [] j
 ;;
 
-let string_of_list string_of_item sep l =
+let string_of_list ?(delim=("","")) ?(sep=",") string_of_item l =
   let buf = Buffer.create 1023 in
   let rec aux = function
     | [] -> assert false
@@ -330,11 +332,14 @@ let string_of_list string_of_item sep l =
     | item :: tl -> (* at least one item in tl *)
         Buffer.add_string buf (string_of_item item);
         Buffer.add_string buf sep;
-        aux tl in
-  let _ =
-    match l with
-      | [] -> ()
-      | [sole] -> Buffer.add_string buf (string_of_item sole)
-      | _ -> aux l in
+        aux tl 
+  in
+  Buffer.add_string buf (fst delim);
+  begin match l with
+    | [] -> ()
+    | [sole] -> Buffer.add_string buf (string_of_item sole)
+    | _ -> aux l 
+  end;
+  Buffer.add_string buf (snd delim);
   Buffer.contents buf
 ;;

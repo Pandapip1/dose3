@@ -733,44 +733,128 @@ let test_parsing =
 
 let select_deps =
   let function_to_test = (fun (archs,profile,dep) -> Sources.select archs profile dep) in
-  let returns = returns_result function_to_test in
-  (* testname archlist profilename     pkg    archlist           profilelist           return *)
-  [ ("00", ("amd64", None,          ("foo", [],                [])),                 returns (Some "foo"));
-    ("01", ("amd64", None,          ("foo", [],                [(true,"stage1")])),  returns None);
-    ("02", ("amd64", None,          ("foo", [],                [(false,"stage1")])), returns (Some "foo"));
-    ("03", ("amd64", None,          ("foo", [(true,"amd64")],  [])),                 returns (Some "foo"));
-    ("04", ("amd64", None,          ("foo", [(true,"amd64")],  [(true,"stage1")])),  returns None);
-    ("05", ("amd64", None,          ("foo", [(true,"amd64")],  [(false,"stage1")])), returns (Some "foo"));
-    ("06", ("amd64", None,          ("foo", [(false,"amd64")], [])),                 returns None);
-    ("07", ("amd64", None,          ("foo", [(false,"amd64")], [(true,"stage1")])),  returns None);
-    ("08", ("amd64", None,          ("foo", [(false,"amd64")], [(false,"stage1")])), returns None);
-    ("09", ("amd64", Some "stage1", ("foo", [],                [])),                 returns (Some "foo"));
-    ("10", ("amd64", Some "stage1", ("foo", [],                [(true,"stage1")])),  returns (Some "foo"));
-    ("11", ("amd64", Some "stage1", ("foo", [],                [(false,"stage1")])), returns None);
-    ("12", ("amd64", Some "stage1", ("foo", [(true,"amd64")],  [])),                 returns (Some "foo"));
-    ("13", ("amd64", Some "stage1", ("foo", [(true,"amd64")],  [(true,"stage1")])),  returns (Some "foo"));
-    ("14", ("amd64", Some "stage1", ("foo", [(true,"amd64")],  [(false,"stage1")])), returns None);
-    ("15", ("amd64", Some "stage1", ("foo", [(false,"amd64")], [])),                 returns None);
-    ("16", ("amd64", Some "stage1", ("foo", [(false,"amd64")], [(true,"stage1")])),  returns None);
-    ("17", ("amd64", Some "stage1", ("foo", [(false,"amd64")], [(false,"stage1")])), returns None);
-    ("18", ("i386",  None,          ("foo", [],                [])),                 returns (Some "foo"));
-    ("19", ("i386",  None,          ("foo", [],                [(true,"stage1")])),  returns None);
-    ("20", ("i386",  None,          ("foo", [],                [(false,"stage1")])), returns (Some "foo"));
-    ("21", ("i386",  None,          ("foo", [(true,"amd64")],  [])),                 returns None);
-    ("22", ("i386",  None,          ("foo", [(true,"amd64")],  [(true,"stage1")])),  returns None);
-    ("23", ("i386",  None,          ("foo", [(true,"amd64")],  [(false,"stage1")])), returns None);
-    ("24", ("i386",  None,          ("foo", [(false,"amd64")], [])),                 returns (Some "foo"));
-    ("25", ("i386",  None,          ("foo", [(false,"amd64")], [(true,"stage1")])),  returns None);
-    ("26", ("i386",  None,          ("foo", [(false,"amd64")], [(false,"stage1")])), returns (Some "foo"));
-    ("27", ("i386",  Some "stage1", ("foo", [],                [])),                 returns (Some "foo"));
-    ("28", ("i386",  Some "stage1", ("foo", [],                [(true,"stage1")])),  returns (Some "foo"));
-    ("29", ("i386",  Some "stage1", ("foo", [],                [(false,"stage1")])), returns None);
-    ("30", ("i386",  Some "stage1", ("foo", [(true,"amd64")],  [])),                 returns None);
-    ("31", ("i386",  Some "stage1", ("foo", [(true,"amd64")],  [(true,"stage1")])),  returns None);
-    ("32", ("i386",  Some "stage1", ("foo", [(true,"amd64")],  [(false,"stage1")])), returns None);
-    ("33", ("i386",  Some "stage1", ("foo", [(false,"amd64")], [])),                 returns (Some "foo"));
-    ("34", ("i386",  Some "stage1", ("foo", [(false,"amd64")], [(true,"stage1")])),  returns (Some "foo"));
-    ("35", ("i386",  Some "stage1", ("foo", [(false,"amd64")], [(false,"stage1")])), returns None);
+  let printer = function None -> "None" | Some s -> s in
+  let returns = returns_result ~printer function_to_test in
+  (* test architecture restrictions and profile restrictions *)
+  (* testname archlist profilelist pkg   archlist           restrictionformula      return *)
+  [ ("00",  ("amd64", [],         ("foo", [],                [])),                   returns (Some "foo"));
+    ("01",  ("amd64", [],         ("foo", [],                [[(true,"stage1")]])),  returns None);
+    ("02",  ("amd64", [],         ("foo", [],                [[(false,"stage1")]])), returns (Some "foo"));
+    ("03",  ("amd64", [],         ("foo", [(true,"amd64")],  [])),                   returns (Some "foo"));
+    ("04",  ("amd64", [],         ("foo", [(true,"amd64")],  [[(true,"stage1")]])),  returns None);
+    ("05",  ("amd64", [],         ("foo", [(true,"amd64")],  [[(false,"stage1")]])), returns (Some "foo"));
+    ("06",  ("amd64", [],         ("foo", [(false,"amd64")], [])),                   returns None);
+    ("07",  ("amd64", [],         ("foo", [(false,"amd64")], [[(true,"stage1")]])),  returns None);
+    ("08",  ("amd64", [],         ("foo", [(false,"amd64")], [[(false,"stage1")]])), returns None);
+    ("09",  ("amd64", ["stage1"], ("foo", [],                [])),                   returns (Some "foo"));
+    ("10",  ("amd64", ["stage1"], ("foo", [],                [[(true,"stage1")]])),  returns (Some "foo"));
+    ("11",  ("amd64", ["stage1"], ("foo", [],                [[(false,"stage1")]])), returns None);
+    ("12",  ("amd64", ["stage1"], ("foo", [(true,"amd64")],  [])),                   returns (Some "foo"));
+    ("13",  ("amd64", ["stage1"], ("foo", [(true,"amd64")],  [[(true,"stage1")]])),  returns (Some "foo"));
+    ("14",  ("amd64", ["stage1"], ("foo", [(true,"amd64")],  [[(false,"stage1")]])), returns None);
+    ("15",  ("amd64", ["stage1"], ("foo", [(false,"amd64")], [])),                   returns None);
+    ("16",  ("amd64", ["stage1"], ("foo", [(false,"amd64")], [[(true,"stage1")]])),  returns None);
+    ("17",  ("amd64", ["stage1"], ("foo", [(false,"amd64")], [[(false,"stage1")]])), returns None);
+    ("18",  ("i386",  [],         ("foo", [],                [])),                   returns (Some "foo"));
+    ("19",  ("i386",  [],         ("foo", [],                [[(true,"stage1")]])),  returns None);
+    ("20",  ("i386",  [],         ("foo", [],                [[(false,"stage1")]])), returns (Some "foo"));
+    ("21",  ("i386",  [],         ("foo", [(true,"amd64")],  [])),                   returns None);
+    ("22",  ("i386",  [],         ("foo", [(true,"amd64")],  [[(true,"stage1")]])),  returns None);
+    ("23",  ("i386",  [],         ("foo", [(true,"amd64")],  [[(false,"stage1")]])), returns None);
+    ("24",  ("i386",  [],         ("foo", [(false,"amd64")], [])),                   returns (Some "foo"));
+    ("25",  ("i386",  [],         ("foo", [(false,"amd64")], [[(true,"stage1")]])),  returns None);
+    ("26",  ("i386",  [],         ("foo", [(false,"amd64")], [[(false,"stage1")]])), returns (Some "foo"));
+    ("27",  ("i386",  ["stage1"], ("foo", [],                [])),                   returns (Some "foo"));
+    ("28",  ("i386",  ["stage1"], ("foo", [],                [[(true,"stage1")]])),  returns (Some "foo"));
+    ("29",  ("i386",  ["stage1"], ("foo", [],                [[(false,"stage1")]])), returns None);
+    ("30",  ("i386",  ["stage1"], ("foo", [(true,"amd64")],  [])),                   returns None);
+    ("31",  ("i386",  ["stage1"], ("foo", [(true,"amd64")],  [[(true,"stage1")]])),  returns None);
+    ("32",  ("i386",  ["stage1"], ("foo", [(true,"amd64")],  [[(false,"stage1")]])), returns None);
+    ("33",  ("i386",  ["stage1"], ("foo", [(false,"amd64")], [])),                   returns (Some "foo"));
+    ("34",  ("i386",  ["stage1"], ("foo", [(false,"amd64")], [[(true,"stage1")]])),  returns (Some "foo"));
+    ("35",  ("i386",  ["stage1"], ("foo", [(false,"amd64")], [[(false,"stage1")]])), returns None);
+  (* test architectures restrictions with more than one architecture *)
+    ("36",  ("amd64", [], ("foo", [(true, "amd64");(true, "i386")], [])),   returns (Some "foo"));
+    ("37",  ("amd64", [], ("foo", [(true, "i386");(true, "amd64")], [])),   returns (Some "foo"));
+    ("38",  ("amd64", [], ("foo", [(false, "amd64");(false, "i386")], [])), returns None);
+    ("39",  ("amd64", [], ("foo", [(false, "i386");(false, "amd64")], [])), returns None);
+  (* test restriction formula with only one restriction list with more than one
+   * restriction and more than one profile active at a time. *)
+    ("40",  ("amd64", [],                   ("foo", [], [[(false, "stage1")]])),                    returns (Some "foo"));
+    ("41",  ("amd64", [],                   ("foo", [], [[(true, "stage1")]])),                     returns None);
+    ("42",  ("amd64", [],                   ("foo", [], [[(false, "stage1");(false, "nocheck")]])), returns (Some "foo"));
+    ("43",  ("amd64", [],                   ("foo", [], [[(true, "stage1");(true, "nocheck")]])),   returns None);
+    ("44",  ("amd64", [],                   ("foo", [], [[(false, "stage1");(true, "nocheck")]])),  returns None);
+    ("45",  ("amd64", [],                   ("foo", [], [[(true, "nocheck");(false, "stage1")]])),  returns None);
+    ("46",  ("amd64", ["stage1"],           ("foo", [], [[(false, "stage1")]])),                    returns None);
+    ("47",  ("amd64", ["stage1"],           ("foo", [], [[(true, "stage1")]])),                     returns (Some "foo"));
+    ("48",  ("amd64", ["stage1"],           ("foo", [], [[(false, "stage1");(false, "nocheck")]])), returns None);
+    ("49",  ("amd64", ["stage1"],           ("foo", [], [[(true, "stage1");(true, "nocheck")]])),   returns None);
+    ("50",  ("amd64", ["stage1"],           ("foo", [], [[(false, "stage1");(true, "nocheck")]])),  returns None);
+    ("51",  ("amd64", ["stage1"],           ("foo", [], [[(true, "nocheck");(false, "stage1")]])),  returns None);
+    ("52",  ("amd64", ["nocheck"],          ("foo", [], [[(false, "stage1")]])),                    returns (Some "foo"));
+    ("53",  ("amd64", ["nocheck"],          ("foo", [], [[(true, "stage1")]])),                     returns None);
+    ("54",  ("amd64", ["nocheck"],          ("foo", [], [[(false, "stage1");(false, "nocheck")]])), returns None);
+    ("55",  ("amd64", ["nocheck"],          ("foo", [], [[(true, "stage1");(true, "nocheck")]])),   returns None);
+    ("56",  ("amd64", ["nocheck"],          ("foo", [], [[(false, "stage1");(true, "nocheck")]])),  returns (Some "foo"));
+    ("57",  ("amd64", ["nocheck"],          ("foo", [], [[(true, "nocheck");(false, "stage1")]])),  returns (Some "foo"));
+    ("58",  ("amd64", ["stage1";"nocheck"], ("foo", [], [[(false, "stage1")]])),                    returns None);
+    ("59",  ("amd64", ["stage1";"nocheck"], ("foo", [], [[(true, "stage1")]])),                     returns (Some "foo"));
+    ("60",  ("amd64", ["stage1";"nocheck"], ("foo", [], [[(false, "stage1");(false, "nocheck")]])), returns None);
+    ("61",  ("amd64", ["stage1";"nocheck"], ("foo", [], [[(true, "stage1");(true, "nocheck")]])),   returns (Some "foo"));
+    ("62",  ("amd64", ["stage1";"nocheck"], ("foo", [], [[(false, "stage1");(true, "nocheck")]])),  returns None);
+    ("63",  ("amd64", ["stage1";"nocheck"], ("foo", [], [[(true, "nocheck");(false, "stage1")]])),  returns None);
+  (* test restriction formulas with more than one restriction list *)
+  (* false condition <nodoc> last *)
+    ("64",  ("amd64", [],                   ("foo", [], [[(false, "stage1")]; [(true, "nodoc")]])),                    returns (Some "foo"));
+    ("65",  ("amd64", [],                   ("foo", [], [[(true, "stage1")]; [(true, "nodoc")]])),                     returns None);
+    ("66",  ("amd64", [],                   ("foo", [], [[(false, "stage1");(false, "nocheck")]; [(true, "nodoc")]])), returns (Some "foo"));
+    ("67",  ("amd64", [],                   ("foo", [], [[(true, "stage1");(true, "nocheck")]; [(true, "nodoc")]])),   returns None);
+    ("68",  ("amd64", [],                   ("foo", [], [[(false, "stage1");(true, "nocheck")]; [(true, "nodoc")]])),  returns None);
+    ("69",  ("amd64", [],                   ("foo", [], [[(true, "nocheck");(false, "stage1")]; [(true, "nodoc")]])),  returns None);
+    ("70",  ("amd64", ["stage1"],           ("foo", [], [[(false, "stage1")]; [(true, "nodoc")]])),                    returns None);
+    ("71",  ("amd64", ["stage1"],           ("foo", [], [[(true, "stage1")]; [(true, "nodoc")]])),                     returns (Some "foo"));
+    ("72",  ("amd64", ["stage1"],           ("foo", [], [[(false, "stage1");(false, "nocheck")]; [(true, "nodoc")]])), returns None);
+    ("73",  ("amd64", ["stage1"],           ("foo", [], [[(true, "stage1");(true, "nocheck")]; [(true, "nodoc")]])),   returns None);
+    ("74",  ("amd64", ["stage1"],           ("foo", [], [[(false, "stage1");(true, "nocheck")]; [(true, "nodoc")]])),  returns None);
+    ("75",  ("amd64", ["stage1"],           ("foo", [], [[(true, "nocheck");(false, "stage1")]; [(true, "nodoc")]])),  returns None);
+    ("76",  ("amd64", ["nocheck"],          ("foo", [], [[(false, "stage1")]; [(true, "nodoc")]])),                    returns (Some "foo"));
+    ("77",  ("amd64", ["nocheck"],          ("foo", [], [[(true, "stage1")]; [(true, "nodoc")]])),                     returns None);
+    ("78",  ("amd64", ["nocheck"],          ("foo", [], [[(false, "stage1");(false, "nocheck")]; [(true, "nodoc")]])), returns None);
+    ("79",  ("amd64", ["nocheck"],          ("foo", [], [[(true, "stage1");(true, "nocheck")]; [(true, "nodoc")]])),   returns None);
+    ("80",  ("amd64", ["nocheck"],          ("foo", [], [[(false, "stage1");(true, "nocheck")]; [(true, "nodoc")]])),  returns (Some "foo"));
+    ("81",  ("amd64", ["nocheck"],          ("foo", [], [[(true, "nocheck");(false, "stage1")]; [(true, "nodoc")]])),  returns (Some "foo"));
+    ("82",  ("amd64", ["stage1";"nocheck"], ("foo", [], [[(false, "stage1")]; [(true, "nodoc")]])),                    returns None);
+    ("83",  ("amd64", ["stage1";"nocheck"], ("foo", [], [[(true, "stage1")]; [(true, "nodoc")]])),                     returns (Some "foo"));
+    ("84",  ("amd64", ["stage1";"nocheck"], ("foo", [], [[(false, "stage1");(false, "nocheck")]; [(true, "nodoc")]])), returns None);
+    ("85",  ("amd64", ["stage1";"nocheck"], ("foo", [], [[(true, "stage1");(true, "nocheck")]; [(true, "nodoc")]])),   returns (Some "foo"));
+    ("86",  ("amd64", ["stage1";"nocheck"], ("foo", [], [[(false, "stage1");(true, "nocheck")]; [(true, "nodoc")]])),  returns None);
+    ("87",  ("amd64", ["stage1";"nocheck"], ("foo", [], [[(true, "nocheck");(false, "stage1")]; [(true, "nodoc")]])),  returns None);
+  (* false condition <nodoc> first *)
+    ("88",  ("amd64", [],                   ("foo", [], [[(true, "nodoc")]; [(false, "stage1")]])),                    returns (Some "foo"));
+    ("89",  ("amd64", [],                   ("foo", [], [[(true, "nodoc")]; [(true, "stage1")]])),                     returns None);
+    ("90",  ("amd64", [],                   ("foo", [], [[(true, "nodoc")]; [(false, "stage1");(false, "nocheck")]])), returns (Some "foo"));
+    ("91",  ("amd64", [],                   ("foo", [], [[(true, "nodoc")]; [(true, "stage1");(true, "nocheck")]])),   returns None);
+    ("92",  ("amd64", [],                   ("foo", [], [[(true, "nodoc")]; [(false, "stage1");(true, "nocheck")]])),  returns None);
+    ("93",  ("amd64", [],                   ("foo", [], [[(true, "nodoc")]; [(true, "nocheck");(false, "stage1")]])),  returns None);
+    ("94",  ("amd64", ["stage1"],           ("foo", [], [[(true, "nodoc")]; [(false, "stage1")]])),                    returns None);
+    ("95",  ("amd64", ["stage1"],           ("foo", [], [[(true, "nodoc")]; [(true, "stage1")]])),                     returns (Some "foo"));
+    ("96",  ("amd64", ["stage1"],           ("foo", [], [[(true, "nodoc")]; [(false, "stage1");(false, "nocheck")]])), returns None);
+    ("97",  ("amd64", ["stage1"],           ("foo", [], [[(true, "nodoc")]; [(true, "stage1");(true, "nocheck")]])),   returns None);
+    ("98",  ("amd64", ["stage1"],           ("foo", [], [[(true, "nodoc")]; [(false, "stage1");(true, "nocheck")]])),  returns None);
+    ("99",  ("amd64", ["stage1"],           ("foo", [], [[(true, "nodoc")]; [(true, "nocheck");(false, "stage1")]])),  returns None);
+    ("100", ("amd64", ["nocheck"],          ("foo", [], [[(true, "nodoc")]; [(false, "stage1")]])),                    returns (Some "foo"));
+    ("101", ("amd64", ["nocheck"],          ("foo", [], [[(true, "nodoc")]; [(true, "stage1")]])),                     returns None);
+    ("102", ("amd64", ["nocheck"],          ("foo", [], [[(true, "nodoc")]; [(false, "stage1");(false, "nocheck")]])), returns None);
+    ("103", ("amd64", ["nocheck"],          ("foo", [], [[(true, "nodoc")]; [(true, "stage1");(true, "nocheck")]])),   returns None);
+    ("104", ("amd64", ["nocheck"],          ("foo", [], [[(true, "nodoc")]; [(false, "stage1");(true, "nocheck")]])),  returns (Some "foo"));
+    ("105", ("amd64", ["nocheck"],          ("foo", [], [[(true, "nodoc")]; [(true, "nocheck");(false, "stage1")]])),  returns (Some "foo"));
+    ("106", ("amd64", ["stage1";"nocheck"], ("foo", [], [[(true, "nodoc")]; [(false, "stage1")]])),                    returns None);
+    ("107", ("amd64", ["stage1";"nocheck"], ("foo", [], [[(true, "nodoc")]; [(true, "stage1")]])),                     returns (Some "foo"));
+    ("108", ("amd64", ["stage1";"nocheck"], ("foo", [], [[(true, "nodoc")]; [(false, "stage1");(false, "nocheck")]])), returns None);
+    ("109", ("amd64", ["stage1";"nocheck"], ("foo", [], [[(true, "nodoc")]; [(true, "stage1");(true, "nocheck")]])),   returns (Some "foo"));
+    ("110", ("amd64", ["stage1";"nocheck"], ("foo", [], [[(true, "nodoc")]; [(false, "stage1");(true, "nocheck")]])),  returns None);
+    ("111", ("amd64", ["stage1";"nocheck"], ("foo", [], [[(true, "nodoc")]; [(true, "nocheck");(false, "stage1")]])),  returns None);
   ]
 
 let test_sources_input = "
@@ -797,7 +881,7 @@ let test_sources2packages =
   let packagelist = Sources.parse_sources_in "" data in
   let hostarch = "amd64" in
   let buildarch = "amd64" in
-  let sources = Sources.sources2packages ~profiles:true buildarch hostarch packagelist in
+  let sources = Sources.sources2packages ~profiles:["stage1"] buildarch hostarch packagelist in
   let function_to_test src =
     let src = List.find (fun s -> s.Packages.name = src) sources in
     src.Packages.depends
@@ -814,14 +898,7 @@ let test_sources2packages =
       ]
     );
     (
-      "default", "src:source2", returns [
-        [(("build-essential", Some hostarch), None)];
-        [(("bin1", None), None)];
-        [(("bin2", None), None)]
-      ]
-    );
-    (
-      "stage1", "src-stage1:source2", returns [
+      "stage1", "src:source2", returns [
         [(("build-essential", Some hostarch), None)];
         [
           (("bin2", None), None);

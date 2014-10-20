@@ -19,7 +19,7 @@ let pp_source oc = function
 ;;
 
 let pp_multiarch oc = function
-  |`None -> Printf.fprintf oc "none"
+  |`No -> Printf.fprintf oc "no"
   |`Same -> Printf.fprintf oc "same"
   |`Foreign -> Printf.fprintf oc "foreign"
   |`Allowed -> Printf.fprintf oc "allowed"
@@ -35,7 +35,7 @@ let string_of_vpkg = function
 let pp_vpkg oc vpkg = Printf.fprintf oc "%s" (string_of_vpkg vpkg)
 
 let string_of_vpkglist vpkglist =
-  Util.string_of_list string_of_vpkg " , " vpkglist
+  Util.string_of_list ~sep:"," string_of_vpkg vpkglist
 ;;
 
 let pp_vpkglist oc vpkglist = 
@@ -43,8 +43,8 @@ let pp_vpkglist oc vpkglist =
 ;;
 
 let string_of_vpkgformula vpkgformula =
-  let string_of_OR = Util.string_of_list string_of_vpkg " | " in
-  let string_of_AND = Util.string_of_list string_of_OR ", " in
+  let string_of_OR = Util.string_of_list ~sep:" |" string_of_vpkg in
+  let string_of_AND = Util.string_of_list ~sep:"," string_of_OR in
   string_of_AND vpkgformula
 ;;
 
@@ -58,7 +58,8 @@ let pp_package oc pkg =
   Printf.fprintf oc "Version: %s\n" pkg.version ;
   Printf.fprintf oc "Architecture: %s\n" pkg.architecture ;
   Printf.fprintf oc "Multi-Arch: %a\n" pp_multiarch pkg.multiarch;
-  Printf.fprintf oc "Essential: %b\n" pkg.essential ;
+  if pkg.essential then
+    Printf.fprintf oc "Essential: yes\n";
   if pkg.priority <> "" then
     Printf.fprintf oc "Priority: %s\n" pkg.priority ;
   if pkg.source <> ("",None) then
@@ -92,20 +93,27 @@ let strinf_of_builddep (vpkg,archfilter,buildfilter) =
       ) l
     )
   in
+  let string_of_bpformula ll =
+    String.concat " " (
+      List.map (fun l ->
+          Printf.sprintf "<%s>" (string_of_filter l)
+        ) ll
+    )
+  in
   match archfilter,buildfilter with
   |[],[] -> string_of_vpkg vpkg
   |_,[] -> Printf.sprintf "%s [%s]" (string_of_vpkg vpkg) (string_of_filter archfilter)
-  |[],_ -> Printf.sprintf "%s <%s>" (string_of_vpkg vpkg) (string_of_filter buildfilter)
+  |[],_ -> Printf.sprintf "%s %s" (string_of_vpkg vpkg) (string_of_bpformula buildfilter)
   |_,_ ->
-      Printf.sprintf "%s [%s] <%s>"
+      Printf.sprintf "%s [%s] %s"
       (string_of_vpkg vpkg) 
       (string_of_filter archfilter)
-      (string_of_filter buildfilter)
+      (string_of_bpformula buildfilter)
 ;;
 
 let string_of_builddepformula builddepformula =
-  let string_of_OR = Util.string_of_list strinf_of_builddep " | " in
-  let string_of_AND = Util.string_of_list string_of_OR ", " in
+  let string_of_OR = Util.string_of_list ~sep:" |" strinf_of_builddep in
+  let string_of_AND = Util.string_of_list ~sep:"," string_of_OR in
   string_of_AND builddepformula
 ;;
 
@@ -114,7 +122,7 @@ let pp_builddepformula oc builddepformula =
 ;;
 
 let string_of_builddeplist builddeplist =
-  Util.string_of_list strinf_of_builddep ", " builddeplist
+  Util.string_of_list ~sep:"," strinf_of_builddep builddeplist
 ;;
 
 let pp_builddeplist oc builddeplist =
@@ -139,4 +147,9 @@ let pp_source oc pkg =
     Printf.fprintf oc "Build-Depends-Indeps: %a\n" pp_builddepformula pkg.build_depends_indep;
   if List.length pkg.build_conflicts_indep > 0 then
     Printf.fprintf oc "Build-Conflicts-Indeps: %a\n" pp_builddeplist pkg.build_conflicts_indep;
+
+  if List.length pkg.build_depends_arch > 0 then
+    Printf.fprintf oc "Build-Depends-Arch: %a\n" pp_builddepformula pkg.build_depends_arch;
+  if List.length pkg.build_conflicts_arch > 0 then
+    Printf.fprintf oc "Build-Conflicts-Arch: %a\n" pp_builddeplist pkg.build_conflicts_arch;
 ;;

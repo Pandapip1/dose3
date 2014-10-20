@@ -1,4 +1,5 @@
 AC_INIT(dose3, 3.2.2, pietro.abate@pps.univ-paris-diderot.fr)
+AC_CONFIG_MACRO_DIR([m4])
 
 AC_PROG_OCAML
 if test "$OCAMLC" = "no"; then
@@ -9,14 +10,6 @@ AC_PROG_CAMLP4
 if test "$CAMLP4" = "no"; then
  AC_MSG_ERROR([You must install the Camlp4 pre-processor])
 fi
-
-if test "$CAMLP4OOPT" = "no" || test "$OCAMLNATDYNLINK" = "no" ; then
- CAMLP4OMACRO="$CAMLP4O Camlp4MacroParser.cmo"
-else
- CAMLP4OMACRO="$CAMLP4OOPT -I_build Camlp4MacroParser.cmxs"
-fi
-AC_SUBST(CAMLP4O)
-AC_SUBST(CAMLP4OMACRO)
 
 AC_PROG_FINDLIB
 AC_SUBST(OCAMLFIND)
@@ -29,9 +22,21 @@ AC_ARG_WITH(bytecodeonly,
         OCAMLBEST=byte,
         OCAMLBEST="$OCAMLBEST")
 if test "$OCAMLBEST" = "byte" ; then
+  OCAMLEXT=byte
   OCAMLOPT=
   AC_SUBST(OCAMLOPT)
+else
+  OCAMLEXT=native
 fi
+
+if test "$OCAMLBEST" = "byte" || test "$CAMLP4OOPT" = "no" || test "$OCAMLNATDYNLINK" = "no" ; then
+ CAMLP4OMACRO="$CAMLP4O Camlp4MacroParser.cmo"
+else
+ CAMLP4OMACRO="$CAMLP4OOPT -I_build Camlp4MacroParser.cmxs"
+fi
+AC_SUBST(CAMLP4O)
+AC_SUBST(CAMLP4OMACRO)
+
 
 #defaults
 USE_RPM=use_
@@ -292,6 +297,8 @@ AC_SUBST(CFLAGS)
 AC_SUBST(CPPFLAGS)
 AC_SUBST(LDFLAGS)
 
+AC_SUBST(OCAMLEXT)
+
 AC_ARG_WITH(experimental,
         [ --with-experimental ],
         BUILD_EXP=yes,
@@ -309,6 +316,7 @@ AC_CONFIG_FILES([
   dose3.odocl
   algo/algo.mlpack
   common/versionInfo.ml
+  applications/dose-tests.list
 ])
 AC_OUTPUT
 

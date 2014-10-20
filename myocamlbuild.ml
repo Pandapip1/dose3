@@ -2,16 +2,21 @@
 open Ocamlbuild_plugin;;
 
 Options.use_ocamlfind := true ;;
+(*
+Ocamlbuild_pack.Flags.mark_tag_used "use_" ;;
+Ocamlbuild_pack.Flags.mark_tag_used "pkg_" ;;
+Ocamlbuild_pack.Flags.mark_tag_used "link_" ;;
+*)
 
 let modules_dirs = [
   "common";"deb";"eclipse"; "opencsw"; "rpm";"db";"algo";
-  "doseparse"; "applications";"experimental"; "libcudf";
+  "doseparse"; "doseparseNoRpm"; "applications";"experimental"; "libcudf";"cv";
   "experimental/dudftocudf";
 ];;
 
 let libraries = [
-  "cudf"; "common";"debian";"eclipse"; "csw"; "rpm";"db";"algo";
-  "boilerplate"; "boilerplateNoRpm";
+  "cudf"; "common";"debian";"eclipse"; "csw"; "rpm";"db";"algo";"cv";
+  "doseparse"; "doseparseNoRpm";
 ];;
 
 let doselibs = "doselibs" ;;
@@ -22,6 +27,7 @@ List.iter (fun d -> Pathname.define_context d [doselibs]) modules_dirs ;;
 let _ = dispatch begin function
    | After_rules ->
        List.iter (fun lib ->
+         (* ocaml_lib ~dir:"doselibs" lib *)
          flag ["ocaml"; "link"; "use_"^lib; "program"; "native"] & 
          S[A("doselibs/"^lib^".cmxa")];
          
@@ -59,7 +65,7 @@ let _ = dispatch begin function
        dep ["link"; "ocaml"; "link_rpm5"] ["rpm/librpm5_stubs.a"];
 
        (* add rpm libraries *)
-       flag ["ocaml"; "use_rpm"; "link"; "native"] & S[
+       flag ["ocaml"; "use_rpm"; "link"] & S[
          A"-cclib"; A"-lrpm";
          A"-cclib"; A"-lrpmio";
          A"-ccopt"; A"-Lrpm";
@@ -71,11 +77,13 @@ let _ = dispatch begin function
        flag ["link"; "ocaml"; "link_rpm5"] & S[A"rpm/librpm5_stubs.a"];
 
        flag ["ocaml"; "use_rpm5"; "link"; "library"; "byte"] & S[
-         A"-dllib"; A"-lrpm5_stubs";
+         (* A"-dllib"; A"-lrpm5_stubs"; *)
+         A"-custom"; A"rpm/librpm5_stubs.a"
        ];
 
        flag ["ocaml"; "use_rpm4"; "link"; "library"; "byte"] & S[
-         A"-dllib"; A"-lrpm4_stubs";
+         (* A"-dllib"; A"-lrpm4_stubs"; *)
+         A"-custom"; A"rpm/librpm4_stubs.a"
        ];
 
        flag ["ocaml"; "use_rpm5"; "link"; "library"; "native"] & S[
