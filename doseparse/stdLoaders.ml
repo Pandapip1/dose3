@@ -173,6 +173,24 @@ let load_cudf doc =
   l
 ;;
 
+let cv_load_list options file =
+  let preamble, pkglist ,request =
+    match parse_cudf file with
+    |None, pkglist, None -> Cudf.default_preamble, pkglist, Cudf.default_request
+    |None , pkglist, Some req -> Cudf.default_preamble, pkglist, req
+    |Some p , pkglist, None -> p, pkglist, Cudf.default_request
+    |Some p , pkglist, Some req -> p, pkglist, req
+  in
+  if options.Cv.Cvcudf.cv then
+    let from_cudf (p,i) = (p,string_of_int i) in
+    let to_cudf (p,v) = (p,int_of_string v) in
+    (preamble,[pkglist;[]],request,from_cudf,to_cudf)
+  else
+    let tables = Cv.Cvcudf.init_tables options pkglist file in
+    let from_cudf (p,i) = (p, Cv.Cvcudf.get_real_version tables (p,i)) in
+    let to_cudf (p,v) = (p, Cv.Cvcudf.get_cudf_version tables (p,v)) in 
+    (preamble,[pkglist;[]],request,from_cudf,to_cudf)
+
 let cudf_load_list file =
   let preamble, pkglist ,request =
     match parse_cudf file with
@@ -224,6 +242,17 @@ let csw_parse_input urilist =
   in
   csw_load_list dll
 
+let cv_parse_input options urilist =
+  match urilist with
+  |[[p]] when (unpack p) = "-" -> fatal "no stdin for cudf yet"
+  |[[p]] -> cudf_load_list (unpack p)
+  |l ->
+    if List.length (List.flatten l) > 1 then
+      warning "more then one cudf specified on the command line";
+    let p = List.hd (List.flatten l) in 
+    cv_load_list options (unpack p)
+;;
+
 let cudf_parse_input urilist =
   match urilist with
   |[[p]] when (unpack p) = "-" -> fatal "no stdin for cudf yet"
@@ -255,6 +284,8 @@ let parse_input ?(options=None) urilist =
   match Input.guess_format urilist, options with
   |`Cudf, None -> cudf_parse_input filelist
 
+  |`Cv, None -> cv_parse_input Cv.Cvcudf.default_options filelist
+
   |`Deb, None -> deb_parse_input Debian.Debcudf.default_options filelist
   |`Eclipse, None -> eclipse_parse_input Debian.Debcudf.default_options filelist
 
@@ -266,6 +297,8 @@ let parse_input ?(options=None) urilist =
   |`Eclipse, Some (StdOptions.Eclipse opt) -> eclipse_parse_input opt filelist
 
   |`Csw, None -> csw_parse_input filelist
+
+  |`Cv, Some (StdOptions.Cv opt) -> cv_parse_input opt filelist
 
   |`Hdlist, None -> 
 IFDEF HASRPM THEN
@@ -308,7 +341,7 @@ END
 ;;
 
 (** return a list of Debian packages from a debian source file *)
-let deb_load_source ?filter ?(profiles=false) ?(noindep=false) buildarch hostarch sourcefile =
+let deb_load_source ?filter ?(profiles=[]) ?(noindep=false) buildarch hostarch sourcefile =
   let l = Debian.Sources.input_raw ?filter ~archs:[hostarch] [sourcefile] in
   Debian.Sources.sources2packages ~noindep ~profiles buildarch hostarch l
 ;;

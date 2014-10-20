@@ -1,12 +1,13 @@
 VERSION=@PACKAGE_VERSION@
 NAME=@PACKAGE_NAME@
 
-CFLAGS=@CFLAGS@ -fPIC -Wall -pedantic -Werror -Wno-long-long
+CFLAGS=@CFLAGS@ -fPIC -Wall -pedantic -Werror -Wno-long-long -warn-error FPSXY
 CPPFLAGS=@CPPFLAGS@
 LDFLAGS=@LDFLAGS@
 
-#OCAMLFIND_COMMANDS="ocamlc=@OCAMLC@ ocamlopt=@OCAMLOPT@ ocamldep=@OCAMLDEP@"
 OCAMLFIND=@OCAMLFIND@
+
+DOSELIBS = _build/doselibs
 
 DESTDIR =
 ifeq ($(DESTDIR),)
@@ -28,101 +29,90 @@ ifeq ("@OCAML_OS_TYPE@","freebsd")
   LDFLAGS += -fstack-protector
 endif
 
-ifeq ("@CAMLP4OOPT@","camlp4o.opt")
-  CAMLP4CMXS=camlp4cmxs
-else
-  CAMLP4CMXS=
+ifeq ("@OCAMLEXT@","native")
+	ifeq ("@CAMLP4OOPT@","camlp4o.opt")
+		CAMLP4CMXS=_build/Camlp4MacroParser.cmxs
+	else
+		CAMLP4CMXS=
+	endif
 endif
 
-ifeq ("@OCAMLBEST@","opt")
-  OCAMLBEST=native
-  OCAMLBUILD=@OCAMLBUILD@ #-ocamlc @OCAMLC@ -ocamlopt @OCAMLOPT@ -ocamldep @OCAMLDEP@
+ifeq ("@OCAMLEXT@","native")
+  OCAMLBUILD=@OCAMLBUILD@
   INSTALLOPTS=-s
 else
-  OCAMLBEST=byte
   OCAMLBUILD=@OCAMLBUILD@ -byte-plugin
   INSTALLOPTS=
 endif
 
+OCAMLEXT=@OCAMLEXT@
+
 TARGETS= \
-   applications/distcheck.$(OCAMLBEST) \
-   applications/deb-buildcheck.$(OCAMLBEST) \
-   applications/ceve.$(OCAMLBEST) \
-   applications/apt-cudf.$(OCAMLBEST) \
-   applications/outdated.$(OCAMLBEST) \
-   applications/challenged.$(OCAMLBEST) \
-   applications/deb-coinstall.$(OCAMLBEST) \
+   distcheck.@OCAMLEXT@ \
+	 deb-buildcheck.@OCAMLEXT@ \
+   ceve.@OCAMLEXT@ \
+   apt-cudf.@OCAMLEXT@ \
+	 outdated.@OCAMLEXT@ \
+	 challenged.@OCAMLEXT@ \
+   deb-coinstall.@OCAMLEXT@
 
 BYTELIBS=
 OPTLIBS=
 CMXSLIBS=
-CMXSLIBS=
 ALIBS=
+SUFFIX=cma
 
 ifeq ("@HAS_LIBCUDF@","no")
-  BYTELIBS += cudf/cudf.cma
-  ifeq ("@OCAMLBEST@","opt")
-    OPTLIBS += cudf/cudf.cmxa cudf/cudf.a
-    CMXSLIBS += cudf/cudf.cmxs
-  endif
+  LIBNAMES += cudf/cudf
 endif
 
-ifeq ("@HAS_LIBCUDF@","no")
-installcudf:
-	$(MAKE) -C cudf all @OCAMLBEST@ install
-uninstallcudf:
-	$(MAKE) -C cudf uninstall
-else
-installcudf:
-uninstallcudf:
+LIBNAMES += common/common \
+						algo/algo \
+						deb/debian \
+						opencsw/csw \
+						eclipse/eclipse \
+						cv/cv
+
+#rpm support
+ifeq ("@HAS_RPM@","yes")
+  LIBNAMES += rpm/rpm
 endif
 
-BYTELIBS += common/common.cma deb/debian.cma rpm/rpm.cma opencsw/csw.cma eclipse/eclipse.cma algo/algo.cma doseparse/boilerplateNoRpm.cma doseparse/boilerplate.cma
+LIBNAMES += doseparseNoRpm/doseparseNoRpm \
+						doseparse/doseparse
 
-ifeq ("@OCAMLBEST@","opt")
+BYTELIBNAMES=$(notdir $(LIBNAMES))
+BYTELIBS=$(BYTELIBNAMES:%=$(DOSELIBS)/%.cma)
+
+ifeq ("@OCAMLEXT@","native")
+	SUFFIX += cmxa cmxs a
   OPTLIBS += $(BYTELIBS:%.cma=%.cmxa) 
   CMXSLIBS += $(BYTELIBS:%.cma=%.cmxs)
   ALIBS = $(BYTELIBS:%.cma=%.a)
 endif
 
-#rpm support
-ifeq ("@HAS_RPM@","yes")
-  BYTELIBS += rpm/rpm.cma
-  ifeq ("@OCAMLBEST@","opt")
-    OPTLIBS += rpm/rpm.cmxa rpm/rpm.a
-    CMXSLIBS += rpm/rpm.cmxs
-  endif
-endif
-
-#database support
-ifeq ("@HAS_DB@","yes") 
-  EXPERIMENTAL += experimental/db-cudf.$(OCAMLBEST)
-  BYTELIBS += db/db.cma
-#  TEST_DB=db
-endif
-
 ifeq ("@HAS_XML@","yes")
 ifeq ("@HAS_CURL@","yes")
-  EXPERIMENTAL += experimental/dudftocudf/deb-dudftocudf.$(OCAMLBEST)
+  EXPERIMENTAL += experimental/dudftocudf/deb-dudftocudf.@OCAMLEXT@
 endif
 endif
 
 #ocamlgraph support
 ifeq ("@HAS_OCAMLGRAPH@","yes")
   TARGETS += \
-	     applications/strong-deps.$(OCAMLBEST) \
-	     applications/dominators-graph.$(OCAMLBEST)
+	     strong-deps.@OCAMLEXT@ \
+	     dominators-graph.@OCAMLEXT@
   
-  EXPERIMENTAL += applications/strong-conflicts.$(OCAMLBEST)
+  EXPERIMENTAL += strong-conflicts.@OCAMLEXT@
 endif
 
 #ocamlgraph support
 ifeq ("@HAS_OCAMLGRAPH@","yes")
   TARGETS += \
-	     applications/smallworld.$(OCAMLBEST)
+	     smallworld.@OCAMLEXT@
 endif
 
 #ounit support
 ifeq ("@HAS_OUNIT@","yes")
-  TESTS= common deb algo $(TEST_DB) $(TEST_RPM)
+  TESTS= common deb algo $(TEST_RPM)
 endif

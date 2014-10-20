@@ -14,9 +14,10 @@ open ExtLib
 open Debian
 open Common
 open Algo
+open DoseparseNoRpm
+
 module Src = Debian.Sources
 module Deb = Debian.Packages
-module Boilerplate = BoilerplateNoRpm
 
 module Options = struct
   open OptParse
@@ -25,17 +26,17 @@ module Options = struct
      You must provide a (list of) Debian Packages file(s) and \
      a Debian Sources file in this order"
   let options = OptParser.make ~description
-  include Boilerplate.MakeOptions(struct let options = options end)
+  include StdOptions.MakeOptions(struct let options = options end)
 
-  include Boilerplate.DistcheckOptions
-  Boilerplate.DistcheckOptions.add_options options ;;
+  include StdOptions.DistcheckOptions
+  StdOptions.DistcheckOptions.add_options options ;;
 
-  include Boilerplate.InputOptions
-  Boilerplate.InputOptions.add_options options ;;
+  include StdOptions.InputOptions
+  StdOptions.InputOptions.add_options options ;;
 
-  include Boilerplate.DistribOptions;;
-  let default = ["deb-triplettable";"deb-cputable"]@Boilerplate.DistribOptions.default_options in
-  Boilerplate.DistribOptions.add_options ~default options ;;
+  include StdOptions.DistribOptions;;
+  let default = ["deb-triplettable";"deb-cputable"]@StdOptions.DistribOptions.default_options in
+  StdOptions.DistribOptions.add_options ~default options ;;
 
   let dump = StdOpt.str_option ()
   let maforeign = StdOpt.store_true ()
@@ -43,6 +44,7 @@ module Options = struct
   let includextra = StdOpt.store_true ()
   let triplettable = StdOpt.str_option ()
   let cputable = StdOpt.str_option ()
+  let profiles = StdOptions.str_list_option ()
 
   open OptParser
   add options ~long_name:"defaultedMAforeign" ~help:"Convert Arch:all packages to Multi-Arch: foreign" maforeign;
@@ -51,6 +53,7 @@ module Options = struct
   add options ~long_name:"deb-triplettable" ~help:"Path to an architecture triplet table like /usr/share/dpkg/triplettable" triplettable;
   add options ~long_name:"deb-cputable" ~help:"Path to a cpu table like /usr/share/dpkg/cputable" cputable;
   add options ~long_name:"dump" ~help:"dump the cudf file" dump;
+  add options ~short_name:'P' ~long_name:"profiles" ~help:"comma separated list of activated build profiles" profiles;
 
 end
 
@@ -60,23 +63,21 @@ let timer = Util.Timer.create "Solver"
 
 let main () =
   let posargs = OptParse.OptParser.parse_argv Options.options in
-  Boilerplate.enable_debug (OptParse.Opt.get Options.verbose);
-  Boilerplate.enable_timers (OptParse.Opt.get Options.timers) ["Solver"];
+  StdDebug.enable_debug (OptParse.Opt.get Options.verbose);
+  StdDebug.enable_timers (OptParse.Opt.get Options.timers) ["Solver"];
   Util.Debug.disable "Depsolver_int";
-  Boilerplate.all_quiet (OptParse.Opt.get Options.quiet);
+  StdDebug.all_quiet (OptParse.Opt.get Options.quiet);
 
-  let fmt = Format.std_formatter in
-  if OptParse.Opt.is_set Options.deb_native_arch then
-    Format.fprintf fmt "native-architecture: %s@." (OptParse.Opt.get Options.deb_native_arch)
-  else
+  if not(OptParse.Opt.is_set Options.deb_native_arch) then
     fatal "You must at least specify the native architecture";
 
-  if OptParse.Opt.is_set Options.deb_foreign_archs then
-    Format.fprintf fmt "foreign-architecture: %s@." (String.concat "," (OptParse.Opt.get Options.deb_foreign_archs));
-
-  if OptParse.Opt.is_set Options.deb_host_arch then
-    Format.fprintf fmt "host-architecture: %s@." (OptParse.Opt.get Options.deb_host_arch);
-
+  let fmt =
+    if OptParse.Opt.is_set Options.outfile then
+      let oc = open_out (OptParse.Opt.get Options.outfile) in
+      Format.formatter_of_out_channel oc
+    else
+      Format.std_formatter
+  in
   (* we set the Debian.Debcudf options wrt the user provided options *)
   let options = Options.set_deb_options () in
   (* buildarch and native arch must be set to some architecture at this point *)
@@ -84,6 +85,14 @@ let main () =
   (* hostarch and noindep can be None *)
   let hostarch = match options.Debian.Debcudf.host with None -> "" | Some s -> s in
   let noindep = OptParse.Opt.get Options.noindep in
+
+  let profiles =
+    if OptParse.Opt.is_set Options.profiles then
+      OptParse.Opt.get Options.profiles
+    else
+      try String.nsplit (Sys.getenv "DEB_BUILD_PROFILES") " "
+      with Not_found -> []
+  in
 
   let filter_external_sources par =
     if (OptParse.Opt.get Options.includextra) then true
@@ -111,7 +120,7 @@ let main () =
     |l -> 
         begin match List.rev l with
         |h::t ->
-          let srclist = Boilerplate.deb_load_source ~filter:filter_external_sources ~noindep buildarch hostarch h in
+          let srclist = StdLoaders.deb_load_source ~profiles ~filter:filter_external_sources ~noindep buildarch hostarch h in
           let pkglist = Deb.input_raw t in
           (pkglist,srclist)
         |_ -> fatal "An impossible situation occurred ?!#"
@@ -161,16 +170,20 @@ let main () =
     end else sl
   in
 
+  if OptParse.Opt.is_set Options.deb_native_arch then
+    Format.fprintf fmt "native-architecture: %s@." (OptParse.Opt.get Options.deb_native_arch);
+
+  if OptParse.Opt.is_set Options.deb_foreign_archs then
+    Format.fprintf fmt "foreign-architecture: %s@." (String.concat "," (OptParse.Opt.get Options.deb_foreign_archs));
+
+  if OptParse.Opt.is_set Options.deb_host_arch then
+    Format.fprintf fmt "host-architecture: %s@." (OptParse.Opt.get Options.deb_host_arch);
 
   let results = Diagnostic.default_result universe_size in
 
   if failure || success then Format.fprintf fmt "@[<v 1>report:@,";
   let callback d = 
     if summary then Diagnostic.collect results d ;
-(*
-    if success && not explain && not failure then
-    else
-*)
       Diagnostic.fprintf ~pp ~failure ~success ~explain fmt d
   in
 
@@ -197,11 +210,10 @@ let main () =
     Printf.fprintf oc "\n";
     Cudf_printer.pp_universe oc universe
   end;
-
-  Boilerplate.exit(nbp)
+  nbp
 ;;
 
-Boilerplate.if_application
+StdUtils.if_application
   ~alternatives:[
     "deb-buildcheck"; "debbuildcheck";"dose-builddebcheck";
     "deb-crossbuildcheck";"debcrossbuildcheck";

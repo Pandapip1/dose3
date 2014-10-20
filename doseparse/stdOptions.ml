@@ -131,7 +131,7 @@ module DistcheckOptions = struct
       if List.mem "success" default then
         add options ~group ~short_name:'s' ~long_name:"successes" ~help:"Only show successes" success;
       if List.mem "summary" default then
-        add options ~long_name:"summary" ~help:"Show Failures Summary" success;
+        add options ~long_name:"summary" ~help:"Show Failures Summary" summary;
     end
   ;;
 end
@@ -206,6 +206,7 @@ type options =
   |Deb of Debian.Debcudf.options
   |Eclipse of Debian.Debcudf.options
   |Edsp of Debian.Debcudf.options
+  |Cv of Cv.Cvcudf.options
   |Csw
   |Rpm
   |Cudf
@@ -218,13 +219,15 @@ module DistribOptions = struct
   let deb_host_arch = StdOpt.str_option ()
   let deb_ignore_essential = StdOpt.store_true ()
   let inputtype = StdOpt.str_option ()
+  let int_versions = StdOpt.store_true ()
 
   let default_options = [
     "deb-native-arch";
     "deb-host-arch";
     "deb-foreign-archs";
     "deb-ignore-essential";
-    "inputtype"
+    "inputtype";
+    "cv-int"
   ]
 
   let set_deb_options () =
@@ -262,6 +265,8 @@ module DistribOptions = struct
     }
   ;;
 
+  let set_cv_options () = { Cv.Cvcudf.cv = Opt.get int_versions }
+
   let set_default_options = function
     |`Deb -> Some (
       Deb { 
@@ -274,12 +279,14 @@ module DistribOptions = struct
         Debian.Debcudf.ignore_essential = true
       })
     |`Eclipse -> Some (Eclipse Debian.Debcudf.default_options)
+    |`Cv -> Some (Cv Cv.Cvcudf.default_options)
     |_ -> None
 
   let set_options = function
     |`Deb -> Some (Deb (set_deb_options ()))
     |`Edsp -> Some (Edsp (set_deb_options ()))
     |`Eclipse -> Some (Eclipse Debian.Debcudf.default_options)
+    |`Cv -> Some (Cv (set_cv_options ()))
     |_ -> None
   ;;
 

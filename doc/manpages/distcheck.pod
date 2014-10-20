@@ -92,6 +92,12 @@ files.
 
 =cut
 
+=head2 Cv
+
+Internal use only. Undocumented.
+
+=cut
+
 =head1 OPTIONS
 
 =head2 OPTIONS CONTROLLING FOREGROUND AND BACKGROUND
@@ -208,7 +214,7 @@ together with B<--failures>.
 
 Gives a more detailed summary of the findings.
 
-=item B<-o>I<file>
+=item B<-o> I<file>
 
 Send output to I<file>.
 
