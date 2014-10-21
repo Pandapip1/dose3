@@ -14,10 +14,10 @@ Build-Depends: debhelper (>= 7.0.50~), dh-ocaml (>= 0.9~),
  libcudf-ocaml-dev (>= 0.7),
  libzip-ocaml-dev, libbz2-ocaml-dev, librpm-dev (>= 4.8),
  perl, graphviz, hevea, texlive-latex-base, texlive-latex-extra
-Standards-Version: 3.9.5
+Standards-Version: 3.9.6
 Homepage: http://www.mancoosi.org/software/
-Vcs-Browser: http://git.debian.org/?p=pkg-ocaml-maint/packages/dose3.git
-Vcs-Git: git://git.debian.org/git/pkg-ocaml-maint/packages/dose3.git
+Vcs-Browser: https://anonscm.debian.org/cgit/pkg-ocaml-maint/packages/dose3.git
+Vcs-Git: git://anonscm.debian.org/pkg-ocaml-maint/packages/dose3.git
 XS-Testsuite: autopkgtest
 
 Package: libdose3-ocaml-dev
@@ -26,7 +26,7 @@ Depends: ${misc:Depends}, ${ocaml:Depends}, ${shlibs:Depends}
 Provides: ${ocaml:Provides}
 Description: OCaml libraries for package dependencies (development files)
  Dose3 is a framework consisting of several OCaml libraries for analysing
- the metadata of software packages (like Packages files of debian suites).
+ the metadata of software packages (like Packages files of Debian suites).
  .
  Though not tied to any particular distribution, Dose3 constitutes a
  pool of libraries which enable analyzing packages coming from various
@@ -46,7 +46,7 @@ Depends: ${misc:Depends}, ${ocaml:Depends}, ${shlibs:Depends}
 Provides: ${ocaml:Provides}
 Description: OCaml libraries for package dependencies (runtime files)
  Dose3 is a framework consisting of several OCaml libraries for analysing
- the metadata of software packages (like Packages files of debian suites).
+ the metadata of software packages (like Packages files of Debian suites).
  .
  Though not tied to any particular distribution, Dose3 constitutes a
  pool of libraries which enable analyzing packages coming from various
@@ -81,7 +81,7 @@ Conflicts: dose3-builddebcheck (<< 2.9.13)
 Replaces: dose3-builddebcheck (<< 2.9.13)
 Description: Checks whether build-dependencies can be satisfied
  This software checks, given a collection of source package stanzas
- and a collection of binary package stanzas of debian packages, whether
+ and a collection of binary package stanzas of Debian packages, whether
  the build-dependencies of each source package can be satisfied by the
  binary packages.
 
@@ -96,14 +96,14 @@ Description: Extra QA tools from the Dose3-library
  This package contains extra tools for analyzing meta-data of software 
  packages:
   - ceve, a general metadata parser supporting different input formats
-    (debian, rpm, and others) and different output formats.
-  - dose-outdated, a debian-specific tool for finding packages that are not
+    (Debian, rpm, and others) and different output formats.
+  - dose-outdated, a Debian-specific tool for finding packages that are not
     installable with respect to a package repository, and that can only be
     made installable again by fixing the package itself.
-  - dose-challenged, a debian-specific tool for checking which packages
+  - dose-challenged, a Debian-specific tool for checking which packages
     will certainly become uninstallable when some existing package is upgraded
     to a newer version.
-  - dose-coinstall, a debian-specific tool for checking whether a set of
+  - dose-coinstall, a Debian-specific tool for checking whether a set of
     packages can be installed all together.
  The tools dose-distcheck and dose-builddebcheck are packaged in their
  own resepective packages.
@@ -132,7 +132,6 @@ Description: CUDF solver integration for APT
 
 Package: edos-distcheck
 Section: oldlibs
-Priority: extra
 Architecture: all
 Depends: ${misc:Depends}, dose-distcheck, dose-builddebcheck
 Description: Checks dependencies of packages (transitional package)

@@ -35,10 +35,6 @@ Files: debian/*
 Copyright: © 2011, 2012 Ralf Treinen, Stefano Zacchiroli
 License: LGPL-3+
 
-Files: db/sqlite/sqlitext/connection.h
-Copyright: (C) 2004-2006 Gerhard Häring <gh@ghaering.de>
-License: connection-licence
-
 License: LGPL-3+
  This library is free software: you can redistribute it and/or modify
  it under the terms of the GNU Lesser General Public License as
@@ -48,7 +44,7 @@ License: LGPL-3+
  library, see the COPYING file for more information.
  .
  On Debian systems, the complete text of the latest GNU Lesser General
- Public License can be found in `/usr/share/common-licenses/LGPL'.
+ Public License can be found in `/usr/share/common-licenses/LGPL-3'.
 
 License: connection-licence
  This software is provided 'as-is', without any express or implied

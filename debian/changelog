@@ -1,5 +1,6 @@
 dose3 (3.3~beta1-1) UNRELEASED; urgency=low
 
+  [ Ralf Treinen ]
   * new upstream version:
     - refreshed patches: binaries-prefix-edos, coinstall-binary-name,
       buildcheck-redirect-output
@@ -7,6 +8,19 @@ dose3 (3.3~beta1-1) UNRELEASED; urgency=low
       buildcheck-manpage-native-arch, multiarch-accept-value-no
   * add rudimentary as-installed package tests for dose-debcheck,
     dose-builddebcheck, dose-outdated
+
+  [ Johannes Schauer ]
+  * avoid lintian warning binary-control-field-duplicates-source field
+    "priority" by removing the Priority field from edos-distcheck in d/control
+  * avoid lintian warning vcs-field-not-canonical by modifying the Vcs-Git and
+    Vcs-Browser values accordingly
+  * the db subdirectory was removed from the upstream source so remove stanza
+    from d/copyright
+  * bump standards version to 3.9.6
+  * avoid lintian warning copyright-refers-to-symlink-license by pointing to
+    LGPL-3 license file instead of LGPL
+  * d/control: s/debian/Debian/ to avoid capitalization-error-in-description
+  * dropped buildcheck-redirect-output because it was integrated upstream
 
  -- Ralf Treinen <treinen@debian.org>  Mon, 20 Oct 2014 19:59:11 +0200
 
