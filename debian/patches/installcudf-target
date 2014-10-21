@@ -1,0 +1,25 @@
+Author: Pietro Abate <pietro.abate@pps.jussieu.fr>
+Description: restore installcudf target
+Upstream-commit: f5815f90db7fe92380e9361e0ca862943957523e
+
+diff --git a/Makefile.config.in b/Makefile.config.in
+index acbe883..446d124 100644
+--- a/Makefile.config.in
++++ b/Makefile.config.in
+@@ -84,6 +84,16 @@ LIBNAMES += doseparseNoRpm/doseparseNoRpm \
+ BYTELIBNAMES=$(notdir $(LIBNAMES))
+ BYTELIBS=$(BYTELIBNAMES:%=$(DOSELIBS)/%.cma)
+ 
++ifeq ("@HAS_LIBCUDF@","no")
++installcudf:
++	$(MAKE) -C cudf all @OCAMLBEST@ install
++uninstallcudf:
++	$(MAKE) -C cudf uninstall
++else
++installcudf:
++uninstallcudf:
++endif
++
+ ifeq ("@OCAMLEXT@","native")
+ 	SUFFIX += cmxa cmxs a
+   OPTLIBS += $(BYTELIBS:%.cma=%.cmxa) 
