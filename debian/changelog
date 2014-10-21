@@ -14,6 +14,7 @@ dose3 (3.3~beta1-1) unstable; urgency=low
     dose-builddebcheck, dose-outdated
   * debian/control: replace Conflicts: by Breaks:
   * debian/copyright: fixed spelling of Alain Frisch
+  * debian/copyright: dropped connection-licence which is no longer referred to
 
   [ Johannes Schauer ]
   * avoid lintian warning binary-control-field-duplicates-source field
