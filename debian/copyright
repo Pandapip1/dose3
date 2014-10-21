@@ -44,7 +44,7 @@ License: LGPL-3+
  library, see the COPYING file for more information.
  .
  On Debian systems, the complete text of the latest GNU Lesser General
- Public License can be found in `/usr/share/common-licenses/LGPL'.
+ Public License can be found in `/usr/share/common-licenses/LGPL-3'.
 
 License: connection-licence
  This software is provided 'as-is', without any express or implied
