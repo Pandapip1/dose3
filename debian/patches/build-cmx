@@ -1,0 +1,30 @@
+Author: Pietro Abate <pietro.abate@pps.jussieu.fr>
+Description: Now really build cmx cmxs a
+Upstream commit: 3a9505c436d3e13f699b8e73e3671cca60def2ae
+
+diff --git a/Makefile b/Makefile
+index b4f4957..d068d76 100644
+--- a/Makefile
++++ b/Makefile
+@@ -138,7 +138,7 @@ $(DOSELIBS)/doseparseNoRpm.%: $(DOSELIBS)/debian.% $(DOSELIBS)/eclipse.%
+ 
+ clean:
+ 	$(OCAMLBUILD) -clean
+-	rm -f applications/apps.itarget applications/.itarget
++	rm -f applications/apps.itarget
+ 	cd doc && $(MAKE) clean
+ 
+ distclean: clean
+diff --git a/Makefile.config.in b/Makefile.config.in
+index 446d124..b0277db 100644
+--- a/Makefile.config.in
++++ b/Makefile.config.in
+@@ -95,7 +95,7 @@ uninstallcudf:
+ endif
+ 
+ ifeq ("@OCAMLEXT@","native")
+-	SUFFIX += cmxa cmxs a
++  SUFFIX += cmxa cmxs a
+   OPTLIBS += $(BYTELIBS:%.cma=%.cmxa) 
+   CMXSLIBS += $(BYTELIBS:%.cma=%.cmxs)
+   ALIBS = $(BYTELIBS:%.cma=%.a)

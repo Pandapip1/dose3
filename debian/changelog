@@ -9,6 +9,7 @@ dose3 (3.3~beta1-1) UNRELEASED; urgency=low
   * new patches, cherry-picked from upstream git:
     - doc-target (fix doc target of Makefile)
     - installcudf-target (restore that target which was accidentially dropped)
+    - build-cmx (really build cmx)
   * add rudimentary as-installed package tests for dose-debcheck,
     dose-builddebcheck, dose-outdated
   * debian/control: replace Conflicts: by Breaks:
