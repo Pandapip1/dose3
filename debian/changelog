@@ -6,6 +6,9 @@ dose3 (3.3~beta1-1) UNRELEASED; urgency=low
       buildcheck-redirect-output
     - dropped patches that were integrated upstream: buildcheck-manpage,
       buildcheck-manpage-native-arch, multiarch-accept-value-no
+  * new patches, cherry-picked from upstream git:
+    - doc-target (fix doc target of Makefile)
+    - installcudf-target (restore that target which was accidentially dropped)
   * add rudimentary as-installed package tests for dose-debcheck,
     dose-builddebcheck, dose-outdated
   * debian/control: replace Conflicts: by Breaks:
@@ -23,7 +26,7 @@ dose3 (3.3~beta1-1) UNRELEASED; urgency=low
   * d/control: s/debian/Debian/ to avoid capitalization-error-in-description
   * dropped buildcheck-redirect-output because it was integrated upstream
 
- -- Ralf Treinen <treinen@debian.org>  Mon, 20 Oct 2014 19:59:11 +0200
+ -- Ralf Treinen <treinen@debian.org>  Tue, 21 Oct 2014 20:28:45 +0200
 
 dose3 (3.2.2-3) unstable; urgency=medium
 

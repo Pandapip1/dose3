@@ -1,0 +1,55 @@
+Author: Pietro Abate <pietro.abate@pps.jussieu.fr>
+Description: fix doc target
+Upstream commit: d55cf3a0902b1b50e14a9a2dd714029cf6a9e2f4 (partially)
+
+diff --git a/Makefile b/Makefile
+index 866604a..b4f4957 100644
+--- a/Makefile
++++ b/Makefile
+@@ -216,8 +216,8 @@ changelog:
+ credits:
+ 	@git log --pretty=format:'%aN        %aE' | LC_ALL=C sort -u | awk -F'\t' '{printf("\t%s <%s>\n",$$1,$$2)}';
+ 
+-doc: fast
+-	$(OCAMLBUILD) $(OBFLAGS) dose3.docdir/index.html dose3.docdir/index.dot
++doc: all
++	$(OCAMLBUILD) dose3.docdir/index.html dose3.docdir/index.dot
+ 	dot -Grotate=0 -Tsvg -o dose3.docdir/index.svg dose3.docdir/index.dot
+ 	(cd doc && $(MAKE) all)
+ 
+@@ -230,4 +230,4 @@ upload: doc
+ 
+ .PHONY: \
+ 	common algo debian eclipse rpm cws doseparseNoRpm doseparse \
+-	all fast opt clean top-level headers test tags install uninstall dist doc man
++	all clean top-level headers test tags install uninstall dist doc man
+diff --git a/doc/apt-external-solvers.primer/apt-external-solvers.tex b/doc/apt-external-solvers.primer/apt-external-solvers.tex
+index 726595f..3597ada 100644
+--- a/doc/apt-external-solvers.primer/apt-external-solvers.tex
++++ b/doc/apt-external-solvers.primer/apt-external-solvers.tex
+@@ -11,7 +11,7 @@
+ 
+ \documentclass{article}
+ \usepackage[utf8]{inputenc}
+-%\usepackage{hevea}
++\usepackage{hevea}
+ \usepackage{alltt}
+ 
+ \input{version}
+diff --git a/dose3.odocl.in b/dose3.odocl.in
+index d24bd73..7f1a3ec 100644
+--- a/dose3.odocl.in
++++ b/dose3.odocl.in
+@@ -22,7 +22,10 @@ applications/Ceve
+ applications/Apt-cudf
+ applications/Outdated
+ applications/Challenged
+-doseparse/BoilerplateNoRpm
+-doseparse/Boilerplate
++doseparse/StdDebian
++doseparse/StdDebug
++doseparse/StdLoaders
++doseparse/StdOptions
++doseparse//StdUtils
+ @DOC_OCAMLGRAPH@
+ @DOC_RPM@
