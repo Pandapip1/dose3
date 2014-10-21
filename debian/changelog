@@ -8,6 +8,7 @@ dose3 (3.3~beta1-1) UNRELEASED; urgency=low
       buildcheck-manpage-native-arch, multiarch-accept-value-no
   * add rudimentary as-installed package tests for dose-debcheck,
     dose-builddebcheck, dose-outdated
+  * debian/control: replace Conflicts: by Breaks:
 
   [ Johannes Schauer ]
   * avoid lintian warning binary-control-field-duplicates-source field
