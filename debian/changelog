@@ -13,6 +13,8 @@ dose3 (3.3~beta1-1) UNRELEASED; urgency=low
     "priority" by removing the Priority field from edos-distcheck in d/control
   * avoid lintian warning vcs-field-not-canonical by modifying the Vcs-Git and
     Vcs-Browser values accordingly
+  * the db subdirectory was removed from the upstream source so remove stanza
+    from d/copyright
 
  -- Ralf Treinen <treinen@debian.org>  Mon, 20 Oct 2014 19:59:11 +0200
 
