@@ -1,9 +1,8 @@
-dose3 (3.3~beta1-1) UNRELEASED; urgency=low
+dose3 (3.3~beta1-1) unstable; urgency=low
 
   [ Ralf Treinen ]
   * new upstream version:
-    - refreshed patches: binaries-prefix-edos, coinstall-binary-name,
-      buildcheck-redirect-output
+    - refreshed patches: binaries-prefix-edos, coinstall-binary-name
     - dropped patches that were integrated upstream: buildcheck-manpage,
       buildcheck-manpage-native-arch, multiarch-accept-value-no
   * new patches, cherry-picked from upstream git:
@@ -14,6 +13,7 @@ dose3 (3.3~beta1-1) UNRELEASED; urgency=low
   * add rudimentary as-installed package tests for dose-debcheck,
     dose-builddebcheck, dose-outdated
   * debian/control: replace Conflicts: by Breaks:
+  * debian/copyright: fixed spelling of Alain Frisch
 
   [ Johannes Schauer ]
   * avoid lintian warning binary-control-field-duplicates-source field

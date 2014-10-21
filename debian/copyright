@@ -20,7 +20,7 @@ Copyright: © 2005-2009 Jérôme Vouillion
 License: LGPL-3+
 
 Files: common/util.ml
-Copyright: © 2009 Alain Frish, Pietro Abate
+Copyright: © 2009 Alain Frisch, Pietro Abate
 License: LGPL-3+
 
 Files: common/url.ml common/url.mli deb/version.ml
