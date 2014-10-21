@@ -15,6 +15,7 @@ dose3 (3.3~beta1-1) UNRELEASED; urgency=low
     Vcs-Browser values accordingly
   * the db subdirectory was removed from the upstream source so remove stanza
     from d/copyright
+  * bump standards version to 3.9.6
 
  -- Ralf Treinen <treinen@debian.org>  Mon, 20 Oct 2014 19:59:11 +0200
 
