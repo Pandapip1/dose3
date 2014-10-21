@@ -18,6 +18,7 @@ dose3 (3.3~beta1-1) UNRELEASED; urgency=low
   * bump standards version to 3.9.6
   * avoid lintian warning copyright-refers-to-symlink-license by pointing to
     LGPL-3 license file instead of LGPL
+  * d/control: s/debian/Debian/ to avoid capitalization-error-in-description
 
  -- Ralf Treinen <treinen@debian.org>  Mon, 20 Oct 2014 19:59:11 +0200
 
