@@ -132,7 +132,6 @@ Description: CUDF solver integration for APT
 
 Package: edos-distcheck
 Section: oldlibs
-Priority: extra
 Architecture: all
 Depends: ${misc:Depends}, dose-distcheck, dose-builddebcheck
 Description: Checks dependencies of packages (transitional package)
