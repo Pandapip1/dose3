@@ -1,0 +1,52 @@
+Author: Johannes Schauer <j.schauer@email.de>
+Upstream-commit: 60d5125f16ccab010ddfa3f26386055541fe0184
+Description: deb/printer.ml: separate vpkgs by comma and space and not only comma
+     - add a space after the separating comma as it is expected by a human
+       reader and allows to better visually distinguish individual
+       dependencies
+     - add spaces around the pipe symbol (OR) as well
+
+diff --git a/deb/printer.ml b/deb/printer.ml
+index 59facc7..abe6ae4 100644
+--- a/deb/printer.ml
++++ b/deb/printer.ml
+@@ -35,7 +35,7 @@ let string_of_vpkg = function
+ let pp_vpkg oc vpkg = Printf.fprintf oc "%s" (string_of_vpkg vpkg)
+ 
+ let string_of_vpkglist vpkglist =
+-  Util.string_of_list ~sep:"," string_of_vpkg vpkglist
++  Util.string_of_list ~sep:", " string_of_vpkg vpkglist
+ ;;
+ 
+ let pp_vpkglist oc vpkglist = 
+@@ -43,8 +43,8 @@ let pp_vpkglist oc vpkglist =
+ ;;
+ 
+ let string_of_vpkgformula vpkgformula =
+-  let string_of_OR = Util.string_of_list ~sep:" |" string_of_vpkg in
+-  let string_of_AND = Util.string_of_list ~sep:"," string_of_OR in
++  let string_of_OR = Util.string_of_list ~sep:" | " string_of_vpkg in
++  let string_of_AND = Util.string_of_list ~sep:", " string_of_OR in
+   string_of_AND vpkgformula
+ ;;
+ 
+@@ -112,8 +112,8 @@ let strinf_of_builddep (vpkg,archfilter,buildfilter) =
+ ;;
+ 
+ let string_of_builddepformula builddepformula =
+-  let string_of_OR = Util.string_of_list ~sep:" |" strinf_of_builddep in
+-  let string_of_AND = Util.string_of_list ~sep:"," string_of_OR in
++  let string_of_OR = Util.string_of_list ~sep:" | " strinf_of_builddep in
++  let string_of_AND = Util.string_of_list ~sep:", " string_of_OR in
+   string_of_AND builddepformula
+ ;;
+ 
+@@ -122,7 +122,7 @@ let pp_builddepformula oc builddepformula =
+ ;;
+ 
+ let string_of_builddeplist builddeplist =
+-  Util.string_of_list ~sep:"," strinf_of_builddep builddeplist
++  Util.string_of_list ~sep:", " strinf_of_builddep builddeplist
+ ;;
+ 
+ let pp_builddeplist oc builddeplist =
