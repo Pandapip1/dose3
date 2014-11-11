@@ -4,3 +4,5 @@ doc-target
 installcudf-target
 build-cmx
 manpages-typos
+fixMETA
+fixDebPrinter

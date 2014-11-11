@@ -1,0 +1,109 @@
+Author: Pietro Abate <pietro.abate@pps.jussieu.fr>
+Description: Fix META.in file
+    - rename boileplate to doseparse
+    - add module cv
+    - add ocamlgraph dependency only if dose was compiled with
+      --with-ocamlgraph
+Upstream-commit: b10179dda8f65f2baa34bbf531ad90e5c47e3492
+
+diff --git a/META.in b/META.in
+index fba7dee..de6fa74 100644
+--- a/META.in
++++ b/META.in
+@@ -1,8 +1,8 @@
+ description = "Dose3 libraries"
+ version = "@PACKAGE_VERSION@"
+-archive(byte) = "common.cma algo.cma debian.cma eclipse.cma csw.cma"
+-archive(native) = "common.cmxa algo.cmxa debian.cmxa eclipse.cmxa csw.cmxa"
+-requires = "extlib, re.pcre, cudf, ocamlgraph, unix, @ZIP@, @BZ2@"
++archive(byte) = "common.cma algo.cma debian.cma eclipse.cma csw.cma cv.cma"
++archive(native) = "common.cmxa algo.cmxa debian.cmxa eclipse.cmxa csw.cmxa cv.cmxa"
++requires = "extlib, re.pcre, cudf, @OCAMLGRAPH@, unix, @ZIP@, @BZ2@"
+ 
+ package "common" (
+ version = "@PACKAGE_VERSION@"
+@@ -15,7 +15,7 @@ package "algo" (
+ version = "@PACKAGE_VERSION@"
+ archive(byte) = "algo.cma"
+ archive(native) = "algo.cmxa"
+-requires = "ocamlgraph, dose3.common"
++requires = "@OCAMLGRAPH@, dose3.common"
+ )
+ 
+ package "debian" (
+@@ -46,14 +46,21 @@ archive(native) = "rpm.cmxa"
+ requires = "dose3.common"
+ )
+ 
+-package "boilerplate" (
++package "cv" (
++version = "unreleased"
++archive(byte) = "cv.cma"
++archive(native) = "cv.cmxa"
++requires = "dose3.common"
++)
++
++package "doseparse" (
+ version = "@PACKAGE_VERSION@"
+-archive(byte) = "rpm.cma boilerplate.cma"
+-archive(native) = "rpm.cmxa boilerplate.cmxa"
++archive(byte) = "rpm.cma doseparse.cma"
++archive(native) = "rpm.cmxa doseparse.cmxa"
+ )
+ 
+-package "boilerplateNoRpm" (
++package "doseparseNoRpm" (
+ version = "@PACKAGE_VERSION@"
+-archive(byte) = "boilerplateNoRpm.cma"
+-archive(native) = "boilerplateNoRpm.cmxa"
++archive(byte) = "doseparseNoRpm.cma"
++archive(native) = "doseparseNoRpm.cmxa"
+ )
+diff --git a/configure b/configure
+index 5386d4c..55f8c0a 100755
+--- a/configure
++++ b/configure
+@@ -626,6 +626,7 @@ LIBOBJS
+ OCAMLEXT
+ PKG_XML
+ PKG_CURL
++OCAMLGRAPH
+ CONFIG_OCAMLGRAPH
+ PKG_OCAMLGRAPH
+ DOC_OCAMLGRAPH
+@@ -4454,6 +4455,7 @@ $as_echo "not found" >&6; }
+   MLPACK_OCAMLGRAPH="Defaultgraphs Statistics Dominators Strongdeps Strongdeps_int Strongconflicts Strongconflicts_int"
+   DOC_OCAMLGRAPH="algo/Strongdeps algo/Strongconflicts algo/Strongdeps_int algo/Strongconflicts_int algo/Defaultgraphs algo/Statistics"
+   CONFIG_OCAMLGRAPH="-DHASOCAMLGRAPH"
++  OCAMLGRAPH=ocamlgraph
+ fi
+ 
+ 
+@@ -5964,6 +5966,7 @@ fi
+ 
+ 
+ 
++
+ LDFLAGS="-fstack-protector"
+ 
+ 
+diff --git a/configure.ac b/configure.ac
+index 27097c2..fc98834 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -147,6 +147,7 @@ if test "$HAS_OCAMLGRAPH" = "yes" ; then
+   MLPACK_OCAMLGRAPH="Defaultgraphs Statistics Dominators Strongdeps Strongdeps_int Strongconflicts Strongconflicts_int"
+   DOC_OCAMLGRAPH="algo/Strongdeps algo/Strongconflicts algo/Strongdeps_int algo/Strongconflicts_int algo/Defaultgraphs algo/Statistics"
+   CONFIG_OCAMLGRAPH="-DHASOCAMLGRAPH"
++  OCAMLGRAPH=ocamlgraph
+ fi
+ 
+ AC_ARG_WITH(curl,
+@@ -286,6 +287,7 @@ AC_SUBST(MLPACK_OCAMLGRAPH)
+ AC_SUBST(DOC_OCAMLGRAPH)
+ AC_SUBST(PKG_OCAMLGRAPH)
+ AC_SUBST(CONFIG_OCAMLGRAPH)
++AC_SUBST(OCAMLGRAPH)
+ 
+ AC_SUBST(PKG_CURL)
+ 
