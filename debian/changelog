@@ -1,11 +1,11 @@
-dose3 (3.3~beta1-2) UNRELEASED; urgency=medium
+dose3 (3.3~beta1-2) experimental; urgency=low
 
-  * Team upload.
+  * [ Johannes Schauer ]
   * add two patches from upstream to fix botch FTBFS
-     - fixMETA fixes the installed META file
+     - fixMETA fixes the installed META file (closes: #766745)
      - fixDebPrinter restores original printing of Debian packages
 
- -- Johannes Schauer <j.schauer@email.de>  Tue, 11 Nov 2014 08:46:19 +0100
+ -- Ralf Treinen <treinen@debian.org>  Tue, 11 Nov 2014 17:35:43 +0100
 
 dose3 (3.3~beta1-3) unstable; urgency=medium
 
