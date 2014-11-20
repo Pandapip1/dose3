@@ -1,3 +1,10 @@
+dose3 (3.3~beta1-3) UNRELEASED; urgency=medium
+
+  [ Johannes Schauer ]
+  * fix debian/watch (add uversionmangle) 
+
+ --
+
 dose3 (3.3~beta1-2) experimental; urgency=low
 
   * [ Johannes Schauer ]
