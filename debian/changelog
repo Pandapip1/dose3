@@ -1,9 +1,12 @@
-dose3 (3.3~beta1-3) UNRELEASED; urgency=medium
+dose3 (3.3-1) UNRELEASED; urgency=medium
 
   [ Johannes Schauer ]
+  * new upstream version
+    - dropped patches that were integrated upstream: build-cmx, doc-target,
+      installcudf-target, manpages-typos, multiarch-accept-value-no
   * fix debian/watch (add uversionmangle) 
 
- --
+ -- Johannes Schauer <j.schauer@email.de>  Fri, 21 Nov 2014 07:30:23 +0100
 
 dose3 (3.3~beta1-2) experimental; urgency=low
 
