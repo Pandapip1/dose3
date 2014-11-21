@@ -1,8 +1,2 @@
 binaries-prefix-edos
 coinstall-binary-name
-doc-target
-installcudf-target
-build-cmx
-manpages-typos
-fixMETA
-fixDebPrinter
