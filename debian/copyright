@@ -27,12 +27,12 @@ Files: common/url.ml common/url.mli deb/version.ml
 Copyright: © 2011 Ralf Treinen
 License: LGPL-3+
 
-Files: debian/update-cudf-solvers
-Copyright: © 2011 Stefano Zacchiroli
-License: LGPL-3+
-
 Files: debian/*
 Copyright: © 2011, 2012 Ralf Treinen, Stefano Zacchiroli
+License: LGPL-3+
+
+Files: debian/update-cudf-solvers
+Copyright: © 2011 Stefano Zacchiroli
 License: LGPL-3+
 
 License: LGPL-3+
