@@ -1,6 +1,6 @@
 dose3 (3.3-1) experimental; urgency=medium
 
-  * [ Johannes Schauer ]
+  [ Johannes Schauer ]
   * Team upload.
   * new upstream version
     - dropped patches that were integrated upstream: build-cmx, doc-target,
@@ -9,7 +9,12 @@ dose3 (3.3-1) experimental; urgency=medium
   * reorder d/copyright stanzas so that the d/update-cudf-solvers paragraph
     gets used
 
- -- Ralf Treinen <treinen@debian.org>  Sat, 22 Nov 2014 11:53:15 +0100
+  [ Ralf Treinen ]
+  * install the apt-external-solvers.primer in package apt-cudf:
+    - added debian/apt-cudf.docs
+    - added debian/apt-cudf.doc-base
+
+ -- Ralf Treinen <treinen@debian.org>  Sat, 22 Nov 2014 14:36:15 +0100
 
 dose3 (3.3~beta1-2) experimental; urgency=low
 
