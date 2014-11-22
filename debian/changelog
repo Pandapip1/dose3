@@ -1,5 +1,6 @@
-dose3 (3.3-1) UNRELEASED; urgency=medium
+dose3 (3.3-1) experimental; urgency=medium
 
+  * [ Johannes Schauer ]
   * Team upload.
   * new upstream version
     - dropped patches that were integrated upstream: build-cmx, doc-target,
@@ -8,7 +9,7 @@ dose3 (3.3-1) UNRELEASED; urgency=medium
   * reorder d/copyright stanzas so that the d/update-cudf-solvers paragraph
     gets used
 
- -- Johannes Schauer <j.schauer@email.de>  Fri, 21 Nov 2014 07:30:23 +0100
+ -- Ralf Treinen <treinen@debian.org>  Sat, 22 Nov 2014 11:53:15 +0100
 
 dose3 (3.3~beta1-2) experimental; urgency=low
 
