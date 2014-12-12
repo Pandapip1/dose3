@@ -1,9 +1,15 @@
-dose3 (3.3~beta1-3) UNRELEASED; urgency=medium
+dose3 (3.3~beta1-2) unstable; urgency=medium
+
+  [ Stefano Zacchiroli ]
+  * demote trigger on /usr/share/cudf/solvers from "interest" to
+    "interest-noawait": there is no real need to block, and doing so avoid
+    trigger cycles. Thanks Guillem Jover for the heads-up.
+    (Closes: #772875)
 
   [ Johannes Schauer ]
   * fix debian/watch (add uversionmangle) 
 
- --
+ -- Stefano Zacchiroli <zack@debian.org>  Fri, 12 Dec 2014 16:12:44 +0100
 
 dose3 (3.3~beta1-1) unstable; urgency=low
 
