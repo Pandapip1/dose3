@@ -1,4 +1,4 @@
-dose3 (3.3~beta1-2) unstable; urgency=medium
+dose3 (3.3~beta1-3) unstable; urgency=medium
 
   [ Stefano Zacchiroli ]
   * demote trigger on /usr/share/cudf/solvers from "interest" to
@@ -9,7 +9,7 @@ dose3 (3.3~beta1-2) unstable; urgency=medium
   [ Johannes Schauer ]
   * fix debian/watch (add uversionmangle) 
 
- -- Stefano Zacchiroli <zack@debian.org>  Fri, 12 Dec 2014 16:12:44 +0100
+ -- Stefano Zacchiroli <zack@debian.org>  Fri, 12 Dec 2014 16:39:24 +0100
 
 dose3 (3.3~beta1-1) unstable; urgency=low
 
