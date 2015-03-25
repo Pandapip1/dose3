@@ -5,6 +5,8 @@ dose3 (3.3-2) UNRELEASED; urgency=medium
   * added myself to the Uploaders field
   * remove fixDebPrinter and fixMETA from debian/patches as they were
     unused
+  * backport patch encode-package-name-in-cudf_extras to prepare for switch
+    of cudf encoding of Debian package names in next dose3 release
 
  -- Johannes Schauer <josch@debian.org>  Tue, 24 Mar 2015 07:44:19 +0100
 

@@ -1,3 +1,4 @@
 binaries-prefix-edos
 coinstall-binary-name
 cudfSolver-fix-leaking-fds
+encode-package-name-in-cudf_extras
