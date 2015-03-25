@@ -1,6 +1,7 @@
 Author: Johannes Schauer <josch@debian.org>
 Description: cudfSolver.ml: workaround for libcudf fd leak:
  https://gforge.inria.fr/tracker/index.php?func=detail&aid=18789&group_id=4385&atid=13811
+Origin: commit:73a6c13b73b37efa084686673c6948b653fde01f
 
 diff --git a/common/cudfSolver.ml b/common/cudfSolver.ml
 index a33aa7e..46c86cd 100644
