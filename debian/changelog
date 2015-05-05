@@ -1,3 +1,9 @@
+dose3 (3.3-3) unstable; urgency=medium
+
+  * upload to unstable
+
+ -- Johannes Schauer <josch@debian.org>  Tue, 05 May 2015 21:35:59 +0200
+
 dose3 (3.3-2) experimental; urgency=medium
 
   * backport patch cudfSolver-fix-leaking-fds to work around libcudf bug
