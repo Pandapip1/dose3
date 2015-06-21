@@ -1,3 +1,10 @@
+dose3 (3.3-4) UNRELEASED; urgency=medium
+
+  * update patch binaries-prefix-edos: fix name of dose-deb-coinstall
+    (closes: #789331).
+
+ -- Ralf Treinen <treinen@debian.org>  Sun, 21 Jun 2015 19:04:16 +0200
+
 dose3 (3.3-3) unstable; urgency=medium
 
   * upload to unstable
