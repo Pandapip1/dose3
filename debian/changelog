@@ -2,8 +2,11 @@ dose3 (3.3-4) UNRELEASED; urgency=medium
 
   * update patch binaries-prefix-edos: fix name of dose-deb-coinstall
     (closes: #789331).
+  * patch librpm-4.12: Fix FTBFS with librpm-dev 4.12. Patch extracted
+    from upstream git, commit 1d0ed0a. Bump build-dependency on librpm-dev
+    to >= 4.12 (closes: #789354).
 
- -- Ralf Treinen <treinen@debian.org>  Sun, 21 Jun 2015 19:04:16 +0200
+ -- Ralf Treinen <treinen@debian.org>  Tue, 23 Jun 2015 14:12:19 +0200
 
 dose3 (3.3-3) unstable; urgency=medium
 
