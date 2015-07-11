@@ -1,3 +1,9 @@
+dose3 (3.3-5) UNRELEASED; urgency=medium
+
+  * drop the edos-distcheck transitional package.
+
+ -- Ralf Treinen <treinen@debian.org>  Sat, 11 Jul 2015 11:17:27 +0200
+
 dose3 (3.3-4) unstable; urgency=low
 
   * update patch binaries-prefix-edos: fix name of dose-deb-coinstall
