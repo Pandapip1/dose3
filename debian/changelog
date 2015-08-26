@@ -10,8 +10,9 @@ dose3 (4.0-1) unstable; urgency=medium
 	remove_src_prefix_from_name
 	librpm-4.12
   * drop the edos-distcheck transitional package.
+  * Replaced build-dependency camlp4 by cppo, following upstream
 
- -- Ralf Treinen <treinen@debian.org>  Wed, 26 Aug 2015 20:25:19 +0200
+ -- Ralf Treinen <treinen@debian.org>  Wed, 26 Aug 2015 21:18:21 +0200
 
 dose3 (3.3-4) unstable; urgency=low
 
