@@ -13,6 +13,10 @@
 open ExtLib
 open Common
 
+#define __label __FILE__
+let label =  __label ;;
+include Util.Logging(struct let label = label end) ;;
+
 let pp_source oc = function
   |source,None -> Printf.fprintf oc "%s" source
   |source,Some version -> Printf.fprintf oc "%s (%s)" source version
@@ -30,6 +34,15 @@ let string_of_vpkg = function
   |((name,Some arch),None) -> Printf.sprintf "%s:%s" name arch
   |((name,Some arch),Some(op,ver)) -> Printf.sprintf "%s:%s (%s %s)" name arch op ver
   |((name,None),Some(op,ver)) -> Printf.sprintf "%s (%s %s)" name op ver
+;;
+
+let string_of_vpkgreq = function
+  | None,vpkg,None -> string_of_vpkg vpkg
+  | None,vpkg,Some suite -> Printf.sprintf "%s/%s" (string_of_vpkg vpkg) suite
+  | Some Packages_types.I, vpkg, None -> Printf.sprintf "+%s" (string_of_vpkg vpkg)
+  | Some Packages_types.R, vpkg, None -> Printf.sprintf "-%s" (string_of_vpkg vpkg)
+  | Some Packages_types.I, vpkg, Some suite -> Printf.sprintf "+%s/%s" (string_of_vpkg vpkg) suite
+  | Some Packages_types.R, vpkg, Some suite -> Printf.sprintf "-%s/%s" (string_of_vpkg vpkg) suite
 ;;
 
 let pp_vpkg oc vpkg = Printf.fprintf oc "%s" (string_of_vpkg vpkg)

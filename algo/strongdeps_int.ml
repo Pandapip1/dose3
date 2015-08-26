@@ -20,7 +20,9 @@ let conjbar = Util.Progress.create "Strongdeps_int.conj"
 let strongtimer = Util.Timer.create "Strongdeps_int.strong"
 let conjtimer = Util.Timer.create "Strongdeps_int.conjdep"
 
-include Util.Logging(struct let label = __FILE__ end) ;;
+#define __label __FILE__
+let label =  __label ;;
+include Util.Logging(struct let label = label end) ;;
 
 module G = Defaultgraphs.PackageGraph.G
 module O = Defaultgraphs.PackageGraph.O
@@ -33,7 +35,7 @@ let strong_depends solver p q =
   let solver = Depsolver_int.copy_solver solver in
   let lit = Depsolver_int.S.lit_of_var (solver.Depsolver_int.map#vartoint q) false in
   Depsolver_int.S.add_rule solver.Depsolver_int.constraints [|lit|] [];
-  match Depsolver_int.solve solver (Diagnostic_int.Sng (None,p)) with
+  match Depsolver_int.solve solver (None,[p]) with
   |Diagnostic_int.Failure _ -> true
   |Diagnostic_int.Success _ -> false
 
@@ -79,7 +81,7 @@ let strongdeps_int ?(transitive=true) graph univ pkglist =
     if (pkglist_size <> universe_size) || (somedisj cudfpool id) then begin 
       let closure = Depsolver_int.dependency_closure_cache cudfpool [id] in
       let solver = Depsolver_int.init_solver_closure cudfpool closure in
-      match Depsolver_int.solve solver (Diagnostic_int.Sng (None,id)) with
+      match Depsolver_int.solve solver (None,[id]) with
       |Diagnostic_int.Failure(_) -> ()
       |Diagnostic_int.Success(f_int) ->
           check_strong univ transitive graph solver id (f_int ())

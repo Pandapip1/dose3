@@ -18,6 +18,11 @@
 (** Representation of a debian release files *) 
 
 open ExtLib
+open Common
+
+#define __label __FILE__
+let label =  __label ;;
+include Util.Logging(struct let label = label end) ;;
 
 type release = {
   fname : string;

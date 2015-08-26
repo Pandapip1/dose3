@@ -16,14 +16,16 @@ module Pcre = Re_pcre
 open ExtLib
 open Common
 
-include Util.Logging(struct let label = __FILE__ end) ;;
+#define __label __FILE__
+let label =  __label ;;
+include Util.Logging(struct let label = label end) ;;
 
 type request = {
   request : string;
-  install : Format822.vpkg list;
-  remove : Format822.vpkg list;
-  architecture : Format822.architecture option;
-  architectures : Format822.architectures;
+  install : Packages_types.vpkg list;
+  remove : Packages_types.vpkg list;
+  architecture : Packages_types.architecture option;
+  architectures : Packages_types.architectures;
   autoremove : bool;
   upgrade : bool;
   distupgrade : bool;
@@ -50,22 +52,22 @@ let default_request = {
 let from_apt_request arch request = function
   |Apt.Install vpkgreqlist ->
       List.fold_left (fun acc -> function
-        |(Some Format822.I, ((n,None),c), _) -> {acc with install = ((n,arch),c) :: acc.install}
-        |(Some Format822.R, ((n,None),c), _) -> {acc with remove =  ((n,arch),c) :: acc.remove}
+        |(Some Packages_types.I, ((n,None),c), _) -> {acc with install = ((n,arch),c) :: acc.install}
+        |(Some Packages_types.R, ((n,None),c), _) -> {acc with remove =  ((n,arch),c) :: acc.remove}
         |(None, ((n,None),c), _) -> {acc with install = ((n,arch),c) :: acc.install}
 
-        |(Some Format822.I, vpkg, _) -> {acc with install = vpkg :: acc.install}
-        |(Some Format822.R, vpkg, _) -> {acc with remove = vpkg :: acc.remove}
+        |(Some Packages_types.I, vpkg, _) -> {acc with install = vpkg :: acc.install}
+        |(Some Packages_types.R, vpkg, _) -> {acc with remove = vpkg :: acc.remove}
         |(None, vpkg, _) -> {acc with install = vpkg :: acc.install}
       ) request vpkgreqlist
   |Apt.Remove vpkgreqlist ->
       List.fold_left (fun acc -> function
-        |(Some Format822.I, ((n,None),c), _) -> {acc with install = ((n,arch),c) :: acc.install}
-        |(Some Format822.R, ((n,None),c), _) -> {acc with remove = ((n,arch),c) :: acc.remove}
+        |(Some Packages_types.I, ((n,None),c), _) -> {acc with install = ((n,arch),c) :: acc.install}
+        |(Some Packages_types.R, ((n,None),c), _) -> {acc with remove = ((n,arch),c) :: acc.remove}
         |(None, ((n,None),c), _) -> {acc with remove = ((n,arch),c) :: acc.remove}
 
-        |(Some Format822.I, vpkg, _) -> {acc with install = vpkg :: acc.install}
-        |(Some Format822.R, vpkg, _) -> {acc with remove = vpkg :: acc.remove}
+        |(Some Packages_types.I, vpkg, _) -> {acc with install = vpkg :: acc.install}
+        |(Some Packages_types.R, vpkg, _) -> {acc with remove = vpkg :: acc.remove}
         |(None, vpkg, _) -> {acc with remove = vpkg :: acc.remove}
       ) request vpkgreqlist
   |Apt.Upgrade _ -> {request with upgrade = true }
@@ -204,14 +206,16 @@ let input_raw_ch ic =
 ;;
 
 let input_raw file =
-  let ch =
-    match file with
-    |"-" -> IO.input_channel stdin
-    |_   -> Input.open_file file
-  in
-  let l = input_raw_ch ch in
-  let _ = Input.close_ch ch in
-  l
+  try
+    let ch =
+      match file with
+      |"-" -> IO.input_channel stdin
+      |_   -> Input.open_file file
+    in
+    let l = input_raw_ch ch in
+    let _ = Input.close_ch ch in
+    l
+  with Input.File_empty -> (default_request,[])
 ;;
 
 let extras_tocudf =

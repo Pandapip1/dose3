@@ -19,6 +19,7 @@
 
 open OUnit
 open Common
+module Version = Versioning.Debian
 
 let test_dir = "tests"
 
@@ -140,7 +141,6 @@ let architecture_test_cases = [
   ("any-any", "hurd-i386", true);
   ("any-any", "amd64", true);
   ("any-arm", "armhf", true);          (* arch name is not equal cpu name *)
-  ("any-i386", "lpia", true);
   ("any-amd64", "x32", true);
   ("any-powerpc", "powerpcspe", true)
 ];;
@@ -170,52 +170,47 @@ let test_version =
   "debian version parsing" >::: [
     "splitting all" >:: (fun _ ->
       let v = "1:1.4-5+b1" in
-      let (e,u,r,b) = Version.split v in
-      assert_equal (e,u,r,b) ("1","1.4","5","b1")
+      assert_equal (Version.decompose v) (Version.NonNative ("1","1.4","5","b1"))
     );
     "normalize all" >:: (fun _ ->
       let v = "1:1.4-5+b1" in
-      assert_equal (Version.normalize v) "1.4-5"
+      assert_equal (Version.strip_epoch_binnmu v) (Version.NonNative ("","1.4","5",""))
     );
     "concat all" >:: (fun _ ->
       let v = "1:1.4-5+b1" in
-      assert_equal (Version.concat (Version.split v)) v
+      assert_equal (Version.compose (Version.decompose v)) v
     );
     "splitting partial 1" >:: (fun _ ->
       let v = "1.4-5+b1" in
-      let (e,u,r,b) = Version.split v in
-      assert_equal (e,u,r,b) ("","1.4","5","b1")
+      assert_equal (Version.decompose v) (Version.NonNative ("","1.4","5","b1"))
     );
     "normalize partial 1" >:: (fun _ ->
       let v = "1.4-5+b1" in
-      assert_equal (Version.normalize v) "1.4-5"
+      assert_equal (Version.strip_epoch_binnmu v) (Version.NonNative ("","1.4","5",""))
     );
     "splitting partial 2" >:: (fun _ ->
       let v = "1.4" in
-      let (e,u,r,b) = Version.split v in
-      assert_equal (e,u,r,b) ("","1.4","","")
+      assert_equal (Version.decompose v) (Version.Native ("","1.4",""))
     );
     "normalize partial 2" >:: (fun _ ->
       let v = "1.4" in
-      assert_equal (Version.normalize v) "1.4"
+      assert_equal (Version.strip_epoch_binnmu v) (Version.Native ("","1.4",""))
     );
     "splitting partial 3" >:: (fun _ ->
       let v = "0" in
-      let (e,u,r,b) = Version.split v in
-      assert_equal (e,u,r,b) ("","0","","")
+      assert_equal (Version.decompose v) (Version.Native ("","0",""))
     );
     "normalize partial 3" >:: (fun _ ->
       let v = "0" in
-      assert_equal (Version.normalize v) "0"
+      assert_equal (Version.strip_epoch_binnmu v) (Version.Native ("","0",""))
     );
     "splitting partial 4" >:: (fun _ ->
       let v = "1.1+b6" in
-      let (e,u,r,b) = Version.split v in
-      assert_equal (e,u,r,b) ("","1.1","","b6")
+      assert_equal (Version.decompose v) (Version.Native ("","1.1","b6"))
     );
     "normalize partial 4" >:: (fun _ ->
       let v = "1.1+b6" in
-      assert_equal (Version.normalize v) "1.1"
+      assert_equal (Version.strip_epoch_binnmu v) (Version.Native ("","1.1",""))
     );
   ]
 ;;
@@ -413,8 +408,8 @@ let test_evolution =
         Printf.eprintf "(2)cluster (%s,%s)\n%!" sourcename sourceversion; 
         List.iter (fun (version,cluster) ->
           let filter x =
-            match Debian.Version.split version, Debian.Version.split x with
-            |(_,v,_,_),(_,w,_,_) -> (Debian.Version.compare v w) <= 0
+            match Version.split version, Version.split x with
+            |(_,v,_,_),(_,w,_,_) -> (Version.compare v w) <= 0
           in
           let l = Evolution.discriminants ~filter constraints_table cluster in
           Printf.eprintf "(2)v : %s\n%!" version;
@@ -640,7 +635,7 @@ let parse_popcon_triplets =
 (* parse_pkg_req *)
 let parse_pkg_req_triplets =
   let function_to_test = (fun (suite, s) -> Apt.parse_pkg_req suite s) in
-  let returns = returns_result function_to_test
+  let returns = returns_result ~printer:Printer.string_of_vpkgreq function_to_test
 (*  and raises  = raises_failure function_to_test *)
   in
   [ ("suite name=1.2", 
@@ -649,11 +644,11 @@ let parse_pkg_req_triplets =
 
     ("suite +name=1.2", 
      ( (Some "suite"), "+name=1.2"), 
-     returns (Some Format822.I, (("name", None), Some ("=", "1.2")), Some "suite"));
+     returns (Some Packages_types.I, (("name", None), Some ("=", "1.2")), Some "suite"));
 
     ("suite -name=1.2", 
      ( (Some "suite"), "-name=1.2"), 
-     returns (Some Format822.R, (("name", None), Some ("=", "1.2")), Some "suite"));
+     returns (Some Packages_types.R, (("name", None), Some ("=", "1.2")), Some "suite"));
 
     ("suite name/suite1", 
      ( (Some "suite"), "name/suite1"), 
@@ -669,11 +664,11 @@ let parse_pkg_req_triplets =
 
     ("none +name", 
      ( None, "+name"), 
-     returns (Some Format822.I, (("name", None), None), None));
+     returns (Some Packages_types.I, (("name", None), None), None));
 
     ("none -name", 
      ( None, "-name"), 
-     returns (Some Format822.R, (("name", None), None), None));
+     returns (Some Packages_types.R, (("name", None), None), None));
 
     ("suite name", 
      ( Some "suite", "name"), 
@@ -909,7 +904,7 @@ let test_sources2packages =
     (
       "indep", "src:source3", returns [
         [(("build-essential", Some hostarch), None)];
-        [(("bin3", Some "native"), None)];
+        [(("bin3",None), None)];
         [(("bin1",None), None)];
         [(("bin2",None), None)]
       ]

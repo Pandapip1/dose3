@@ -23,7 +23,9 @@ let crtimer = Util.Timer.create "Algo.Dominators.cycle_reduction"
 let sdtrtimer = Util.Timer.create "Algo.Dominators.sd_transitive_reduction"
 let domtrtimer = Util.Timer.create "Algo.Dominators.dom_transitive_reduction"
 
-include Util.Logging(struct let label = __FILE__ end) ;;
+#define __label __FILE__
+let label =  __label ;;
+include Util.Logging(struct let label = label end) ;;
 
 module G = Defaultgraphs.PackageGraph.G
 module O = Defaultgraphs.GraphOper(G)
@@ -99,7 +101,11 @@ let dominators_tarjan graph =
   ) graph;
 
   Util.Timer.start tjntimer;
+#ifdef OCAMLGRAPH186
+  let module Dom = Dominator.Make_graph(G) in
+#else
   let module Dom = Dominator.Make(G) in
+#endif
   let idom = Dom.compute_all graph start_pkg in
   let domgr = idom.Dom.dom_graph () in
   Util.Timer.stop tjntimer ();

@@ -12,8 +12,11 @@
 
 open ExtLib
 open Common
+module Version = Versioning.Debian
 
-include Util.Logging(struct let label = __FILE__ end) ;;
+#define __label __FILE__
+let label =  __label ;;
+include Util.Logging(struct let label = label end) ;;
 
 let get_source pkg =
   match pkg.Packages.source with
@@ -30,11 +33,10 @@ let get_source pkg =
  * version *)
 (* (source,sourceversion) -> [= packageversion -> (ref[pkg],realversion) =] *)
 let cluster packagelist =
-  let drop_epoch v = let (_,v,r,b) = Version.split v in Version.concat ("",v,r,b) in
   let th = Hashtbl.create (List.length packagelist) in
   List.iter (fun pkg ->
-    let packageversion = Version.normalize pkg.Packages.version in
-    let realversion = drop_epoch pkg.Packages.version in
+    let packageversion = Version.compose (Version.strip_epoch_binnmu pkg.Packages.version) in
+    let realversion = Version.compose (Version.strip_epoch pkg.Packages.version) in
     let (source, sourceversion) = get_source pkg in
     try
       let h = Hashtbl.find th (source,sourceversion) in
@@ -75,7 +77,7 @@ let debvpkg to_cudf ((n,a),c) =
   let name =
     CudfAdd.encode (
       if Option.is_none a then n
-      else ((Option.get a)^":"^n)
+      else (n^":"^(Option.get a))
     )
   in
   let constr =

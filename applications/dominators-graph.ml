@@ -22,7 +22,7 @@ module Options = struct
   let options = OptParser.make ~description
   include StdOptions.MakeOptions(struct let options = options end)
 
-  include StdOptions.DistribOptions;;
+  include StdOptions.DistribOptions ;;
   StdOptions.DistribOptions.add_options options ;;
 
   let naive = StdOpt.store_true ()
@@ -30,7 +30,7 @@ module Options = struct
   let clean_threshold = StdOpt.int_option ()
   let approximate = StdOpt.float_option ()
 
-  open OptParser
+  open OptParser ;;
   add options ~short_name:'n' ~long_name:"naive" ~help:"Use a slower algorithm" naive;
   add options ~short_name:'o' ~long_name:"output" ~help:"Send output to file" outfile;
   add options ~long_name:"clean" ~help:"Remove all clusters with less then #n nodes" clean_threshold;
@@ -40,7 +40,9 @@ end
 
 (* ----------------------------------- *)
 
-include Util.Logging(struct let label = __FILE__ end) ;;
+#define __label __FILE__
+let label =  __label ;;
+include Util.Logging(struct let label = label end) ;;
 
 module G = Defaultgraphs.PackageGraph.G
 module O = Defaultgraphs.PackageGraph.O
@@ -72,7 +74,7 @@ let default_options = function
       Debian.Debcudf.default_options with
       Debian.Debcudf.ignore_essential = true
     })
-  |`Eclipse -> Some (StdOptions.Eclipse Debian.Debcudf.default_options)
+  |`Pef -> Some (StdOptions.Pef Debian.Debcudf.default_options)
   |_ -> None
 ;;
 
@@ -97,7 +99,7 @@ let main () =
   StdDebug.all_quiet (OptParse.Opt.get Options.quiet);
   (* let options = default_options (Input.guess_format [posargs]) in *)
   let options = Options.set_options (Input.guess_format [posargs]) in
-  let (_,universe,_,_,_) = StdLoaders.load_universe ~options posargs in
+  let (_,universe,_,_,_,_) = StdLoaders.load_universe ~options posargs in
 
   let dom_graph =
     if OptParse.Opt.get Options.naive then

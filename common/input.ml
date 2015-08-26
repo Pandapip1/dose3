@@ -12,10 +12,12 @@
 
 open ExtLib
 
-include Util.Logging(struct let label = __FILE__ end) ;;
+#define __label __FILE__
+let label =  __label ;;
+include Util.Logging(struct let label = label end) ;;
 
 let gzip_open_file file =
-IFDEF HASZIP THEN
+#ifdef HASZIP
   let ch = Gzip.open_in file in
   let input_char ch = try Gzip.input_char ch with End_of_file -> raise IO.No_more_input in
   let read ch = try Gzip.input ch with End_of_file -> raise IO.No_more_input in
@@ -23,13 +25,13 @@ IFDEF HASZIP THEN
   ~read:(fun () -> input_char ch)
   ~input:(read ch)
   ~close:(fun () -> Gzip.close_in ch)
-ELSE
+#else
     fatal "gzip not supported. re-configure with --with-zip"
-END
+#endif
 ;;
 
 let bzip_open_file file =
-IFDEF HASBZ2 THEN
+#ifdef HASBZ2
   (* workaround to avoid segfault :
    * http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=602170 *)
   let _ = Bz2.version in 
@@ -47,46 +49,55 @@ IFDEF HASBZ2 THEN
   ~read:(fun () -> input_char ch)
   ~input:(read ch)
   ~close:(fun () -> Bz2.close_in ch)
-ELSE
+#else
     fatal "bzip not supported. re-configure with --with-bz2"
-END
-
+#endif
 ;;
+
 let std_open_file file = IO.input_channel (open_in file)
 let open_ch ch = IO.input_channel ch
 let close_ch ch = IO.close_in ch
 
+exception File_empty
+
 let open_file file =
-  if (Unix.stat file).Unix.st_size = 0 then fatal "Input file %s is empty" file;
-  let openfun = try
-      let ch = open_in file in
-      let openfun = match input_byte ch with
-        (* gzip magic is 0x1f 0x8b *)
-        | 0x1f -> (match input_byte ch with
-            | 0x8b -> gzip_open_file
-            | _ -> std_open_file)
-        (* bz2 magic is "BZh" *)
-        | 0x42 -> (match input_byte ch with
-            | 0x5a -> (match input_byte ch with
-                | 0x68 -> bzip_open_file
-                | _ -> std_open_file)
-            | _ -> std_open_file)
-        (* xz magic is 0xfd "7zXZ" *)
-        | 0xfd -> (match input_byte ch with
-            | 0x37 -> (match input_byte ch with
-                | 0x7a -> (match input_byte ch with
-                    | 0x58 -> (match input_byte ch with
-                        | 0x5a -> fatal "xz not supported."
-                        | _ -> std_open_file)
-                    | _ -> std_open_file)
-                | _ -> std_open_file)
-            | _ -> std_open_file)
-        | _ -> std_open_file
-      in
-      close_in ch;
-      openfun
-    with End_of_file -> std_open_file in
-  openfun file
+  if not (Sys.file_exists file) then
+    fatal "Input file %s does not exists." file
+  else if (Unix.stat file).Unix.st_size = 0 then (
+    warning "Input file %s is empty" file;
+    raise File_empty)
+  else begin
+    let openfun = try
+        let ch = open_in file in
+        let openfun = match input_byte ch with
+          (* gzip magic is 0x1f 0x8b *)
+          | 0x1f -> (match input_byte ch with
+              | 0x8b -> gzip_open_file
+              | _ -> std_open_file)
+          (* bz2 magic is "BZh" *)
+          | 0x42 -> (match input_byte ch with
+              | 0x5a -> (match input_byte ch with
+                  | 0x68 -> bzip_open_file
+                  | _ -> std_open_file)
+              | _ -> std_open_file)
+          (* xz magic is 0xfd "7zXZ" *)
+          | 0xfd -> (match input_byte ch with
+              | 0x37 -> (match input_byte ch with
+                  | 0x7a -> (match input_byte ch with
+                      | 0x58 -> (match input_byte ch with
+                          | 0x5a -> fatal "xz not supported."
+                          | _ -> std_open_file)
+                      | _ -> std_open_file)
+                  | _ -> std_open_file)
+              | _ -> std_open_file)
+          | _ -> std_open_file
+        in
+        close_in ch;
+        openfun
+      with End_of_file -> std_open_file 
+    in
+    openfun file
+  end
 ;;
 
 let parse_uri s =
@@ -97,12 +108,5 @@ let parse_uri s =
 
 let guess_format urilist =
   match List.flatten urilist with
-  |uri::l ->
-      let (p_default,_,_) = parse_uri uri in
-      if List.for_all (fun u -> 
-        let (p_list,_,_) = parse_uri u in
-        p_default = p_list
-      ) l then p_default
-      else
-        fatal "The input list contains different format prefixes"
+  |uri::_ -> let (p,_,_) = parse_uri uri in p
   |_ -> fatal "Impossible to guess input format"
