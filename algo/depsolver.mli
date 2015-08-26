@@ -50,6 +50,10 @@ val edos_coinstall_prod : ?global_constraints:bool -> Cudf.universe -> Cudf.pack
     by default *)
 val trim : ?global_constraints:bool -> Cudf.universe -> Cudf.universe
 
+(** remove uninstallable packages from the pkglist . global_constraints is true
+    by default *)
+val trimlist : ?global_constraints:bool -> Cudf.universe -> Cudf.package list -> Cudf.package list
+
 (** return the list of broken packages *)
 val find_broken : ?global_constraints:bool -> Cudf.universe -> Cudf.package list
 
@@ -98,7 +102,7 @@ val listcheck : ?global_constraints:bool -> ?callback:(Diagnostic.diagnosis -> u
 (** [dependency_closure universe l] compute the dependencies closure 
     of the give package list.
     Invariant : l must be a subset of universe *)
-val dependency_closure : ?maxdepth:int -> ?conjunctive:bool ->
+val dependency_closure : ?maxdepth:int -> ?conjunctive:bool -> ?global_constraints:bool ->
   Cudf.universe -> Cudf.package list -> Cudf.package list
 
 (** [reverse_dependencies univ ] compute the reverse dependency list of all
@@ -119,7 +123,25 @@ type enc = Cnf | Dimacs
     @param global_constraints : enforce global constraints on the given universe.
 
   *)
-val output_clauses : ?global_constraints:bool -> ?enc:enc -> Cudf.universe -> string
+val output_clauses : ?global_constraints : bool -> ?enc : enc -> Cudf.universe -> string
+
+(** The result of the depclean function is a tuple containing a package, a list
+    of dependencies that are redundant and a list of conflicts that are redundant *)
+type depclean_result = 
+  (Cudf.package * 
+    (Cudf_types.vpkglist * Cudf_types.vpkg * Cudf.package list) list *
+    (Cudf_types.vpkg * Cudf.package list) list 
+  )
+
+(** For each package [p] in [packagelist], [depclean univ packagelist] detect 
+    redundundant dependencies that refer to packages that are either missing
+    or not co-installable together with the root package [p] *)
+val depclean :
+  ?global_constraints : bool -> 
+  ?callback : (depclean_result -> unit) -> 
+  Cudf.universe ->
+  Cudf.package list ->
+  depclean_result list
 
 type solver_result =
   |Sat of (Cudf.preamble option * Cudf.universe)

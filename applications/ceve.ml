@@ -16,12 +16,14 @@ open Common
 open Algo
 open Doseparse
 
-include Util.Logging(struct let label = __FILE__ end) ;;
+#define __label __FILE__
+let label =  __label ;;
+include Util.Logging(struct let label = label end) ;;
 
-IFDEF HASOCAMLGRAPH THEN
+#ifdef HASOCAMLGRAPH
   module DGraph = Defaultgraphs.SyntacticDependencyGraph
   module PGraph = Defaultgraphs.PackageGraph
-END
+#endif
 
 module Options = struct
   open OptParse
@@ -30,7 +32,7 @@ module Options = struct
   include StdOptions.MakeOptions(struct let options = options end)
 
   exception Format
-  let otypes = ["cnf";"dimacs";"cudf";"dot";"gml";"grml";"table"] 
+  let otypes = ["cnf";"dimacs";"cudf";"deb";"debsrc";"dot";"gml";"grml";"table"]
   let out_option ?default ?(metavar = Printf.sprintf "<%s>" (String.concat "|" otypes)) () =
     let corce s = if List.mem s otypes then s else raise Format in
     let error _ s = Printf.sprintf "%s format not supported" s in
@@ -42,8 +44,6 @@ module Options = struct
     let error _ s = Printf.sprintf "%s format not supported" s in
     Opt.value_option metavar default corce error
 
-  let src = StdOptions.vpkglist_option ()
-  let dst = StdOptions.vpkg_option ()
   let cone = StdOptions.vpkglist_option ()
   let reverse_cone = StdOptions.vpkglist_option ()
   let cone_maxdepth = StdOpt.int_option ()
@@ -52,17 +52,20 @@ module Options = struct
   let request = StdOptions.incr_str_list ()
 
   open OptParser
-  add options ~short_name:'c' ~long_name:"cone" ~help:"dependency cone" cone;
-  add options ~short_name:'r' ~long_name:"rcone" ~help:"reverse dependency cone" reverse_cone;
-  add options                 ~long_name:"depth" ~help:"max depth - in conjunction with cone" cone_maxdepth;
-  add options ~short_name:'G' ~help:"Graph output type. Default syn" grp_type;
-  add options ~short_name:'T' ~help:"Output type format. Default cnf" out_type;
-  add options                 ~long_name:"request" ~help:"Installation Request (can be repeated)" request;
 
-  include StdOptions.InputOptions
-  StdOptions.InputOptions.add_options ~default:["outfile";"latest";"trim"] options ;;
+  include StdOptions.InputOptions ;;
+  StdOptions.InputOptions.add_options ~default:["latest";"trim";"inputtype"] options ;;
+  StdOptions.InputOptions.add_option options ~short_name:'c' ~long_name:"cone" ~help:"dependency cone" cone;;
+  StdOptions.InputOptions.add_option options ~short_name:'r' ~long_name:"rcone" ~help:"reverse dependency cone" reverse_cone;;
+  StdOptions.InputOptions.add_option options                 ~long_name:"depth" ~help:"max depth - in conjunction with cone" cone_maxdepth;;
+  StdOptions.InputOptions.add_option options                 ~long_name:"request" ~help:"Installation Request (can be repeated)" request;;
 
-  include StdOptions.DistribOptions;;
+  include StdOptions.OutputOptions ;;
+  StdOptions.OutputOptions.add_options options ;;
+  StdOptions.OutputOptions.add_option options ~short_name:'G' ~help:"Graph output type format. Default syn" grp_type;;
+  StdOptions.OutputOptions.add_option options ~short_name:'T' ~help:"Output type format. Default cnf" out_type;;
+
+  include StdOptions.DistribOptions ;;
   StdOptions.DistribOptions.add_options options ;;
 
 end;;
@@ -132,8 +135,11 @@ let main () =
 
   let global_constraints = not(OptParse.Opt.get Options.deb_ignore_essential) in
 
+  (* return raw package lists if the output type is deb or debsrc *)
+  let raw = match OptParse.Opt.get Options.out_type with "deb" | "debsrc" -> true | _ -> false in
+
   let (fg,bg) = Options.parse_cmdline (input_type,implicit) posargs in
-  let (preamble,pkgll,request,from_cudf,to_cudf) = StdLoaders.load_list ~options [fg;bg] in
+  let (preamble,pkgll,request,from_cudf,to_cudf,rawll) = StdLoaders.load_list ~options ~raw [fg;bg] in
   let request = 
     let l = OptParse.Opt.get Options.request in
     if l <> [] then parse_request to_cudf l else request 
@@ -149,32 +155,19 @@ let main () =
     in
     if OptParse.Opt.get Options.trim then Depsolver.trim ~global_constraints u else u
   in
-  let get_cudfpkglist ((n,a),c) = 
+  let get_cudfpkglist ((n,a),c) =
     let (name,filter) = Debian.Debutil.debvpkg to_cudf ((n,a),c) in
-    try Cudf.lookup_packages ~filter universe name
-    with ExtList.List.Empty_list -> fatal "package %s not found" n
+    CudfAdd.who_provides universe (name,filter)
   in
-  let get_cudfpkg ((n,a),c) = List.hd (get_cudfpkglist ((n,a),c)) in
 
-  let pkg_src () = List.map get_cudfpkg (OptParse.Opt.get Options.src) in
-  let pkg_dst () =
-    (* all packages q in R s.t. q is in the dependency closure of p *)
-    let (p,v) = OptParse.Opt.get Options.dst in
-    let pid = get_cudfpkg (p,v) in
-    List.filter_map (fun pkg ->
-      if List.mem pid (Depsolver.dependency_closure universe [pkg]) then
-        Some(pkg)
-      else None
-    ) (Cudf.get_packages universe) 
-  in
   let pkg_cone () =
     List.unique (List.fold_left (fun acc (p,c) ->
       let l = get_cudfpkglist (p,c) in
       if OptParse.Opt.is_set Options.cone_maxdepth then
         let md = OptParse.Opt.get Options.cone_maxdepth in
-        (Depsolver.dependency_closure ~maxdepth:md universe l) @ acc
+        (Depsolver.dependency_closure ~maxdepth:md ~global_constraints universe l) @ acc
       else
-        (Depsolver.dependency_closure universe l) @ acc
+        (Depsolver.dependency_closure ~global_constraints universe l) @ acc
     ) [] (OptParse.Opt.get Options.cone))
   in
   let pkg_reverse_cone () =
@@ -188,29 +181,40 @@ let main () =
     ) [] (OptParse.Opt.get Options.reverse_cone))
   in
 
-  let pkg_src_list = ref [] in
-  let pkg_dst_list = ref [] in
   let plist =
-    if OptParse.Opt.is_set Options.src && OptParse.Opt.is_set Options.dst then begin
-      let (p,v) = OptParse.Opt.get Options.dst in
-      let pid = get_cudfpkg (p,v) in
-      pkg_src_list := pkg_src ();
-      pkg_dst_list := [pid];
-      (pid::!pkg_src_list)
-    end
-    else if OptParse.Opt.is_set Options.src then begin
-      pkg_src_list := pkg_src ();
-      !pkg_src_list
-    end
-    else if OptParse.Opt.is_set Options.dst then begin
-      pkg_dst_list := pkg_dst ();
-      !pkg_dst_list
-    end
-    else if OptParse.Opt.is_set Options.cone then 
+    if OptParse.Opt.is_set Options.cone then 
       pkg_cone ()
     else if OptParse.Opt.is_set Options.reverse_cone then
       pkg_reverse_cone ()
-    else Cudf.get_packages universe
+    else 
+      Cudf.get_packages universe
+  in
+
+  (* fill hashtable with mapping from cudf id to Debian.Packages and
+   * Debian.Sources if the output type is deb or debsrc *)
+  let cudftodeb_table = Hashtbl.create 30000 in
+  begin match OptParse.Opt.get Options.out_type with
+    | "deb" | "debsrc" -> begin
+        (* limit the mapping in the hashtable to the packages in plist *)
+        let plist_set = CudfAdd.to_set plist in
+        match rawll with
+        | Some dll ->
+          List.iter2 (List.iter2 (fun cudfpkg debpkg ->
+              if CudfAdd.Cudf_set.mem cudfpkg plist_set then
+                let id = (cudfpkg.Cudf.package,cudfpkg.Cudf.version) in
+                Hashtbl.add cudftodeb_table id debpkg
+            )) pkgll dll
+        | None -> failwith "If out_type is deb or debsrc, then the raw list must not be None"
+      end
+    | _ -> ()
+  end;
+
+  let cudf2deb cudfpkg =
+    let id = (cudfpkg.Cudf.package,cudfpkg.Cudf.version) in
+    try
+      Hashtbl.find cudftodeb_table id
+    with Not_found ->
+      failwith (Printf.sprintf "cannot find cudf package the mapping - is the input deb:// or debsrc://?")
   in
 
   let output ll =
@@ -226,17 +230,29 @@ let main () =
       |"cnf" -> Printf.fprintf oc "%s" (Depsolver.output_clauses ~global_constraints ~enc:Depsolver.Cnf u)
       |"dimacs" -> Printf.fprintf oc "%s" (Depsolver.output_clauses ~global_constraints ~enc:Depsolver.Dimacs u)
       |"cudf" -> Cudf_printer.pp_cudf oc doc
+      |"deb" -> List.iter (function
+          | StdLoaders.Deb p ->
+            Printf.fprintf oc "%a\n" Debian.Printer.pp_package p
+          | StdLoaders.DebSrc p -> ()
+          | _ -> failwith "impossible"
+        ) (List.map cudf2deb l)
+      |"debsrc" -> List.iter (function
+          | StdLoaders.Deb p -> ()
+          | StdLoaders.DebSrc p ->
+            Printf.fprintf oc "%a\n" Debian.Printer.pp_source p
+          | _ -> failwith "impossible"
+        ) (List.map cudf2deb l)
       |"table" ->
-IFDEF HASOCAMLGRAPH THEN
+#ifdef HASOCAMLGRAPH 
         Printf.fprintf oc "%d\t%d\t%d\n"
         (Cudf.universe_size u) (DGraph.G.nb_edges (DGraph.dependency_graph u))
         (nr_conflicts u)
-ELSE
+#else
         failwith (Printf.sprintf "format table not supported: needs ocamlgraph")
-END
+#endif
 
       |("dot" | "gml" | "grml") as t -> 
-IFDEF HASOCAMLGRAPH THEN
+#ifdef HASOCAMLGRAPH 
         let fmt = Format.formatter_of_out_channel oc in
         begin match OptParse.Opt.get Options.grp_type with
           |"syn" ->
@@ -248,7 +264,22 @@ IFDEF HASOCAMLGRAPH THEN
           |("pkg" | "strdeps" | "conj"| "dom") as gt ->
             let g =
               if gt = "pkg" then PGraph.dependency_graph u
-              else if gt = "strdeps" then Strongdeps.strongdeps_univ u
+              else if gt = "strdeps" then
+                let g = Strongdeps.strongdeps_univ u in
+                (* if input are Debian packages and --deb-ignore-essential was
+                 * not given, connect all binary packages to the Essential:yes
+                 * packages *)
+                if global_constraints && (input_type = `Deb || input_type = `DebSrc) then begin
+                  let essential = List.filter CudfAdd.is_essential l in
+                  Defaultgraphs.PackageGraph.G.iter_edges
+                    (Defaultgraphs.PackageGraph.G.add_edge g)
+                    (Strongdeps.strongdeps u essential);
+                  Defaultgraphs.PackageGraph.G.iter_vertex
+                    (fun v -> List.iter
+                        (Defaultgraphs.PackageGraph.add_edge ~transitive:true g v)
+                        essential) g
+                end;
+                g
               else if gt = "conj" then Strongdeps.conjdeps_univ u
               else if gt = "dom" then
                 let g = Strongdeps.strongdeps_univ ~transitive:true universe in
@@ -264,9 +295,9 @@ IFDEF HASOCAMLGRAPH THEN
             else assert false
           |s -> failwith (Printf.sprintf "type %s not supported" s)
         end
-ELSE
+#else
         failwith (Printf.sprintf "format %s not supported: needs ocamlgraph" t)
-END
+#endif
       |_ -> assert false
       end ;
       close_out oc;
@@ -274,4 +305,4 @@ END
   in output [plist]
 ;;
 
-StdUtils.if_application ~alternatives:["dose-ceve";"ceve"] __FILE__ (fun () -> main (); 0) ;;
+StdUtils.if_application ~alternatives:["dose-ceve";"ceve"] __label (fun () -> main (); 0) ;;

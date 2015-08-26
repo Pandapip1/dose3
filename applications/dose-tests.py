@@ -4,13 +4,33 @@ import unittest
 from subprocess import Popen, PIPE
 import difflib
 import uuid
-import os,sys,time
+import os,sys,time,glob
 import argparse
 from itertools import groupby, ifilter
-import yaml, urllib
+import yaml
+import copy
+
+try :
+    from yaml import CBaseLoader as yamlLoader
+except ImportError:
+    from yaml import BaseLoader as yamlLoader
+    warning('YAML C-library not available, falling back to python')
+
 import filecmp
 import cStringIO
 from sets import Set
+
+def which(program):
+    path = "/usr/share/cudf/solvers/"
+    exe_file = os.path.join(path, program)
+    return os.path.isfile(exe_file)
+
+def removeTmpFiles() :
+    for f in glob.glob("/tmp/apt-cudf-universe*.cudf") :
+        os.remove(f)
+
+class Ignore(Exception):
+    pass
 
 def convert(d) :
     def aux(e) :
@@ -22,10 +42,36 @@ def convert(d) :
             return e
     return sorted([aux(e) for e in d])
 
-def parse822(f) :
+def parse822(f,filter) :
+    records = []
+    for empty, record in groupby(ifilter(lambda s: not s.startswith('#'),open(f)), key=str.isspace):
+        if not empty:
+            l = map(lambda s : tuple(s.split(': ')), record)
+            l = map(lambda (k,v) : (k,v.rstrip()), l)
+            if (len(l) > 0):
+                try :
+                    pairs = ((k, filter((k,v.strip()))) for k,v in l)
+                    records.append((pairs))
+                except Ignore :
+                    continue
+
+    l = sorted([sorted(e) for e in records])
+    return [frozenset(e) for e in l]
+
+def parseedsp(f):
+    fields = ['Package','Architecture']
+
+    def filter(k,s,fields) :
+        if k in fields :
+            return s
+
+    return parse822(f,filter)
+
+def parsedistcheck(f) :
     cnf_fields = ['conflict','depends','provides','recommends']
 
     def cnf(k,s) :
+        if k == "preamble" : raise Ignore
         if k in cnf_fields :
             l = s.split(',')
             ll = map(lambda s : s.split('|'), l)
@@ -33,24 +79,15 @@ def parse822(f) :
         else :
             return s
 
-    records = []
-    for empty, record in groupby(ifilter(lambda s: not s.startswith('#'),open(f)), key=str.isspace):
-        if not empty:
-            l = map(lambda s : tuple(s.split(': ')), record)
-            l = map(lambda (k,v) : (k,v.rstrip()), l)
-            # we ignore the preamble here ...
-            if ('preamble' not in l[0]) and (len(l) > 0):
-                pairs = ((k, cnf(k,v.strip())) for k,v in l)
-                records.append((pairs))
-
-    l = sorted([sorted(e) for e in records])
-    return [frozenset(e) for e in l]
+    return parse822(f,filter)
 
 def parseyaml(f) :
     print "yaml %s" % f
-    data = yaml.load(open(f))
-    report = data.get('report', [])
-    l = convert(report)
+    l = []
+    if os.path.getsize(f) > 0 :
+        data = yaml.load(open(f), Loader=yamlLoader)
+        report = data.get('report', [])
+        l = convert(report)
     return l
 
 def parsetext(f) :
@@ -69,23 +106,28 @@ def diff_aux(expectedfile,resultfile,parser):
             print "The order is not the same."
             return True
         else :
-            if verbose > 2 :
+            if False :
                 diff = difflib.unified_diff(open(expectedfile).readlines(),open(resultfile).readlines())
                 sys.stdout.writelines(list(diff))
             return False
 
 def diff_yaml(expectedfile,resultfile):
-    return diff_aux(expectedfile,resultfile, parseyaml)
+    return diff_aux(expectedfile,resultfile,parseyaml)
 
 def diff_822(expectedfile,resultfile):
-    return diff_aux(expectedfile,resultfile,parse822)
+    return diff_aux(expectedfile,resultfile,parsedistcheck)
 
 def diff_text(expectedfile,resultfile):
     return diff_aux(expectedfile,resultfile,parsetext)
+
+def diff_edsp(expectedfile,resultfile):
+    return diff_aux(expectedfile,resultfile,parseedsp)
     
 def test_application(self,expected_file,cmd,diff,exitcode):
     uid = uuid.uuid1()
+    mytmp = False
     if not os.path.exists("tmp"):
+        mytmp = True
         os.makedirs("tmp")
 
     output_file = "tmp/%s.cudf" % uid
@@ -101,6 +143,8 @@ def test_application(self,expected_file,cmd,diff,exitcode):
     d = diff(expected_file,output_file)
     output.close()
     os.remove(output_file)
+    if mytmp :
+        os.rmdir("tmp")
     self.assertTrue(d)
     self.assertTrue(ec)
 
@@ -108,49 +152,78 @@ class DoseTests(unittest.TestCase):
     def __init__(self, test):
         super(DoseTests, self).__init__()
         self.name = test['Name'] 
+        self.group = test['Group']
         self.comment = test['Comment'] if 'Comment' in test else None
         self.expected = test['Expected'] 
         self.cmd = test['Cmd'].split(' ') + test['Input'].split(' ')
         self.exitcode = int(test['ExitCode']) if 'ExitCode' in test else None
-        if test['Type'] == '822' :
+        self.enctype = test['Type'] if 'Type' in test else '822'
+        self.solver = test['Solver'] if 'Solver' in test else None
+        if self.enctype == '822' :
             self.difftype = diff_822
-        elif test['Type']  == 'yaml' :
+        elif self.enctype  == 'yaml' :
             self.difftype = diff_yaml
-        elif test['Type']  == 'text' :
+        elif self.enctype  == 'text' :
+            self.difftype = diff_text
+        elif self.enctype  == 'edsp' :
             self.difftype = diff_text
         else :
             self.difftype = diff_text
     def shortDescription(self):
         if self.comment :
-            return "Description : " + self.comment + "\n" + ("Cmd : ") + " ".join(self.cmd) + "\nExpected file : %s" % self.expected + "\n"
+            return "Description : " + self.comment + "\n" + "\nExpected file : %s" % self.expected + "\n"
         else :
             s =     "Test : %s" % self.name
-            s = s + "\n" + ("Cmd : ") + " ".join(self.cmd)
+            s = s + "\nGroup : %s" % self.group
+            s = s + "\n" + "Cmd : " + " ".join(self.cmd)
+            if self.solver : 
+                s = s + "\n" + "Solver : " + self.solver
             s = s + "\nExpected file : %s" % self.expected
             s = s + "\nExpected exitcode : %d" % self.exitcode if self.exitcode is not None else s
             return s + "\n"
     def runTest(self):
-        test_application(self,self.expected,self.cmd,self.difftype, self.exitcode)
+        test_application(self,self.expected,self.cmd,self.difftype,self.exitcode)
+    def tearDown(self):
+        removeTmpFiles()
 
-def suite(f,runtest,rungroup):
+def suite(f,runtest,rungroup,slow=False):
     suite = unittest.TestSuite()
     groups = Set()
     tests = Set()
     groupFound=False
     testsFound=False
-    for stanza in parse822(f):
+    def addtest(s) :
+        # we run the slow tests only if 
+        if (slow and 'Speed' in s and s['Speed'] == 'slow') :
+            return
+        else :
+            #default we run the test
+            if 'edsp' in s['Type'] :
+                solvers = ['aspcud','packup','mccs-lpsolve']
+                if 'Solver' in s :
+                    solvers = [x.strip() for x in s['Solver'].split(',')]
+                for solver in solvers :
+                    ss = copy.deepcopy(s)
+                    f = "%s-%s" % (ss['Expected'],solver)
+                    ss['Expected'] = f if os.path.isfile(f) else ss['Expected']
+                    ss['Solver'] = solver
+                    ss['Cmd'] = ss['Cmd'] + " --solver " + solver
+                    suite.addTest(DoseTests(ss))
+            else :
+                suite.addTest(DoseTests(s))
+    for stanza in parse822(f,lambda s: s[1]):
         s = dict(stanza)
         if s['Name'] not in runtest and 'Ignore' in s and s['Ignore'] == 'yes' :
             continue
         groups.add(s['Group'])
         if (len(runtest) == 0 and len(rungroup) == 0) :
-            suite.addTest(DoseTests(s))
+            addtest(s)
         elif s['Name'] in runtest :
             testFound=True
-            suite.addTest(DoseTests(s))
+            addtest(s)
         elif len(rungroup) > 0 and s['Group'] in rungroup :
             groupFound=True
-            suite.addTest(DoseTests(s))
+            addtest(s)
     if len(runtest) != 0 and testFound == False :
         print "Test(s) [%s] Not found" % (','.join(str(p) for p in runtest)) 
         print "Tests available [%s]" % (','.join(str(p) for p in tests))
@@ -160,18 +233,33 @@ def suite(f,runtest,rungroup):
 
     return suite
 
+def fixtest(expected_file,cmd):
+    output = open(expected_file,'w')
+    p = Popen(cmd, stdout=output)
+    p.communicate()
+    output.close()
+
 def main():
-    global verbose
     parser = argparse.ArgumentParser(description='Unit test for Dose applications')
-    parser.add_argument('-v', '--verbose', type=int, nargs=1, default=2) 
+    parser.add_argument('-d', '--diff', action='store_true', default=False, help="Print diffs")
+    parser.add_argument('-s', '--slow', action='store_true', default=False, help="Run slow tests") 
     parser.add_argument('--runtest', nargs=1, default=[]) 
     parser.add_argument('--rungroup', nargs=1, default=[]) 
+    parser.add_argument('--fixtest', nargs=1, default=[]) 
     parser.add_argument('inputfile', type=str, nargs=1, help="test file")
     args = parser.parse_args()
 
-    verbose = args.verbose
-
-    unittest.TextTestRunner(verbosity=args.verbose).run(suite(args.inputfile[0],args.runtest,args.rungroup))
+    if len(args.fixtest) > 0 :
+        f = args.inputfile[0]
+        for stanza in parse822(f,lambda s: s[1]):
+            s = dict(stanza)
+            if args.fixtest[0] == s['Name'] :
+                cmd = s['Cmd'].split(' ') + s['Input'].split(' ')
+                expected = s['Expected']
+                print "Overwriting expected file: %s" % expected
+                fixtest(expected,cmd)
+    else :
+        unittest.TextTestRunner(verbosity=2).run(suite(args.inputfile[0],args.runtest,args.rungroup,args.slow))
 
 if __name__ == '__main__':
     main()

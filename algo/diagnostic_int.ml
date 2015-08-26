@@ -24,6 +24,4 @@ type result =
   |Success of (?all:bool -> unit -> int list)
   |Failure of (unit -> reason list)
 
-type request =
-  |Sng of (int option * int)
-  |Lst of (int option * int list)
+type request = (int option * int list)

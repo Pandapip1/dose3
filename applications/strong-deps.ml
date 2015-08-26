@@ -29,7 +29,7 @@ module Options = struct
   let checkonly = StdOptions.vpkglist_option ()
   let conj_only = StdOpt.store_true ()
 
-  open OptParser
+  open OptParser ;;
   add options ~long_name:"dot" ~help:"Print the strong dependency graph in dot format" dot;
   add options ~long_name:"detrans" ~help:"Print the transitive reduction of the strong dependency graph" detrans;
   add options ~long_name:"checkonly" ~help:"Check only these packages" checkonly;
@@ -37,7 +37,9 @@ module Options = struct
 
 end
 
-include Util.Logging(struct let label = __FILE__ end) ;;
+#define __label __FILE__
+let label =  __label ;;
+include Util.Logging(struct let label = label end) ;;
 
 module G = Defaultgraphs.PackageGraph.G
 module O = Defaultgraphs.GraphOper(G)
@@ -58,7 +60,7 @@ let default_options = function
       Debian.Debcudf.default_options with
       Debian.Debcudf.ignore_essential = true
     })
-  |`Eclipse -> Some (StdOptions.Eclipse Debian.Debcudf.default_options)
+  |`Pef -> Some (StdOptions.Pef Debian.Debcudf.default_options)
   |_ -> None
 ;;
 
@@ -69,7 +71,7 @@ let main () =
   StdDebug.enable_bars (OptParse.Opt.get Options.progress) bars;
   let options = Options.set_options (Input.guess_format [posargs]) in
   (* let options = default_options (Input.guess_format [posargs]) in *)
-  let (_,universe,_,_,to_cudf) = StdLoaders.load_universe ~options posargs in
+  let (_,universe,_,_,to_cudf,_) = StdLoaders.load_universe ~options posargs in
   if OptParse.Opt.is_set Options.checkonly then begin
     let pkglistlist =
         List.map (fun ((n,a),c) ->

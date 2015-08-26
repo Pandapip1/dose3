@@ -7,28 +7,29 @@ include Makefile.config
 DIST_DIR = $(NAME)-$(VERSION)
 DIST_TARBALL = $(DIST_DIR).tar.gz
 
-VERBOSE := -classic-display
+#VERBOSE := -classic-display
 OBFLAGS := $(VERBOSE) -j 10 -no-links -cflags -warn-error,FPSXY
 APPFLAGS := $(VERBOSE) -j 10
 #OBFLAGS := $(OBFLAGS) -tag profile -tag debug
 #OBFLAGS := $(OBFLAGS) -classic-display
 
-all: itarget $(CAMLP4CMXS) $(BYTELIBS) $(OPTLIBS) $(CMXSLIBS) $(ALIBS) man
+myocamlbuild.ml: myocamlbuild.ml.pp
+	  cppo $(CPPOFLAGS) $< -o $@
+
+all: libs apps man
+
+apps: myocamlbuild.ml itarget $(BYTELIBS) $(OPTLIBS) 
 	$(OCAMLBUILD) $(APPFLAGS) applications/apps.otarget
 
-apps: itarget $(CAMLP4CMXS) $(BYTELIBS) $(OPTLIBS) 
-	echo $(LIBNAMES)
-	echo $(BYTELIBS)
-	echo $(OPTLIBS)
-	$(OCAMLBUILD) $(APPFLAGS) applications/apps.otarget
+libs: myocamlbuild.ml itarget $(BYTELIBS) $(OPTLIBS) $(CMXSLIBS) $(ALIBS)
 
 cleandoselib:
 	rm -Rf $(DOSELIBS)
 
 itarget:
-	rm -f applications/apps.itarget
+	@rm -f applications/apps.itarget
 	@for i in $(TARGETS); do echo $$i >> applications/apps.itarget; done
-	$(shell \
+	@$(shell \
 		for lib in $(LIBNAMES); do \
 			libname=`basename "$$lib"` ;\
 			dirname=`dirname "$$lib"` ;\
@@ -37,11 +38,6 @@ itarget:
 				echo "$$libname.$$ext" >> $$dirname/$$libname.itarget; \
 			done;\
 		done)
-#	@touch applications/.itarget
-
-_build/Camlp4MacroParser.cmxs:
-	mkdir -p _build
-	ocamlopt -shared $(shell ocamlc -where)/camlp4/Camlp4Parsers/Camlp4MacroParser.cmx -o _build/Camlp4MacroParser.cmxs
 
 $(DOSELIBS)/cudf.%:
 	$(OCAMLBUILD) $(OBFLAGS) cudf/cudf.$*
@@ -58,6 +54,16 @@ $(DOSELIBS)/common.%: common/*.ml
 	$(OCAMLBUILD) $(OBFLAGS) common/common.otarget
 	@mkdir -p $(DOSELIBS)
 	@for i in _build/common/common.*; do \
+	  if [ -e $$i ]; then \
+	  cp $$i $(DOSELIBS) ; \
+	  rm -f $(DOSELIBS)/*.mlpack $(DOSELIBS)/*.cmx ; \
+	  fi ; \
+	done
+
+$(DOSELIBS)/versioning.%: versioning/*.ml
+	$(OCAMLBUILD) $(OBFLAGS) versioning/versioning.otarget
+	@mkdir -p $(DOSELIBS)
+	@for i in _build/versioning/versioning.* _build/versioning/*.cmi; do \
 	  if [ -e $$i ]; then \
 	  cp $$i $(DOSELIBS) ; \
 	  rm -f $(DOSELIBS)/*.mlpack $(DOSELIBS)/*.cmx ; \
@@ -91,9 +97,9 @@ $(DOSELIBS)/rpm.%: rpm/*.ml $(DOSELIBS)/algo.%
 	  fi ; \
 	done
 
-$(DOSELIBS)/eclipse.%: eclipse/*.ml $(DOSELIBS)/debian.%
-	$(OCAMLBUILD) $(OBFLAGS) eclipse/eclipse.otarget
-	@for i in _build/eclipse/eclipse.*; do \
+$(DOSELIBS)/pef.%: pef/*.ml $(DOSELIBS)/debian.%
+	$(OCAMLBUILD) $(OBFLAGS) pef/pef.otarget
+	@for i in _build/pef/pef.*; do \
 	  if [ -e $$i ]; then \
 	  cp $$i $(DOSELIBS) ; \
 	  rm -f $(DOSELIBS)/*.mlpack $(DOSELIBS)/*.cmx ; \
@@ -109,16 +115,7 @@ $(DOSELIBS)/csw.%: opencsw/*.ml $(DOSELIBS)/debian.%
 	  fi ; \
 	done
 
-$(DOSELIBS)/cv.%:
-	$(OCAMLBUILD) $(OBFLAGS) cv/cv.otarget
-	@for i in _build/cv/cv.*; do \
-	  if [ -e $$i ]; then \
-	  cp $$i $(DOSELIBS) ; \
-	  rm -f $(DOSELIBS)/*.mlpack $(DOSELIBS)/*.cmx ; \
-	  fi ; \
-	done
-
-$(DOSELIBS)/doseparse.%: $(DOSELIBS)/debian.% $(DOSELIBS)/eclipse.%
+$(DOSELIBS)/doseparse.%: $(DOSELIBS)/debian.% $(DOSELIBS)/pef.%
 	$(OCAMLBUILD) $(OBFLAGS) doseparse/doseparse.otarget
 	@for i in _build/doseparse/doseparse.*; do \
 	  if [ -e $$i ]; then \
@@ -127,18 +124,19 @@ $(DOSELIBS)/doseparse.%: $(DOSELIBS)/debian.% $(DOSELIBS)/eclipse.%
 	  fi ; \
 	done
 
-$(DOSELIBS)/doseparseNoRpm.%: $(DOSELIBS)/debian.% $(DOSELIBS)/eclipse.%
+$(DOSELIBS)/doseparseNoRpm.%: $(DOSELIBS)/debian.% $(DOSELIBS)/pef.%
 	$(OCAMLBUILD) $(OBFLAGS) doseparseNoRpm/doseparseNoRpm.otarget
 	@for i in _build/doseparseNoRpm/doseparseNoRpm.*; do \
 	  if [ -e $$i ]; then \
-	  cp $$i $(DOSELIBS) ; \
-	  rm -f $(DOSELIBS)/*.mlpack $(DOSELIBS)/*.cmx ; \
+			cp $$i $(DOSELIBS) ;\
+			rm -f $(DOSELIBS)/*.mlpack $(DOSELIBS)/*.cmx ;\
 	  fi ; \
 	done
 
 clean:
 	$(OCAMLBUILD) -clean
-	rm -f applications/apps.itarget applications/.itarget
+	rm -f myocamlbuild.ml
+	rm -f applications/apps.itarget
 	cd doc && $(MAKE) clean
 
 distclean: clean
@@ -148,17 +146,28 @@ distclean: clean
 	rm -f db/db.mlpack
 	rm -f _tags META
 
-testapps: apps 
-	@applications/dose-tests.py applications/dose-tests.list
+test: apps
+ifeq (libs,$(word 2,$(MAKECMDGOALS)))
+	$(MAKE) testlib
+else
+ifdef group
+	applications/dose-tests.py --rungroup $(group) applications/dose-tests.list
+else 
+ifdef unit
+	applications/dose-tests.py --runtest $(unit) applications/dose-tests.list
+else
+	$(MAKE) testlib
+	applications/dose-tests.py applications/dose-tests.list
+endif
+endif
+endif
 
 testlib: 
 	@for i in $(TESTS); do\
 		echo "#######START TESTING $$i" ;\
-		$(OCAMLBUILD) $(APPFLAGS) $$i/tests.$(OCAMLEXT) ;\
-		./tests.$(OCAMLEXT) ;\
+		$(OCAMLBUILD) $(APPFLAGS) $$i/tests.$(OCAMLEXT) || exit 1;\
+		./tests.$(OCAMLEXT) || exit 1;\
 	done
-
-test: testapps testlib
 
 # stuff not not put in a distribution tarball
 DIST_EXCLUDE = cudf tests $(wildcard */tests) experimental
@@ -168,46 +177,47 @@ INSTALL_STUFF_ += $(wildcard _build/doselibs/*.cma _build/doselibs/*.cmi)
 INSTALL_STUFF_ += $(wildcard _build/doselibs/*.cmxa _build/doselibs/*.cmxs)
 INSTALL_STUFF_ += $(wildcard _build/doselibs/*.a)
 INSTALL_STUFF_ += $(wildcard _build/*/*.mli)
-INSTALL_STUFF_ += $(wildcard _build/rpm/*.so _build/rpm/*.a)
+INSTALL_STUFF_ += $(wildcard _build/rpm/*.so)
 
 exclude_cudf = $(wildcard _build/doselibs/*cudf* _build/cudf/*)
 INSTALL_STUFF = $(filter-out $(exclude_cudf), $(INSTALL_STUFF_))
 
-install: META installcudf
-	test -d $(LIBDIR) || mkdir -p $(LIBDIR)
-	test -d $(LIBDIR)/stublibs || mkdir -p $(LIBDIR)/stublibs
-	$(INSTALL) -patch-version $(VERSION) $(NAME) $(INSTALL_STUFF)
+installlib: META installcudf
+	@test -d $(LIBDIR) || mkdir -p $(LIBDIR)
+	@test -d $(LIBDIR)/stublibs || mkdir -p $(LIBDIR)/stublibs
+	@$(INSTALL) -patch-version $(VERSION) $(NAME) $(INSTALL_STUFF)
+	@echo "Install dose librairies to $(LIBDIR)"
 
-	# install applications
-	cd _build/applications ; \
+install: installlib
+	@cd _build/applications ; \
 	install -d $(BINDIR) ; \
 	for f in $$(ls *.$(OCAMLEXT)) ; do \
 	  install $(INSTALLOPTS) $$f $(BINDIR)/$${f%.$(OCAMLEXT)} ; \
 	done
-	ln -s $(BINDIR)/distcheck $(BINDIR)/debcheck
-	ln -s $(BINDIR)/distcheck $(BINDIR)/rpmcheck
-	ln -s $(BINDIR)/distcheck $(BINDIR)/eclipsecheck
+	@ln -s $(BINDIR)/distcheck $(BINDIR)/debcheck
+	@ln -s $(BINDIR)/distcheck $(BINDIR)/rpmcheck
+	@ln -s $(BINDIR)/distcheck $(BINDIR)/eclipsecheck
+	@echo "Install dose binaries to $(BINDIR)"
 
-uninstall: uninstallcudf
-	$(OCAMLFIND) remove -destdir $(LIBDIR) $(NAME)
+uninstalllib:
+	@$(OCAMLFIND) remove -destdir $(LIBDIR) $(NAME)
+	@echo "Uninstall dose librairies from $(LIBDIR)"
 
-	for f in $$(ls *.$(OCAMLEXT)) ; do \
+uninstall: uninstalllib uninstallcudf
+	@for f in $$(ls *.$(OCAMLEXT)) ; do \
 	  rm -f $(BINDIR)/$${f%.$(OCAMLEXT)} ; \
 	done
-	rm -f $(BINDIR)/debcheck $(BINDIR)/rpmcheck $(BINDIR)/eclipsecheck
+	@rm -f $(BINDIR)/debcheck $(BINDIR)/rpmcheck $(BINDIR)/eclipsecheck
+	@echo "Uninstall dose binaries from $(BINDIR)"
 
 dist: ./$(DIST_TARBALL)
 ./$(DIST_TARBALL):
-	if [ -d ./$(DIST_DIR)/ ] ; then rm -rf ./$(DIST_DIR)/ ; fi
-	if [ -d ./$(DIST_TARBALL) ] ; then rm -f ./$(DIST_TARBALL) ; fi
-	if [ -d .svn ]; then \
-	  svn export . ./$(DIST_DIR) ; \
-	else \
-	  mkdir ./$(DIST_DIR)/ ; git archive --format=tar HEAD | tar -x -C ./$(DIST_DIR)/ ; \
-	fi
-	for f in $(DIST_EXCLUDE) ; do rm -rf ./$(DIST_DIR)/$$f; done
-	tar cvzf ./$(DIST_TARBALL) ./$(DIST_DIR)
-	rm -rf ./$(DIST_DIR)
+	@if [ -d ./$(DIST_DIR)/ ] ; then rm -rf ./$(DIST_DIR)/ ; fi
+	@if [ -d ./$(DIST_TARBALL) ] ; then rm -f ./$(DIST_TARBALL) ; fi
+	@mkdir ./$(DIST_DIR)/ ; git archive --format=tar HEAD | tar -x -C ./$(DIST_DIR)/
+	@for f in $(DIST_EXCLUDE) ; do rm -rf ./$(DIST_DIR)/$$f; done
+	@tar czf ./$(DIST_TARBALL) ./$(DIST_DIR)
+	@rm -rf ./$(DIST_DIR)
 	@echo "Distribution tarball: ./$(DIST_TARBALL)"
 
 changelog:
@@ -216,8 +226,8 @@ changelog:
 credits:
 	@git log --pretty=format:'%aN        %aE' | LC_ALL=C sort -u | awk -F'\t' '{printf("\t%s <%s>\n",$$1,$$2)}';
 
-doc: fast
-	$(OCAMLBUILD) $(OBFLAGS) dose3.docdir/index.html dose3.docdir/index.dot
+doc: all
+	$(OCAMLBUILD) dose3.docdir/index.html dose3.docdir/index.dot
 	dot -Grotate=0 -Tsvg -o dose3.docdir/index.svg dose3.docdir/index.dot
 	(cd doc && $(MAKE) all)
 
@@ -229,5 +239,5 @@ upload: doc
 	rsync -avz -O dose3.docdir/ scm.gforge.inria.fr:/home/groups/dose/htdocs/doc/api/
 
 .PHONY: \
-	common algo debian eclipse rpm cws doseparseNoRpm doseparse \
-	all fast opt clean top-level headers test tags install uninstall dist doc man
+	common algo debian pef rpm cws doseparseNoRpm doseparse \
+	all clean top-level headers test tags install uninstall dist doc man

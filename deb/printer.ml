@@ -13,6 +13,10 @@
 open ExtLib
 open Common
 
+#define __label __FILE__
+let label =  __label ;;
+include Util.Logging(struct let label = label end) ;;
+
 let pp_source oc = function
   |source,None -> Printf.fprintf oc "%s" source
   |source,Some version -> Printf.fprintf oc "%s (%s)" source version
@@ -32,10 +36,19 @@ let string_of_vpkg = function
   |((name,None),Some(op,ver)) -> Printf.sprintf "%s (%s %s)" name op ver
 ;;
 
+let string_of_vpkgreq = function
+  | None,vpkg,None -> string_of_vpkg vpkg
+  | None,vpkg,Some suite -> Printf.sprintf "%s/%s" (string_of_vpkg vpkg) suite
+  | Some Packages_types.I, vpkg, None -> Printf.sprintf "+%s" (string_of_vpkg vpkg)
+  | Some Packages_types.R, vpkg, None -> Printf.sprintf "-%s" (string_of_vpkg vpkg)
+  | Some Packages_types.I, vpkg, Some suite -> Printf.sprintf "+%s/%s" (string_of_vpkg vpkg) suite
+  | Some Packages_types.R, vpkg, Some suite -> Printf.sprintf "-%s/%s" (string_of_vpkg vpkg) suite
+;;
+
 let pp_vpkg oc vpkg = Printf.fprintf oc "%s" (string_of_vpkg vpkg)
 
 let string_of_vpkglist vpkglist =
-  Util.string_of_list ~sep:"," string_of_vpkg vpkglist
+  Util.string_of_list ~sep:", " string_of_vpkg vpkglist
 ;;
 
 let pp_vpkglist oc vpkglist = 
@@ -43,8 +56,8 @@ let pp_vpkglist oc vpkglist =
 ;;
 
 let string_of_vpkgformula vpkgformula =
-  let string_of_OR = Util.string_of_list ~sep:" |" string_of_vpkg in
-  let string_of_AND = Util.string_of_list ~sep:"," string_of_OR in
+  let string_of_OR = Util.string_of_list ~sep:" | " string_of_vpkg in
+  let string_of_AND = Util.string_of_list ~sep:", " string_of_OR in
   string_of_AND vpkgformula
 ;;
 
@@ -112,8 +125,8 @@ let strinf_of_builddep (vpkg,archfilter,buildfilter) =
 ;;
 
 let string_of_builddepformula builddepformula =
-  let string_of_OR = Util.string_of_list ~sep:" |" strinf_of_builddep in
-  let string_of_AND = Util.string_of_list ~sep:"," string_of_OR in
+  let string_of_OR = Util.string_of_list ~sep:" | " strinf_of_builddep in
+  let string_of_AND = Util.string_of_list ~sep:", " string_of_OR in
   string_of_AND builddepformula
 ;;
 
@@ -122,7 +135,7 @@ let pp_builddepformula oc builddepformula =
 ;;
 
 let string_of_builddeplist builddeplist =
-  Util.string_of_list ~sep:"," strinf_of_builddep builddeplist
+  Util.string_of_list ~sep:", " strinf_of_builddep builddeplist
 ;;
 
 let pp_builddeplist oc builddeplist =

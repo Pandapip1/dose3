@@ -1,17 +1,17 @@
-[[!meta title="dose - the dependency toolkit"]]
+[[!meta title="Get In Touch"]]
 
-# Authors
+### Authors And Contributors
 
-- Pietro Abate : http://mancoosi.org/~abate/
+Active Developers : 
 
-# Blog 
+- Main Developer [[Pietro Abate|http://mancoosi.org/~abate/]]
+- [[Roberto Di Cosmo|http://www.dicosmo.org/]]
+- [[Johannes Schauer|https://blog.mister-muffin.de/]]
+- Cudf Author : [[Stefano Zacchiroli|https://upsilon.cc/~zack/]]
+- [[Ralf Treinen|http://www.pps.univ-paris-diderot.fr/~treinen/]]
 
+Past contributors :
 
-
-# Mailing List
-
-# Social
-
-Follow us on identi.ca : http://identi.ca/group/dose3
-
-# Mancoosi Website : http://mancoosi.org/
+- Jaap Boender
+- Jakub Zwolakowski
+- Olivier Rosello

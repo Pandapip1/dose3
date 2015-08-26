@@ -27,25 +27,30 @@ module Options = struct
   let options = OptParser.make ~description
   include StdOptions.MakeOptions(struct let options = options end)
 
-  include StdOptions.DistcheckOptions
+  let coinst = StdDebian.vpkglist_option ();;
+  let fields = StdOptions.str_list_option ();;
+
+  include StdOptions.DistcheckOptions ;;
   StdOptions.DistcheckOptions.add_options options ;;
+  StdOptions.DistcheckOptions.add_option options ~long_name:"coinst" ~help:"Check if these packages are coinstallable" coinst;;
+  StdOptions.DistcheckOptions.add_option options ~long_name:"fields" ~help:"Print additional fields if available" fields;;
 
-  include StdOptions.InputOptions
-  StdOptions.InputOptions.add_options options ;;
+  include StdOptions.InputOptions ;;
+  let default = "dot"::(StdOptions.InputOptions.default_options) in
+  StdOptions.InputOptions.add_options ~default options ;;
 
-  include StdOptions.DistribOptions;;
+  include StdOptions.OutputOptions ;;
+  StdOptions.OutputOptions.add_options options ;;
+
+  include StdOptions.DistribOptions ;;
   let default = List.remove StdOptions.DistribOptions.default_options "deb-host-arch" in
   StdOptions.DistribOptions.add_options ~default options ;;
 
-  let coinst = StdDebian.vpkglist_option ();;
-  add options ~long_name:"coinst" ~help:"Check if these packages are coinstallable" coinst;;
-
-  let group = add_group options "Cv Specific Options" in
-  add options ~group ~long_name:"cv-int" ~help:"" int_versions;
-
 end
 
-include Util.Logging(struct let label = __FILE__ end) ;;
+#define __label __FILE__
+let label =  __label ;;
+include Util.Logging(struct let label = label end) ;;
 
 let timer = Util.Timer.create "Solver" 
 
@@ -54,7 +59,7 @@ let timer = Util.Timer.create "Solver"
 let guess_format t l =
   match Filename.basename(Sys.argv.(0)) with
   |"debcheck"|"dose-debcheck" -> (`Deb, true)
-  |"eclipsecheck"|"dose-eclipsecheck" -> (`Eclipse, true)
+  |"eclipsecheck"|"dose-eclipsecheck" -> (`Pef, true)
   |"rpmcheck"|"dose-rpmcheck" -> (`Synthesis,true)
   |_ when OptParse.Opt.is_set t -> 
       (Url.scheme_of_string (OptParse.Opt.get t),true)
@@ -67,7 +72,7 @@ let main () =
   let (input_type,implicit) = guess_format Options.inputtype inputlist in
 
   StdDebug.enable_debug (OptParse.Opt.get Options.verbose);
-  StdDebug.enable_timers (OptParse.Opt.get Options.timers) ["Solver"];
+  StdDebug.enable_timers (OptParse.Opt.get Options.timers) ["Solver";"Load"];
   StdDebug.enable_bars (OptParse.Opt.get Options.progress)
     ["Depsolver_int.univcheck";"Depsolver_int.init_solver"] ;
   StdDebug.all_quiet (OptParse.Opt.get Options.quiet);
@@ -75,7 +80,7 @@ let main () =
   let options = Options.set_options input_type in
   let (fg,bg) = Options.parse_cmdline (input_type,implicit) posargs in
 
-  let (preamble,pkgll,_,from_cudf,to_cudf) = StdLoaders.load_list ~options [fg;bg] in
+  let (preamble,pkgll,_,from_cudf,to_cudf,_) = StdLoaders.load_list ~options [fg;bg] in
   let (fg_pkglist, bg_pkglist) = match pkgll with [fg;bg] -> (fg,bg) | _ -> assert false in
   let fg_pkglist = 
     if OptParse.Opt.get Options.latest then CudfAdd.latest fg_pkglist
@@ -94,25 +99,48 @@ let main () =
   let checklist = 
     if OptParse.Opt.is_set Options.checkonly then begin
       info "--checkonly specified, consider all packages as background packages";
-      List.flatten (
-        List.map (fun ((n,a),c) ->
-          let (name,filter) = Debian.Debutil.debvpkg to_cudf ((n,a),c) in
-          Cudf.lookup_packages ~filter universe name
-        ) (OptParse.Opt.get Options.checkonly)
-      )
+      let co = OptParse.Opt.get Options.checkonly in
+      match
+        List.flatten (
+          List.filter_map (fun ((n,a),c) ->
+            try
+              let (name,filter) = Debian.Debutil.debvpkg to_cudf ((n,a),c) in
+              Some(Cudf.lookup_packages ~filter universe name)
+            with Not_found -> None
+          ) co
+        )
+      with 
+      |[] ->
+        fatal "Cannot find any package corresponding to the selector %s" 
+        (Debian.Printer.string_of_vpkglist co)
+      |l -> l
     end else []
   in
 
   let coinstlist = 
     if OptParse.Opt.is_set Options.coinst then begin
       info "--coinst specified, consider all packages as background packages";
-      List.map (fun ((n,a),c) ->
-        let (name,filter) = Debian.Debutil.debvpkg to_cudf ((n,a),c) in
-        Cudf.lookup_packages ~filter universe name
-      ) (OptParse.Opt.get Options.coinst)
+      let co = OptParse.Opt.get Options.coinst in
+      match
+        List.filter_map (fun ((n,a),c) ->
+          try
+            let (name,filter) = Debian.Debutil.debvpkg to_cudf ((n,a),c) in
+            Some(Cudf.lookup_packages ~filter universe name)
+          with Not_found -> None
+        ) co
+      with 
+      |[] ->
+        fatal "Cannot find any package corresponding to the selector %s" 
+        (Debian.Printer.string_of_vpkglist co)
+      |l -> l
     end else []
   in
-  let pp = CudfAdd.pp from_cudf in
+  let fields = 
+    if OptParse.Opt.is_set Options.fields then
+      OptParse.Opt.get Options.fields 
+    else []
+  in
+  let pp = CudfAdd.pp ~fields from_cudf in
 
   info "Solving..." ;
   let failure = OptParse.Opt.get Options.failure in
@@ -122,12 +150,22 @@ let main () =
   let summary = OptParse.Opt.get Options.summary in
   let fmt =
     if OptParse.Opt.is_set Options.outfile then
-      let oc = open_out (OptParse.Opt.get Options.outfile) in
+      let f =
+        let s = OptParse.Opt.get Options.outfile in
+        if OptParse.Opt.is_set Options.outdir then
+          let d = OptParse.Opt.get Options.outdir in
+          Filename.concat d s
+        else
+            s
+      in
+      let oc = open_out f in
       Format.formatter_of_out_channel oc
     else
       Format.std_formatter
   in
   let results = Diagnostic.default_result universe_size in
+
+  Diagnostic.pp_out_version fmt;
 
   if failure || success then Format.fprintf fmt "@[<v 1>report:@,";
   let callback d =
@@ -137,11 +175,20 @@ let main () =
         fun pkg -> pp ~decode:(fun x -> x) pkg 
       else fun pkg -> pp pkg
     in
+    let _ = 
+#ifdef HASOCAMLGRAPH 
+      if not(Diagnostic.is_solution d) && (OptParse.Opt.get Options.dot) then
+        let dir = OptParse.Opt.opt Options.outdir in
+        Diagnostic.print_dot ~pp ~addmissing:explain ?dir d
+#else
+      ()
+#endif
+    in
     Diagnostic.fprintf ~pp ~failure ~success ~explain ~minimal fmt d
   in
   Util.Timer.start timer;
 
-  if OptParse.Opt.is_set Options.coinst then begin
+  if (OptParse.Opt.is_set Options.coinst) && (List.length coinstlist) > 0 then begin
     let rl = Depsolver.edos_coinstall_prod universe coinstlist in
     let nbt = List.length (List.filter (fun r -> not (Diagnostic.is_solution r)) rl) in
     let number_checks = List.length rl in 
@@ -155,13 +202,13 @@ let main () =
   end else begin 
     let global_constraints = not(OptParse.Opt.get Options.deb_ignore_essential) in
     let nbp =
-      if OptParse.Opt.is_set Options.checkonly then 
+      if (OptParse.Opt.is_set Options.checkonly) && (List.length checklist) = 0 then 0
+      else if OptParse.Opt.is_set Options.checkonly then 
         Depsolver.listcheck ~global_constraints ~callback universe checklist
-      else
-        if bg_pkglist = [] then
+      else if bg_pkglist = [] then
           Depsolver.univcheck ~global_constraints ~callback universe 
-        else
-          Depsolver.listcheck ~global_constraints ~callback universe fg_pkglist
+      else
+        Depsolver.listcheck ~global_constraints ~callback universe fg_pkglist
     in
     ignore(Util.Timer.stop timer ());
     
@@ -183,7 +230,7 @@ let main () =
     Format.fprintf fmt "total-packages: %d@." universe_size;
     Format.fprintf fmt "broken-packages: %d@." nbp;
     if summary then 
-      Format.fprintf fmt "@[%a@]@." (Diagnostic.pp_summary ~pp ()) results;
+      Format.fprintf fmt "@[%a@]@." (Diagnostic.pp_summary ~explain ~pp ()) results;
     nbp
   end
 ;;
@@ -193,5 +240,5 @@ StdUtils.if_application
   "debcheck";"dose-debcheck"; "dose-distcheck";
   "eclipsecheck";"dose-eclipsecheck";
   "rpmcheck";"dose-rpmcheck"]
-__FILE__ main ;;
+__label main ;;
 
