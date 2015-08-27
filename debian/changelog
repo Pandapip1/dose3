@@ -6,6 +6,8 @@ dose3 (4.0-1) unstable; urgency=medium
     - deactivate patches: librpm-4.12
   * drop the edos-distcheck transitional package.
   * Replaced build-dependency camlp4 by cppo, following upstream
+  * debian/rules: simplify override_dh_auto_build (primers are now built by
+    upstream's make doc)
 
   [ Johannes Schauer ]
   * remove patches cudfSolver-fix-leaking-fds and
