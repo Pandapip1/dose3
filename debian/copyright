@@ -7,7 +7,7 @@ Files: *
 Copyright: © 2009-2012 Pietro Abate
 License: LGPL-3+
 
-Files: deb/format822.ml
+Files: common/format822.ml
 Copyright: © 2005-2009 Jérôme Vouillion, Stefano Zacchiroli, Pietro Abate
 License: LGPL-3+
 
