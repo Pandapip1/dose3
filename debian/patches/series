@@ -1,3 +1,4 @@
 binaries-prefix-edos
 coinstall-binary-name
 # librpm-4.12
+make-doc-target-work

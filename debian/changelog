@@ -3,14 +3,9 @@ dose3 (4.0-1) unstable; urgency=medium
   [ Ralf Treinen ]
   * New upstream release:
     - refresh patches: binaries-prefix-edos, coinstall-binary-name
-    - deactivate patches: cudfSolver-fix-leaking-fds,
-      encode-package-name-in-cudf_extras, remove_src_prefix_from_name,
-      librpm-4.12
+    - deactivate patches: librpm-4.12
   * drop the edos-distcheck transitional package.
   * Replaced build-dependency camlp4 by cppo, following upstream
-  * deactivate "make doc":
-    - debian/rules
-    - debian/libdose3-ocaml-dev.docs
 
   [ Johannes Schauer ]
   * remove patches cudfSolver-fix-leaking-fds and
@@ -20,6 +15,7 @@ dose3 (4.0-1) unstable; urgency=medium
   * upstream moved ./deb/version.ml to ./versioning/debian_version.ml.
     Adjusting d/copyright accordingly.
   * add d/copyright paragraph for common/shell_lexer.mll
+  * add patch make-doc-target-work to make `make doc` work again
 
  -- Ralf Treinen <treinen@debian.org>  Wed, 26 Aug 2015 21:36:52 +0200
 
