@@ -17,6 +17,8 @@ dose3 (4.0-1) unstable; urgency=medium
     encode-package-name-in-cudf_extras which have been integrated upstream
   * upstream moved ./deb/format822.ml to ./common. Adjusting d/copyright
     accordingly
+  * upstream moved ./deb/version.ml to ./versioning/debian_version.ml.
+    Adjusting d/copyright accordingly.
 
  -- Ralf Treinen <treinen@debian.org>  Wed, 26 Aug 2015 21:36:52 +0200
 

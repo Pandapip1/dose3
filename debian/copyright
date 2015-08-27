@@ -23,7 +23,7 @@ Files: common/util.ml
 Copyright: © 2009 Alain Frisch, Pietro Abate
 License: LGPL-3+
 
-Files: common/url.ml common/url.mli deb/version.ml
+Files: common/url.ml common/url.mli versioning/debian_version.ml
 Copyright: © 2011 Ralf Treinen
 License: LGPL-3+
 
