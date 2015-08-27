@@ -2,7 +2,7 @@
 
 RELEASE = $(shell dpkg-parsechangelog | grep ^Version: | cut -f 2 -d' ')
 %:
-	dh $@ --with ocaml
+	dh $@ --with ocaml --with autoreconf
 
 override_dh_auto_configure:
 	dh_auto_configure -- --with-ocamlgraph --with-zip --with-bz2 --with-rpm4
