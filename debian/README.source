@@ -22,3 +22,7 @@ cf26f8f0ccb06be71e92d8db0fb64ab5  -
 
 They have thus been put into debian/missing-sources/ as the corresponding
 sources for the minified javascript that upstream ships.
+
+This workaround can be removed when the next upstream tarball is imported, as
+that one should not have the doc/webpages directory anymore as it is now listed
+in Files-Excluded in d/copyright.
