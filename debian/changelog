@@ -18,6 +18,7 @@ dose3 (4.0-1) unstable; urgency=medium
   * add patch make-doc-target-work to make `make doc` work again
   * bump d/compat to 9. It has been in stable since wheezy and even
     old-old-stable has debhelper (>= 9) in backports.
+  * simplify override_dh_auto_configure target
 
  -- Ralf Treinen <treinen@debian.org>  Wed, 26 Aug 2015 21:36:52 +0200
 
