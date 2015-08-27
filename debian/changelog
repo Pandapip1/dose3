@@ -29,7 +29,7 @@ dose3 (4.0-1) unstable; urgency=medium
     their unminified versions in debian/missing-sources
   * add doc/webpages to Files-Excluded in d/copyright
 
- -- Ralf Treinen <treinen@debian.org>  Wed, 26 Aug 2015 21:36:52 +0200
+ -- Johannes Schauer <josch@debian.org>  Thu, 27 Aug 2015 12:00:35 +0200
 
 dose3 (3.3-4) unstable; urgency=low
 
