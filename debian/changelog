@@ -1,5 +1,6 @@
 dose3 (4.0-1) unstable; urgency=medium
 
+  [ Ralf Treinen ]
   * New upstream release:
     - refresh patches: binaries-prefix-edos, coinstall-binary-name
     - deactivate patches: cudfSolver-fix-leaking-fds,
@@ -10,6 +11,10 @@ dose3 (4.0-1) unstable; urgency=medium
   * deactivate "make doc":
     - debian/rules
     - debian/libdose3-ocaml-dev.docs
+
+  [ Johannes Schauer ]
+  * remove patches cudfSolver-fix-leaking-fds and
+    encode-package-name-in-cudf_extras which have been integrated upstream
 
  -- Ralf Treinen <treinen@debian.org>  Wed, 26 Aug 2015 21:36:52 +0200
 
