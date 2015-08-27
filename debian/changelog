@@ -19,6 +19,7 @@ dose3 (4.0-1) unstable; urgency=medium
     accordingly
   * upstream moved ./deb/version.ml to ./versioning/debian_version.ml.
     Adjusting d/copyright accordingly.
+  * add d/copyright paragraph for common/shell_lexer.mll
 
  -- Ralf Treinen <treinen@debian.org>  Wed, 26 Aug 2015 21:36:52 +0200
 
