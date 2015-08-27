@@ -21,6 +21,10 @@ dose3 (4.0-1) unstable; urgency=medium
   * simplify override_dh_auto_configure target
   * run dh-autoreconf to make sure that everything can truly be built from
     source
+  * add debian/missing-sources for bootstrap.min.js and jquery-2.1.3.min.js
+    and add debian/README.source to explain the situation
+  * add d/copyright paragraphs for bootstrap.min.js, jquery-2.1.3.min.js and
+    their unminified versions in debian/missing-sources
 
  -- Ralf Treinen <treinen@debian.org>  Wed, 26 Aug 2015 21:36:52 +0200
 
