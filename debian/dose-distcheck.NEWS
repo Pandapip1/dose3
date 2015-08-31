@@ -1,0 +1,8 @@
+dose-distcheck (4.0-2) ; urgency=low
+
+  dose-debcheck now displays package names with architecture specification
+  in the same order as other debian tools, that is <package>:<architecture>.
+  Also, the YAML output now carries a format identifier. Scripts that
+  parse the dose-debcheck explanations have to to be adapted.
+
+ -- Ralf Treinen <treinen@debian.org>  Mon, 31 Aug 2015 10:47:01 +0200
