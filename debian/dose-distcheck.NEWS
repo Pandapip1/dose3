@@ -1,4 +1,4 @@
-dose-distcheck (4.0-2) ; urgency=low
+dose-distcheck (4.0-1) unstable; urgency=low
 
   (1.) With the 4.0 release, the following command line options of
        dose-builddebcheck were renamed:
