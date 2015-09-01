@@ -1,16 +1,17 @@
 dose3 (4.0.1-1) UNRELEASED; urgency=medium
 
+  [ Johannes Schauer ]
+  * New upstream release (Closes: #797448):
+    - upstream dropped doc/webpages directory so remove debian/missing-sources
+      and the corresponding sections from debian/copyright
+    - remove patch make-doc-target-work as upstream fixed this
+    - bump version requirement for libextlib-ocaml-dev to 1.7.0 because
+      upstream requires implementation for custom exit values if wrong command
+      line options are passed
+
   [ Ralf Treinen ]
   * d/dose-distcheck.NEWS: inform about changes in output format and command
     line options
-
-  [ Johannes Schauer ]
-  * upstream dropped doc/webpages directory so remove debian/missing-sources
-    and the corresponding sections from debian/copyright
-  * remove patch make-doc-target-work as upstream fixed this
-  * bump version requirement for libextlib-ocaml-dev to 1.7.0 because upstream
-    requires implementation for custom exit values if wrong command line
-    options are passed
 
  -- Ralf Treinen <treinen@debian.org>  Mon, 31 Aug 2015 10:50:32 +0200
 
