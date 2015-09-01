@@ -1,6 +1,7 @@
-dose3 (4.0-2) UNRELEASED; urgency=medium
+dose3 (4.0.1-1) UNRELEASED; urgency=medium
 
-  * d/dose-distcheck.NEWS: inform about changes in output format
+  * d/dose-distcheck.NEWS: inform about changes in output format and command
+    line options
 
  -- Ralf Treinen <treinen@debian.org>  Mon, 31 Aug 2015 10:50:32 +0200
 
