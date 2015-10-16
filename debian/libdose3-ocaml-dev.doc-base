@@ -1,9 +1,0 @@
-Document: dose3
-Title: libdose3-ocaml-dev OCamldoc API Reference
-Author: Pietro Abate
-Abstract: API reference manual for libdose3-ocaml-dev (generated via OCamldoc)
-Section: Programming/OCaml
-
-Format: HTML
-Index: /usr/share/doc/libdose3-ocaml-dev/dose3.docdir/index.html
-Files: /usr/share/doc/libdose3-ocaml-dev/dose3.docdir/*
