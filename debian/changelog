@@ -1,3 +1,10 @@
+dose3 (4.0.2-3) unstable; urgency=medium
+
+  * revert modifications done for 4.0.2-2 and restore generation of ocamldoc
+    documentation since this is fixed now in ocaml.
+
+ -- Ralf Treinen <treinen@debian.org>  Thu, 24 Dec 2015 12:12:42 +0100
+
 dose3 (4.0.2-2) unstable; urgency=medium
 
   * skip generation of ocamldoc documentation  since it fails with ocaml 4.02
