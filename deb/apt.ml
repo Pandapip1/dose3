@@ -69,17 +69,17 @@ let parse_popcon s =
 *)
 
 type apt_req =
-  |Install of Packages_types.vpkgreq list
-  |Remove of Packages_types.vpkgreq list
-  |Upgrade of Packages_types.suite option
-  |DistUpgrade of Packages_types.suite option
+  |Install of Pef.Packages_types.vpkgreq list
+  |Remove of Pef.Packages_types.vpkgreq list
+  |Upgrade of Pef.Packages_types.suite option
+  |DistUpgrade of Pef.Packages_types.suite option
 
-let parse_req s = 
+let parse_req label s = 
   let _loc = Format822.dummy_loc in
-  Packages.lexbuf_wrapper Packages_parser.request_top (_loc,s)
+  Pef.Packages.lexbuf_wrapper Pef.Packages_parser.request_top (label,(_loc,s))
 
 let parse_pkg_req suite s =
-  let (r,((n,a),c),s) = parse_req s in
+  let (r,((n,a),c),s) = parse_req "apt req suite" s in
   begin match suite with
   |None -> (r,((n,a),c),s)
   |Some suite -> (r,((n,a),c),Some suite)
@@ -114,7 +114,7 @@ let parse_request_apt s =
     with Arg.Bad s -> fatal "%s" s end ;
     match List.rev !reqlist with
     |"install" :: tl -> Install(List.map (parse_pkg_req !suite) tl)
-    |"remove" :: tl -> Remove(List.map parse_req tl)
+    |"remove" :: tl -> Remove(List.map (parse_req "apt req remove") tl)
     |["upgrade"] -> Upgrade(!suite)
     |["dist-upgrade"] -> DistUpgrade(!suite)
     |_ -> fatal "Bad apt request '%s'" s
@@ -147,7 +147,7 @@ let parse_request_aptitude s =
     with Arg.Bad s -> fatal "%s" s end ;
     match List.rev !reqlist with
     |"install" :: tl -> Install(List.map (parse_pkg_req !suite) tl)
-    |"remove" :: tl -> Remove(List.map parse_req tl)
+    |"remove" :: tl -> Remove(List.map (parse_req "apt req remove") tl)
     |["upgrade"] | ["safe-upgrade"] | ["dist-upgrade"] -> Upgrade(!suite)
     |["full-upgrade"] -> DistUpgrade(!suite)
     |_ -> fatal "Bad aptitude request '%s'" s
@@ -193,13 +193,13 @@ let parse_pref_labels s =
 
 let general_regexp = Pcre.regexp "^[ \t]*[*][ \t]*$" ;;
 
-let parse_pref_package (_,s) =
+let parse_pref_package (_,(_,s)) =
   if Pcre.pmatch ~rex:general_regexp s then Pref.Star
-  else Pref.Package (Packages.parse_name (Format822.dummy_loc,s))
+  else Pref.Package (Pef.Packages.parse_name ("apt pref",(Format822.dummy_loc,s)))
 
 let pin_regexp = Pcre.regexp "^([A-Za-z]+)[ \t]+(.*)$" ;;
 
-let parse_pin (_,s) =
+let parse_pin (_,(_,s)) =
   try
     let substrings = Pcre.exec ~rex:pin_regexp s
     in
@@ -212,12 +212,9 @@ let parse_pin (_,s) =
 
 let parse_preferences_stanza par =
   {
-    Pref.package = 
-      Packages.parse_s ~err:"(MISSING PACKAGE)"
-      parse_pref_package "Package" par;
-    pin = Packages.parse_s ~err:"(MISSING PIN)" parse_pin "Pin" par;
-    pin_priority = Packages.parse_s ~err:"(MISSING Pin-Priority)"
-      Packages.parse_int "Pin-Priority" par;
+    Pref.package = Pef.Packages.parse_s ~required:true parse_pref_package "Package" par;
+    pin = Pef.Packages.parse_s ~required:true parse_pin "Pin" par;
+    pin_priority = Pef.Packages.parse_s ~required:true Pef.Packages.parse_int "Pin-Priority" par;
   }
 
 let rec preferences_parser stanza_parser acc p =

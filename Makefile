@@ -50,7 +50,7 @@ $(DOSELIBS)/cudf.%:
 	  fi ; \
 	done
 
-$(DOSELIBS)/common.%: common/*.ml
+$(DOSELIBS)/common.%: common/*.ml common/*.mli
 	$(OCAMLBUILD) $(OBFLAGS) common/common.otarget
 	@mkdir -p $(DOSELIBS)
 	@for i in _build/common/common.*; do \
@@ -60,17 +60,17 @@ $(DOSELIBS)/common.%: common/*.ml
 	  fi ; \
 	done
 
-$(DOSELIBS)/versioning.%: versioning/*.ml
+$(DOSELIBS)/versioning.%: versioning/*.ml versioning/*.mli
 	$(OCAMLBUILD) $(OBFLAGS) versioning/versioning.otarget
 	@mkdir -p $(DOSELIBS)
-	@for i in _build/versioning/versioning.* _build/versioning/*.cmi; do \
+	@for i in _build/versioning/versioning.*; do \
 	  if [ -e $$i ]; then \
 	  cp $$i $(DOSELIBS) ; \
 	  rm -f $(DOSELIBS)/*.mlpack $(DOSELIBS)/*.cmx ; \
 	  fi ; \
 	done
 
-$(DOSELIBS)/algo.%: algo/*.ml $(DOSELIBS)/common.%
+$(DOSELIBS)/algo.%: algo/*.ml algo/*.mli $(DOSELIBS)/common.%
 	$(OCAMLBUILD) $(OBFLAGS) algo/algo.otarget
 	@for i in _build/algo/algo.*; do \
 	  if [ -e $$i ]; then \
@@ -79,9 +79,18 @@ $(DOSELIBS)/algo.%: algo/*.ml $(DOSELIBS)/common.%
 	  fi ; \
 	done
 
-$(DOSELIBS)/debian.%: deb/*.ml $(DOSELIBS)/algo.%
+$(DOSELIBS)/debian.%: deb/*.ml deb/*.mli $(DOSELIBS)/pef.%
 	$(OCAMLBUILD) $(OBFLAGS) deb/debian.otarget
 	@for i in _build/deb/debian.*; do \
+	  if [ -e $$i ]; then \
+	  cp $$i $(DOSELIBS) ; \
+	  rm -f $(DOSELIBS)/*.mlpack $(DOSELIBS)/*.cmx ; \
+	  fi ; \
+	done
+
+$(DOSELIBS)/opam.%: opam/*.ml opam/*.mli $(DOSELIBS)/pef.%
+	$(OCAMLBUILD) $(OBFLAGS) opam/opam.otarget
+	@for i in _build/opam/opam.*; do \
 	  if [ -e $$i ]; then \
 	  cp $$i $(DOSELIBS) ; \
 	  rm -f $(DOSELIBS)/*.mlpack $(DOSELIBS)/*.cmx ; \
@@ -97,7 +106,7 @@ $(DOSELIBS)/rpm.%: rpm/*.ml $(DOSELIBS)/algo.%
 	  fi ; \
 	done
 
-$(DOSELIBS)/pef.%: pef/*.ml $(DOSELIBS)/debian.%
+$(DOSELIBS)/pef.%: pef/*.ml pef/*.mli
 	$(OCAMLBUILD) $(OBFLAGS) pef/pef.otarget
 	@for i in _build/pef/pef.*; do \
 	  if [ -e $$i ]; then \
@@ -106,7 +115,7 @@ $(DOSELIBS)/pef.%: pef/*.ml $(DOSELIBS)/debian.%
 	  fi ; \
 	done
 
-$(DOSELIBS)/csw.%: opencsw/*.ml $(DOSELIBS)/debian.%
+$(DOSELIBS)/csw.%: opencsw/*.ml $(DOSELIBS)/versioning.%
 	$(OCAMLBUILD) $(OBFLAGS) opencsw/csw.otarget
 	@for i in _build/opencsw/csw.*; do \
 	  if [ -e $$i ]; then \
@@ -115,7 +124,7 @@ $(DOSELIBS)/csw.%: opencsw/*.ml $(DOSELIBS)/debian.%
 	  fi ; \
 	done
 
-$(DOSELIBS)/doseparse.%: $(DOSELIBS)/debian.% $(DOSELIBS)/pef.%
+$(DOSELIBS)/doseparse.%: $(DOSELIBS)/pef.% $(DOSELIBS)/debian.%
 	$(OCAMLBUILD) $(OBFLAGS) doseparse/doseparse.otarget
 	@for i in _build/doseparse/doseparse.*; do \
 	  if [ -e $$i ]; then \
@@ -124,7 +133,7 @@ $(DOSELIBS)/doseparse.%: $(DOSELIBS)/debian.% $(DOSELIBS)/pef.%
 	  fi ; \
 	done
 
-$(DOSELIBS)/doseparseNoRpm.%: $(DOSELIBS)/debian.% $(DOSELIBS)/pef.%
+$(DOSELIBS)/doseparseNoRpm.%: $(DOSELIBS)/pef.% $(DOSELIBS)/debian.%
 	$(OCAMLBUILD) $(OBFLAGS) doseparseNoRpm/doseparseNoRpm.otarget
 	@for i in _build/doseparseNoRpm/doseparseNoRpm.*; do \
 	  if [ -e $$i ]; then \
@@ -135,6 +144,12 @@ $(DOSELIBS)/doseparseNoRpm.%: $(DOSELIBS)/debian.% $(DOSELIBS)/pef.%
 
 clean:
 	$(OCAMLBUILD) -clean
+	@$(shell \
+		for lib in $(LIBNAMES); do \
+			libname=`basename "$$lib"` ;\
+			dirname=`dirname "$$lib"` ;\
+			rm -f $$dirname/$$libname.itarget ;\
+		done)
 	rm -f myocamlbuild.ml
 	rm -f applications/apps.itarget
 	cd doc && $(MAKE) clean
@@ -144,7 +159,7 @@ distclean: clean
 	rm -f algo/algo.mlpack
 	rm -f common/versionInfo.ml
 	rm -f db/db.mlpack
-	rm -f _tags META
+	rm -f _tags META applications/dose-tests.list dose3.odocl
 
 test: apps
 ifeq (libs,$(word 2,$(MAKECMDGOALS)))
@@ -176,7 +191,7 @@ INSTALL_STUFF_ = META
 INSTALL_STUFF_ += $(wildcard _build/doselibs/*.cma _build/doselibs/*.cmi)
 INSTALL_STUFF_ += $(wildcard _build/doselibs/*.cmxa _build/doselibs/*.cmxs)
 INSTALL_STUFF_ += $(wildcard _build/doselibs/*.a)
-INSTALL_STUFF_ += $(wildcard _build/*/*.mli)
+#INSTALL_STUFF_ += $(wildcard _build/*/*.mli)
 INSTALL_STUFF_ += $(wildcard _build/rpm/*.so)
 
 exclude_cudf = $(wildcard _build/doselibs/*cudf* _build/cudf/*)
@@ -192,11 +207,11 @@ install: installlib
 	@cd _build/applications ; \
 	install -d $(BINDIR) ; \
 	for f in $$(ls *.$(OCAMLEXT)) ; do \
-	  install $(INSTALLOPTS) $$f $(BINDIR)/$${f%.$(OCAMLEXT)} ; \
+		install $(INSTALLOPTS) $$f $(BINDIR)/$${f%.$(OCAMLEXT)}$(EXE) ; \
 	done
-	@ln -s $(BINDIR)/distcheck $(BINDIR)/debcheck
-	@ln -s $(BINDIR)/distcheck $(BINDIR)/rpmcheck
-	@ln -s $(BINDIR)/distcheck $(BINDIR)/eclipsecheck
+	@$(LN) $(BINDIR)/distcheck $(BINDIR)/debcheck$(EXE)
+	@$(LN) $(BINDIR)/distcheck $(BINDIR)/rpmcheck$(EXE)
+	@$(LN) $(BINDIR)/distcheck $(BINDIR)/eclipsecheck$(EXE)
 	@echo "Install dose binaries to $(BINDIR)"
 
 uninstalllib:
@@ -205,9 +220,9 @@ uninstalllib:
 
 uninstall: uninstalllib uninstallcudf
 	@for f in $$(ls *.$(OCAMLEXT)) ; do \
-	  rm -f $(BINDIR)/$${f%.$(OCAMLEXT)} ; \
+	  rm -f $(BINDIR)/$${f%.$(OCAMLEXT)}$(EXE) ; \
 	done
-	@rm -f $(BINDIR)/debcheck $(BINDIR)/rpmcheck $(BINDIR)/eclipsecheck
+	@rm -f $(BINDIR)/debcheck$(EXE) $(BINDIR)/rpmcheck$(EXE) $(BINDIR)/eclipsecheck$(EXE)
 	@echo "Uninstall dose binaries from $(BINDIR)"
 
 dist: ./$(DIST_TARBALL)
@@ -227,7 +242,8 @@ credits:
 	@git log --pretty=format:'%aN        %aE' | LC_ALL=C sort -u | awk -F'\t' '{printf("\t%s <%s>\n",$$1,$$2)}';
 
 doc: all
-	$(OCAMLBUILD) dose3.docdir/index.html dose3.docdir/index.dot
+	$(OCAMLBUILD) -package unix scripts/pack.native
+	scripts/doc.sh
 	dot -Grotate=0 -Tsvg -o dose3.docdir/index.svg dose3.docdir/index.dot
 	(cd doc && $(MAKE) all)
 
@@ -239,5 +255,5 @@ upload: doc
 	rsync -avz -O dose3.docdir/ scm.gforge.inria.fr:/home/groups/dose/htdocs/doc/api/
 
 .PHONY: \
-	common algo debian pef rpm cws doseparseNoRpm doseparse \
+	common algo pef versioning debian rpm csw doseparseNoRpm doseparse \
 	all clean top-level headers test tags install uninstall dist doc man

@@ -1,7 +1,7 @@
 description = "Dose3 libraries"
 version = "@PACKAGE_VERSION@"
-archive(byte) = "common.cma algo.cma versioning.cma debian.cma pef.cma csw.cma"
-archive(native) = "common.cmxa algo.cmxa versioning.cmxa debian.cmxa pef.cmxa csw.cmxa"
+archive(byte) = "common.cma algo.cma versioning.cma debian.cma csw.cma pef.cma"
+archive(native) = "common.cmxa algo.cmxa versioning.cmxa debian.cmxa csw.cmxa pef.cmxa"
 requires = "extlib, re.pcre, cudf, @OCAMLGRAPH@, unix, @ZIP@, @BZ2@"
 
 package "common" (
@@ -29,14 +29,14 @@ package "debian" (
 version = "@PACKAGE_VERSION@"
 archive(byte) = "debian.cma"
 archive(native) = "debian.cmxa"
-requires = "dose3.common, dose3.versioning"
+requires = "dose3.common dose3.versioning"
 )
 
 package "opam" (
 version = "@PACKAGE_VERSION@"
 archive(byte) = "opam.cma"
 archive(native) = "opam.cmxa"
-requires = "dose3.common, dose3.pef"
+requires = "dose3.common dose3.pef"
 )
 
 package "pef" (

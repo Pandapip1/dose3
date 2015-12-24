@@ -10,8 +10,19 @@
 (*  library, see the COPYING file for more information.                               *)
 (**************************************************************************************)
 
+(** {2 Low level Integer Un-installability reasons} *)
+type reason_int =
+  |DependencyInt of (int * Cudf_types.vpkg list * int list)
+  |MissingInt of (int * Cudf_types.vpkg list)
+  |ConflictInt of (int * int * Cudf_types.vpkg)
 
-(** One un-installability reason for a package *)
+type result_int =
+  |SuccessInt of (?all:bool -> unit -> int list)
+  |FailureInt of (unit -> reason_int list)
+
+type request_int = (int option * int list)
+
+(** {2 Un-installability reasons} *)
 type reason =
   |Dependency of (Cudf.package * Cudf_types.vpkg list * Cudf.package list)
   (** Not strictly a un-installability, Dependency (a,vpkglist,pkglist) is used
@@ -25,8 +36,6 @@ type reason =
       with package [b] because of vpkg *)
 
 (** The request provided to the solver *)
-  (** Check the installability of one package *)
-  (** Check the installability of a list of packages *)
 type request = Cudf.package list
 
 (** The result of an installability query *)
@@ -43,6 +52,10 @@ type result =
 
 (** The aggregated result from the solver *)
 type diagnosis = { result : result; request : request; }
+
+(** Turn an integer result into a cudf result *)
+val diagnosis : Common.Util.projection -> Cudf.universe ->
+  result_int -> request_int -> diagnosis
 
 module ResultHash : Hashtbl.S with type key = reason
 
@@ -84,7 +97,7 @@ val pp_dependencies : Common.CudfAdd.pp ->
 val pp_list :
   (Format.formatter -> 'a -> unit) -> Format.formatter -> 'a list -> unit
 
-val print_error : ?minimal : bool -> Common.CudfAdd.pp ->
+val print_error : ?condense : bool -> ?minimal : bool -> Common.CudfAdd.pp ->
   Cudf.package -> Format.formatter -> reason list -> unit
 
 (** If the installablity query is successfull, [get_installationset] return 
@@ -125,7 +138,9 @@ val fprintf :
   ?pp : Common.CudfAdd.pp ->
   ?failure : bool ->
   ?success : bool ->
-  ?explain : bool -> ?minimal:bool -> Format.formatter -> diagnosis -> unit
+  ?explain : bool -> 
+  ?minimal : bool -> 
+  ?condense : bool -> Format.formatter -> diagnosis -> unit
 
 (** like [fprintf] but print using the standard formatter *)
 val printf :
@@ -135,6 +150,6 @@ val printf :
 #ifdef HASOCAMLGRAPH
 (** print the explanation graph in dot format to the standard formatter *)
 val print_dot :
-  ?pp : Common.CudfAdd.pp -> 
+  ?pp : Common.CudfAdd.pp -> ?condense : bool ->
   ?addmissing : bool -> ?dir : string -> diagnosis -> unit
 #endif

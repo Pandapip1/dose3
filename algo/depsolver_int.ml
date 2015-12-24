@@ -36,71 +36,24 @@ let progressbar_univcheck = Util.Progress.create "Depsolver_int.univcheck"
 let label =  __label ;;
 include Util.Logging(struct let label = label end) ;;
 
-module R = struct type reason = Diagnostic_int.reason end
+module R = struct type reason = Diagnostic.reason_int end
 module S = EdosSolver.M(R)
-
-(** associate a sat solver variable to a package id *)
-class intprojection size = object
-
-  val vartoint = Util.IntHashtbl.create (2 * size)
-  val inttovar = Array.create size 0
-  val mutable counter = 0
-
-  (** add a package id to the map *)
-  method add v =
-    if (size = 0) then assert false ;
-    if (counter > size - 1) then assert false;
-    (* debug "intprojection : var %d -> int %d" v counter; *)
-    Util.IntHashtbl.add vartoint v counter;
-    inttovar.(counter) <- v;
-    counter <- counter + 1
-
-  (** given a package id return a sat solver variable 
-      raise Not_found if the package id is not known *)
-  method vartoint v = Util.IntHashtbl.find vartoint v
-
-  (* given a sat solver variable return a package id *)
-  method inttovar i =
-    if (i >= size) then fatal "out of boundary i = %d size = %d" i size;
-    inttovar.(i)
-end
-
-class identity = object
-  method add (v : int) = ()
-  method vartoint (v : int) = v
-  method inttovar (v : int) = v
-end
-
-(* return a conversion function. If the closure is empty, 
-   then we return the identity function, otherwise we 
-   return a function to renumber cudf uids to solver ids *)
-let init_map closure univ =
-  if List.length closure > 0 then begin
-    let map = new intprojection (List.length closure) in
-    List.iter map#add closure;
-    map
-  end
-  else new identity
 
 (** low level solver data type *)
 type solver = {
   constraints : S.state; (** the sat problem *)
-  map : intprojection (** a map from cudf package ids to solver ids *)
+  map : Util.projection (** a map from cudf package ids to solver ids *)
 }
 
 type dep_t = 
   ((Cudf_types.vpkg list * S.var list) list * 
    (Cudf_types.vpkg * S.var list) list ) 
-and pool_t = dep_t array
-and pool = SolverPool of pool_t | CudfPool of pool_t
+and pool = dep_t array
+and t = [`SolverPool of pool | `CudfPool of pool]
 
 type result =
   |Success of (unit -> int list)
-  |Failure of (unit -> Diagnostic_int.reason list)
-
-(* two functions to make sure we alway manipulate the correct data type *)
-let strip_solver_pool = function SolverPool p -> p | _ -> assert false
-let strip_cudf_pool = function CudfPool p -> p | _ -> assert false
+  |Failure of (unit -> Diagnostic.reason_int list)
 
 (* cudf uid -> cudf uid array . Here we assume cudf uid are sequential
    and we can use them as an array index *)
@@ -151,13 +104,11 @@ let init_pool_univ ~global_constraints univ =
      * for the moment we consider only `Keep_package *)
     pool.(globalid) <- (keep_dll,[])
   end;
-  CudfPool pool
-;;
+  (`CudfPool pool)
 
 (** this function creates an array indexed by solver ids that can be 
     used to init the edos solver *)
-let init_solver_pool map pool closure =
-  let cudfpool = strip_cudf_pool pool in
+let init_solver_pool map (`CudfPool cudfpool) closure =
   let convert (dll,cl) =
     let sdll = 
       List.map (fun (vpkgs,uidl) ->
@@ -201,12 +152,10 @@ let init_solver_pool map pool closure =
         convert (dll,cl)
     )
   in
-  SolverPool solverpool
-;;
+  (`SolverPool solverpool)
 
 (** initalise the sat solver. operate only on solver ids *)
-let init_solver_cache ?(buffer=false) varpool =
-  let varpool = strip_solver_pool varpool in
+let init_solver_cache ?(buffer=false) (`SolverPool varpool) =
   let num_conflicts = ref 0 in
   let num_disjunctions = ref 0 in
   let num_dependencies = ref 0 in
@@ -215,12 +164,12 @@ let init_solver_cache ?(buffer=false) varpool =
   let add_depend constraints vpkgs pkg_id l =
     let lit = S.lit_of_var pkg_id false in 
     if (List.length l) = 0 then 
-      S.add_rule constraints [|lit|] [Diagnostic_int.Missing(pkg_id,vpkgs)]
+      S.add_rule constraints [|lit|] [Diagnostic.MissingInt(pkg_id,vpkgs)]
     else begin
       let lits = List.map (fun id -> S.lit_of_var id true) l in
       num_disjunctions := !num_disjunctions + (List.length lits);
       S.add_rule constraints (Array.of_list (lit :: lits))
-        [Diagnostic_int.Dependency (pkg_id, vpkgs, l)];
+        [Diagnostic.DependencyInt (pkg_id, vpkgs, l)];
       if (List.length lits) > 1 then
         S.associate_vars constraints (S.lit_of_var pkg_id true) l;
     end
@@ -236,7 +185,7 @@ let init_solver_cache ?(buffer=false) varpool =
         Util.IntPairHashtbl.add conflicts pair ();
         let p = S.lit_of_var i false in
         let q = S.lit_of_var j false in
-        S.add_rule constraints [|p;q|] [Diagnostic_int.Conflict(i,j,vpkg)];
+        S.add_rule constraints [|p;q|] [Diagnostic.ConflictInt(i,j,vpkg)];
       end
     end
   in
@@ -273,7 +222,6 @@ let init_solver_cache ?(buffer=false) varpool =
 
   S.propagate constraints ;
   constraints
-;;
 
 (** low level call to the sat solver
   
@@ -292,10 +240,10 @@ let solve ?tested solver request =
         )
       ) l;
       let get_assignent ?(all=true) () = List.map solver.map#inttovar l in
-      Diagnostic_int.Success(get_assignent)
+      Diagnostic.SuccessInt(get_assignent)
     end else
       let get_reasons () = collect solver.constraints var in
-      Diagnostic_int.Failure(get_reasons)
+      Diagnostic.FailureInt(get_reasons)
   in
 
   match request with
@@ -308,7 +256,6 @@ let solve ?tested solver request =
       result S.solve_lst S.collect_reasons_lst (List.map solver.map#vartoint [k;i])
   |(Some k,il) ->
       result S.solve_lst S.collect_reasons_lst (List.map solver.map#vartoint (k::il))
-;;
 
 (* this function is used to "distcheck" a list of packages *)
 let pkgcheck global_constraints callback solver tested id =
@@ -330,18 +277,17 @@ let pkgcheck global_constraints callback solver tested id =
       let f ?(all=false) () =
         if all then begin
           match solve solver req with
-          |Diagnostic_int.Success(f_int) -> f_int ()
-          |Diagnostic_int.Failure _ -> assert false (* impossible *)
+          |Diagnostic.SuccessInt(f_int) -> f_int ()
+          |Diagnostic.FailureInt _ -> assert false (* impossible *)
         end else []
-      in Diagnostic_int.Success(f) 
+      in Diagnostic.SuccessInt(f) 
     end
   in
   match callback, res with
-  |None, Diagnostic_int.Success _ -> true
-  |None, Diagnostic_int.Failure _ -> false
-  |Some f, Diagnostic_int.Success _ -> ( f (res,req) ; true )
-  |Some f, Diagnostic_int.Failure _ -> ( f (res,req) ; false )
-;;
+  |None, Diagnostic.SuccessInt _ -> true
+  |None, Diagnostic.FailureInt _ -> false
+  |Some f, Diagnostic.SuccessInt _ -> ( f (res,req) ; true )
+  |Some f, Diagnostic.FailureInt _ -> ( f (res,req) ; false )
 
 (** low level constraint solver initialization
  
@@ -349,13 +295,14 @@ let pkgcheck global_constraints callback solver tested id =
     @param univ cudf package universe
 *)
 let init_solver_univ ?(global_constraints=true) ?(buffer=false) univ =
-  let map = new identity in
-  let cudfpool = init_pool_univ global_constraints univ in
-  let varpool = SolverPool (strip_cudf_pool cudfpool) in
+  let map = new Util.identity in
+  (* here we convert a cudfpool in a varpool. The assumption
+   * that cudf package identifiers are contiguous is essential ! *)
+  let `CudfPool pool = init_pool_univ global_constraints univ in
+  let varpool = `SolverPool pool in
   let constraints = init_solver_cache ~buffer varpool in
   let solver = { constraints = constraints ; map = map } in
   solver
-;;
 
 (** low level constraint solver initialization
  
@@ -365,14 +312,12 @@ let init_solver_univ ?(global_constraints=true) ?(buffer=false) univ =
 *)
 (* pool = cudf pool - closure = dependency clousure . cudf uid list *)
 let init_solver_closure ?(buffer=false) cudfpool closure =
-  let map = new intprojection (List.length closure) in
+  let map = new Util.intprojection (List.length closure) in
   List.iter map#add closure;
-  (* let globalid = (Array.length (strip_cudf_pool cudfpool)) - 1 in *)
   let varpool = init_solver_pool map cudfpool closure in
   let constraints = init_solver_cache ~buffer varpool in
   let solver = { constraints = constraints ; map = map } in
   solver
-;;
 
 (** return a copy of the state of the solver *)
 let copy_solver solver =
@@ -400,8 +345,7 @@ let reverse_dependencies univ =
   ) univ;
   reverse
 
-let dependency_closure_cache ?(maxdepth=max_int) ?(conjunctive=false) pool idlist =
-  let cudfpool = strip_cudf_pool pool in
+let dependency_closure_cache ?(maxdepth=max_int) ?(conjunctive=false) (`CudfPool cudfpool) idlist =
   let queue = Queue.create () in
   let visited = Hashtbl.create (2 * (List.length idlist)) in
   List.iter (fun e -> Queue.add (e,0) queue) (CudfAdd.normalize_set idlist);
@@ -439,7 +383,6 @@ let dependency_closure ?(maxdepth=max_int) ?(conjunctive=false) ?(global_constra
   let idlist = List.map (CudfAdd.vartoint universe) pkglist in
   let l = dependency_closure_cache ~maxdepth ~conjunctive pool (globalid::idlist) in
   List.filter_map (fun p -> if p <> globalid then Some (CudfAdd.inttovar universe p) else None) l
-;;
 
 (*    XXX : elements in idlist should be included only if because
  *    of circular dependencies *)
@@ -475,4 +418,3 @@ let reverse_dependency_closure ?(maxdepth=max_int) reverse =
       Hashtbl.add h (idlist,maxdepth) result;
       result
     end
-
