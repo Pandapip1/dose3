@@ -1,8 +1,10 @@
 dose3 (4.1~beta1-1) experimental; urgency=medium
 
   * new upstream version
+    - refreshed patch coinstall-binary-name
+    - dropped patch coinstall-binary-name, fixed upstream
 
- -- Ralf Treinen <treinen@debian.org>  Thu, 24 Dec 2015 13:54:20 +0100
+ -- Ralf Treinen <treinen@debian.org>  Thu, 24 Dec 2015 14:52:09 +0100
 
 dose3 (4.0.2-3) unstable; urgency=medium
 
