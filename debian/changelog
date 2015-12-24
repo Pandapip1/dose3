@@ -3,6 +3,7 @@ dose3 (4.1~beta1-1) experimental; urgency=medium
   * new upstream version
     - refreshed patch coinstall-binary-name
     - dropped patch coinstall-binary-name, fixed upstream
+  * bump version of build-dependency ocamlgraph and ocaml-nox
 
  -- Ralf Treinen <treinen@debian.org>  Thu, 24 Dec 2015 14:52:09 +0100
 
