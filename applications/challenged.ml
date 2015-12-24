@@ -16,31 +16,36 @@ open ExtLib
 open Common
 open Algo
 open DoseparseNoRpm
+module Version = Versioning.Debian
 
 let predbar = Util.Progress.create "challenged" ;;
-include Util.Logging(struct let label = __FILE__ end) ;;
+
+#define __label __FILE__
+let label =  __label ;;
+include Util.Logging(struct let label = label end) ;;
 
 module Options = struct
   open OptParse
-  let options = OptParser.make ~description:"find challenged packages"
+  let options = OptParser.make ~description:"Compute Challenged packages."
   include StdOptions.MakeOptions(struct let options = options end)
 
   let checkonly = StdOptions.pkglist_option ()
   let brokenlist = StdOpt.store_true ()
   let downgrades = StdOpt.store_true ()
+  let latest = StdOpt.store_true ()
   let cluster = StdOpt.store_true ()
-IFDEF HASPARMAP THEN
+#ifdef HASPARMAP 
   let ncores = StdOpt.int_option ~default:1 ()
   let chunksize = StdOpt.int_option ()
-END
+#endif
   open OptParser ;;
 
-IFDEF HASPARMAP THEN
+#ifdef HASPARMAP 
   add options ~long_name:"ncores"
     ~help:"Number of cores to use on a multicore" ncores;
   add options ~long_name:"chunksize"
     ~help:"Size of each task executed by the workers (controls granularity)" chunksize;
-END
+#endif
 
   add options ~long_name:"checkonly"
     ~help:"Check only these packages ex. sn1 (=sv1),sn2 (=sv2)" checkonly;
@@ -48,6 +53,9 @@ END
     ~help:"Print the list of broken packages" brokenlist;
   add options ~long_name:"downgrade" ~short_name:'d' 
     ~help:"Check package downgrades" downgrades;
+  add options ~long_name:"latest" ~short_name:'l' 
+    ~help:"Consider on the latest version of each package" latest;
+
   add options ~short_name:'c' 
     ~help:"Print the list of packages in a cluster" cluster;
 
@@ -75,6 +83,7 @@ let upgrade tables pkgset universe broken migrationlist =
   let getv v = Debian.Debcudf.get_cudf_version tables ("",v) in
   let to_add = 
     List.fold_left (fun l ((pkg,_),target) ->
+      let name = CudfAdd.encode pkg.Debian.Packages.name in
       let orig = getv pkg.Debian.Packages.version in
       let newv =
         match target with
@@ -82,15 +91,18 @@ let upgrade tables pkgset universe broken migrationlist =
         |`Hi v -> (getv v) + 1
         |`Lo v |`In (_,v) -> (getv v) - 1
       in
-      let p = Cudf.lookup_package universe (pkg.Debian.Packages.name,orig) in
+      let p = Cudf.lookup_package universe (name,orig) in
       let number = Debian.Evolution.string_of_range target in
-      (dummy p number newv)::l
+      if not (Cudf.mem_package universe (p.Cudf.package,newv)) then
+        (dummy p number newv)::l
+      else l
     ) [] migrationlist
   in
   let to_remove = 
     List.fold_left (fun acc ((pkg,_),_) -> 
+      let name = CudfAdd.encode pkg.Debian.Packages.name in
       let orig = getv pkg.Debian.Packages.version in
-      let p = Cudf.lookup_package universe (pkg.Debian.Packages.name,orig) in
+      let p = Cudf.lookup_package universe (name,orig) in
       p::acc
     ) broken migrationlist 
   in
@@ -119,9 +131,7 @@ let evalsel getv target constr =
   |`In (v1,v2) -> evalsel ((getv v2) - 1) constr
 ;;
 
-let strip v = 
-  let (e,v,u,b) = Debian.Version.split v in
-  Debian.Version.concat ("",v,u,b)
+let strip v = Version.compose (Version.strip_epoch v)
 
 let version_of_target ?(strip=(fun x -> x)) getv = function
   |`Eq v -> getv (strip v)
@@ -131,8 +141,8 @@ let version_of_target ?(strip=(fun x -> x)) getv = function
 
 let lesser_or_equal getv target equivs v =
   let v_le_target =
-    match Debian.Version.split v with
-    |("",_,_,_) ->
+    match Version.decompose v with
+    |Version.Native(_,_,_) ->
         (* in this case the reference version is without epoch,
          * hence no aligmement of the target. We want to exclude
          * this version if it is less or equal then the reference
@@ -167,7 +177,7 @@ let pp tables pkg =
   in
   let l =
     List.filter_map (fun k ->
-      try Some(k,Cudf.lookup_package_property pkg k)
+      try Some(k,(Cudf.lookup_package_property pkg k,true))
       with Not_found -> None
     ) ["architecture";"source";"sourcenumber";"equivs"]
   in (pkg.Cudf.package,v,l)
@@ -177,6 +187,9 @@ let pp tables pkg =
  * cluster are real packages,
  * future are cudf packages *)
 let challenged 
+  ?(failure=true)
+  ?(explain=false)
+  ?(minimal=true)
   ?(downgrades=false) 
   ?(broken=false) 
   ?(cluster=false)
@@ -227,19 +240,19 @@ let challenged
   (* computing *)
   let results = 
     let map f l =
-IFDEF HASPARMAP THEN
-    let ncores = OptParse.Opt.get Options.ncores in
-    match OptParse.Opt.opt Options.chunksize with
-      None ->     
-	Parmap.parmap ~ncores f (Parmap.L l)
-    | Some chunksize ->       
-	Parmap.parmap ~ncores ~chunksize f (Parmap.L l)
-ELSE
-    List.map f l
-END
+#ifdef HASPARMAP 
+      let ncores = OptParse.Opt.get Options.ncores in
+      match OptParse.Opt.opt Options.chunksize with
+        None ->     
+        Parmap.parmap ~ncores f (Parmap.L l)
+      | Some chunksize ->       
+        Parmap.parmap ~ncores ~chunksize f (Parmap.L l)
+#else
+      List.map f l
+#endif
     in
     map (fun ((sn,sv,version),(cluster,vl,constr)) ->
-      let startd=Unix.gettimeofday() in
+      let starttime = Unix.gettimeofday() in
       let cluster_results = ref [] in
       Util.Progress.progress predbar;
       debug "\nSource: %s %s" sn sv;
@@ -265,7 +278,8 @@ END
         let pp_list = Diagnostic.pp_list pp_item in
         let cudf_cluster = 
           List.map (fun pkg -> 
-            let (pn,pv) = (pkg.Debian.Packages.name, getv pkg.Debian.Packages.version) in
+            let name = CudfAdd.encode pkg.Debian.Packages.name in
+            let (pn,pv) = (name, getv pkg.Debian.Packages.version) in
             Cudf.lookup_package universe (pn,pv) 
           ) cluster
         in
@@ -281,7 +295,6 @@ END
                 ));
               debug "ignored"
         | (target,equiv) ->
-            debug "Considering target %s" (Debian.Evolution.string_of_range target);
             debug "Target: %s" (Debian.Evolution.string_of_range target);
             debug "Equiv: %s" (String.concat " , " (
               List.map (Debian.Evolution.string_of_range) equiv
@@ -291,7 +304,7 @@ END
             let future = upgrade tables pkgset universe brokenlist migrationlist in
             let callback d = 
               let fmt = Format.std_formatter in
-              if broken then Diagnostic.fprintf ~pp ~failure:true ~explain:true fmt d 
+              if broken then Diagnostic.fprintf ~pp ~failure ~explain ~minimal fmt d 
             in
             if broken then Format.printf "distcheck: @,";
             let i = Depsolver.univcheck ~callback future in
@@ -300,10 +313,23 @@ END
             debug "Broken: %d" i;
             cluster_results := (((sn,sv,version),(target,equiv)),i)::!cluster_results ;
       ) discr;
-      debug "<%s,%s> : %f" sn sv (Unix.gettimeofday() -. startd); 
+      debug "<%s,%s> : %f" sn sv (Unix.gettimeofday() -. starttime); 
       !cluster_results
     ) !worktable
   in List.concat results
+;;
+
+let latest pkglist =
+  let h = Hashtbl.create (List.length pkglist) in
+  List.iter (fun p ->
+    try 
+      let q = Hashtbl.find h p.Debian.Packages.name in
+      if (Version.compare p.Debian.Packages.version q.Debian.Packages.version) > 0 then
+        Hashtbl.replace h p.Debian.Packages.name p
+      else () 
+    with Not_found -> Hashtbl.add h p.Debian.Packages.name p
+  ) pkglist;
+  Hashtbl.fold (fun _ v acc -> v::acc) h []
 ;;
 
 let main () =
@@ -317,6 +343,7 @@ let main () =
   let cluster = OptParse.Opt.get Options.cluster in
   let downgrades = OptParse.Opt.get Options.downgrades in
   let l = Debian.Packages.input_raw args in
+  let l = if OptParse.Opt.get Options.latest then latest l else l in
   let pred = challenged ~downgrades ~broken ~cluster ~clusterlist l in
   List.iter (fun (((sn,sv,version),(target,equiv)),broken) ->
     Format.printf "cluster: %s %s@." sn version;
@@ -333,4 +360,4 @@ let main () =
 
 StdUtils.if_application 
 ~alternatives:["dose-challenged";"dose3-challenged";"edos-challenged";"deb-challenged"]
-__FILE__ main ;;
+__label main ;;

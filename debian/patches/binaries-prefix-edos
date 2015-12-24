@@ -3,8 +3,8 @@ Description: all binaries have prefix dose-
 
 Index: dose3/doc/manpages/distcheck.pod
 ===================================================================
---- dose3.orig/doc/manpages/distcheck.pod	2014-10-20 19:59:39.694565274 +0200
-+++ dose3/doc/manpages/distcheck.pod	2014-10-20 19:59:39.694565274 +0200
+--- dose3.orig/doc/manpages/distcheck.pod	2015-08-26 21:14:16.570279286 +0200
++++ dose3/doc/manpages/distcheck.pod	2015-08-26 21:14:16.566279272 +0200
 @@ -1,25 +1,25 @@
  =head1 NAME
  
@@ -78,7 +78,7 @@ Index: dose3/doc/manpages/distcheck.pod
  
  =cut
  
-@@ -278,13 +278,13 @@
+@@ -280,13 +280,13 @@
  Check which packages in contrib are not installable when dependencies may
  be satisfied from main:
   
@@ -96,9 +96,9 @@ Index: dose3/doc/manpages/distcheck.pod
  =cut
 Index: dose3/doc/manpages/buildcheck.pod
 ===================================================================
---- dose3.orig/doc/manpages/buildcheck.pod	2014-10-20 19:59:39.694565274 +0200
-+++ dose3/doc/manpages/buildcheck.pod	2014-10-20 19:59:39.694565274 +0200
-@@ -172,7 +172,7 @@
+--- dose3.orig/doc/manpages/buildcheck.pod	2015-08-26 21:14:16.570279286 +0200
++++ dose3/doc/manpages/buildcheck.pod	2015-08-26 21:14:16.566279272 +0200
+@@ -180,7 +180,7 @@
  =head1 SEE ALSO
  
  L<B<deb-control>(5)>, 
@@ -109,8 +109,8 @@ Index: dose3/doc/manpages/buildcheck.pod
  <http://www.mancoosi.org> is the home page of the Mancoosi project. 
 Index: dose3/doc/manpages/outdated.pod
 ===================================================================
---- dose3.orig/doc/manpages/outdated.pod	2014-10-20 19:59:39.694565274 +0200
-+++ dose3/doc/manpages/outdated.pod	2014-10-20 19:59:39.694565274 +0200
+--- dose3.orig/doc/manpages/outdated.pod	2015-08-26 21:14:16.570279286 +0200
++++ dose3/doc/manpages/outdated.pod	2015-08-26 21:14:16.566279272 +0200
 @@ -1,16 +1,16 @@
  =head1 NAME
  
@@ -162,8 +162,8 @@ Index: dose3/doc/manpages/outdated.pod
   
 Index: dose3/doc/manpages/challenged.pod
 ===================================================================
---- dose3.orig/doc/manpages/challenged.pod	2014-10-20 19:59:39.694565274 +0200
-+++ dose3/doc/manpages/challenged.pod	2014-10-20 19:59:39.694565274 +0200
+--- dose3.orig/doc/manpages/challenged.pod	2015-08-26 21:14:16.570279286 +0200
++++ dose3/doc/manpages/challenged.pod	2015-08-26 21:14:16.566279272 +0200
 @@ -1,19 +1,19 @@
  =head1 NAME
  
@@ -223,10 +223,53 @@ Index: dose3/doc/manpages/challenged.pod
  
  <http://www.mancoosi.org> is the home page of the Mancoosi project.
  
+Index: dose3/doc/manpages/debcoinstall.pod
+===================================================================
+--- dose3.orig/doc/manpages/debcoinstall.pod	2015-08-26 21:14:16.570279286 +0200
++++ dose3/doc/manpages/debcoinstall.pod	2015-08-26 21:14:16.566279272 +0200
+@@ -1,19 +1,19 @@
+ =head1 NAME
+ 
+-dose-debcoinstall - calculate a coinstallation set of a given set of Debian binary packages
++dose-deb-coinstall - calculate a coinstallation set of a given set of Debian binary packages
+ 
+ =head1 SYNOPSIS
+ 
+ =over
+ 
+-=item B<dose-debcoinstall> [options] I<binary-repositories>
++=item B<dose-deb-coinstall> [options] I<binary-repositories>
+ 
+ =back
+ =cut
+ 
+ =head1 DESCRIPTION
+ 
+-dose-debcoinstall determines whether a set of foreground Debian binary packages
++dose-deb-coinstall determines whether a set of foreground Debian binary packages
+ can be installed together given a set of background Debian binary packages. If
+ a valid coinstallation set exists, than it is printed on standard output; else
+ the application exists with exit code 1 and prints nothing. 
+@@ -130,13 +130,13 @@
+  /var/lib/apt/lists/ftp.fr.debian.org_debian_dists_sid_main_binary-amd64_Packages \
+  > essential
+ 
+- dose-debcoinstall --deb-native-arch=amd64 \
++ dose-deb-coinstall --deb-native-arch=amd64 \
+  --bg /var/lib/apt/lists/ftp.fr.debian.org_debian_dists_sid_main_binary-amd64_Packages \
+  --fg essential > essential_coinstall
+ 
+ Compute the list of source packages needed to build these packages:
+ 
+- dose-debcoinstall --deb-native-arch=amd64 \
++ dose-deb-coinstall --deb-native-arch=amd64 \
+  --src /var/lib/apt/lists/ftp.fr.debian.org_debian_dists_sid_main_source_Sources \
+  --bg /var/lib/apt/lists/ftp.fr.debian.org_debian_dists_sid_main_binary-amd64_Packages \
+  --fg essential > essential_coinstall_src
 Index: dose3/doc/manpages/ceve.pod
 ===================================================================
---- dose3.orig/doc/manpages/ceve.pod	2014-10-20 19:59:39.694565274 +0200
-+++ dose3/doc/manpages/ceve.pod	2014-10-20 19:59:39.694565274 +0200
+--- dose3.orig/doc/manpages/ceve.pod	2015-08-26 21:14:12.134264139 +0200
++++ dose3/doc/manpages/ceve.pod	2015-08-26 21:15:22.378509352 +0200
 @@ -1,18 +1,18 @@
  =head1 NAME
  
@@ -237,8 +280,8 @@ Index: dose3/doc/manpages/ceve.pod
  
  =over 
  
--=item B<ceve> [-h] [-v] [-e I<pkgspec>] [-c I<pkgspec>] [-r I<pkgspec>] [--depth=I<n>]I<> [-T I<format>] [-G I<graph type>] [-o I<filename>] I<input-spec> 
-+=item B<dose-ceve> [-h] [-v] [-e I<pkgspec>] [-c I<pkgspec>] [-r I<pkgspec>] [--depth=I<n>]I<> [-T I<format>] [-G I<graph type>] [-o I<filename>] I<input-spec> 
+-=item B<ceve> [-h] [-v] [-c I<pkgspec>] [-r I<pkgspec>] [--depth=I<n>]I<> [-T I<format>] [-G I<graph type>] [-o I<filename>] I<input-spec> 
++=item B<dose-ceve> [-h] [-v] [-c I<pkgspec>] [-r I<pkgspec>] [--depth=I<n>]I<> [-T I<format>] [-G I<graph type>] [-o I<filename>] I<input-spec> 
  
  =back
  
@@ -248,4 +291,13 @@ Index: dose3/doc/manpages/ceve.pod
 +Dose-ceve is a generalized metadata parser. It reads package specifications,
  extracts package metadata from them, performs some manipulations, and outputs
  the package metadata in one of several formats. 
+ 
+@@ -153,7 +153,7 @@
+ 
+ =head2 DEBIAN SPECIFIC OPTIONS
+ 
+-Multi-arch annotations are handled by ceve. Packages whose's architecture is
++Multi-arch annotations are handled by dose-ceve. Packages whose's architecture is
+ neither the native architecture nor in the list of foreign architectures (see
+ below) are ignored.
  

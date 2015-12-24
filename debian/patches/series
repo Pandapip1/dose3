@@ -1,5 +1,3 @@
 binaries-prefix-edos
 coinstall-binary-name
-cudfSolver-fix-leaking-fds
-encode-package-name-in-cudf_extras
-remove_src_prefix_from_name
+# librpm-4.12

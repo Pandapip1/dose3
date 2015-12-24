@@ -2,13 +2,10 @@
 
 RELEASE = $(shell dpkg-parsechangelog | grep ^Version: | cut -f 2 -d' ')
 %:
-	dh $@ --with ocaml
+	dh $@ --with ocaml --with autoreconf
 
 override_dh_auto_configure:
-	rm -f doc/debcheck.primer/version.tex
-	# use the following line when autoconf stuff is patched
-	# aclocal -I m4 && autoconf
-	./configure --with-ocamlgraph --with-zip --with-bz2 --with-rpm4
+	dh_auto_configure -- --with-ocamlgraph --with-zip --with-bz2 --with-rpm4
 
 override_dh_auto_install:
 	dh_auto_install
@@ -35,7 +32,6 @@ override_dh_installman:
 override_dh_auto_build:
 	dh_auto_build
 	$(MAKE) doc
-	cd doc/debcheck.primer && $(MAKE) 
 	pod2man --section 8 -release "apt-cudf $(RELEASE)" \
 		debian/update-cudf-solvers > debian/update-cudf-solvers.8
 

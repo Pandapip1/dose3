@@ -31,41 +31,44 @@ module Options = struct
   let options = OptParser.make ~description
   include StdOptions.MakeOptions(struct let options = options end)
 
-  include StdOptions.DistcheckOptions
-  let default = List.remove StdOptions.DistcheckOptions.default_options "successes" in
-  StdOptions.DistcheckOptions.add_options ~default options ;;
-
-  include StdOptions.InputOptions
-  let default = List.remove StdOptions.InputOptions.default_options "inputtype" in
-  StdOptions.InputOptions.add_options ~default options ;;
-
-  include StdOptions.DistribOptions;;
-  (* remove other not used --deb options *)
-  let default = List.remove StdOptions.DistribOptions.default_options "deb-host-arch" in
-  let default = ["deb-triplettable";"deb-cputable"]@default in
-  StdOptions.DistribOptions.add_options ~default options ;;
-  
   let sources = StdOpt.str_option ()
   let dump = StdOpt.str_option ()
   let triplettable = StdOpt.str_option ()
   let cputable = StdOpt.str_option ()
 
-  open OptParser
-  add options ~long_name:"src" ~help:"Associate Sources file" sources;
-  add options ~long_name:"dump" ~help:"dump the cudf file" dump;
-  add options ~long_name:"deb-triplettable" ~help:"Path to an architecture triplet table like /usr/share/dpkg/triplettable" triplettable;
-  add options ~long_name:"deb-cputable" ~help:"Path to a cpu table like /usr/share/dpkg/cputable" cputable;
+  include StdOptions.DistcheckOptions ;;
+  let default = List.remove StdOptions.DistcheckOptions.default_options "successes" in
+  StdOptions.DistcheckOptions.add_options ~default options ;
+
+  include StdOptions.InputOptions ;;
+  let default = List.remove StdOptions.InputOptions.default_options "inputtype" in
+  StdOptions.InputOptions.add_options ~default options ;
+  StdOptions.InputOptions.add_option options ~long_name:"src" ~help:"Associate Sources file" sources;
+
+  include StdOptions.OutputOptions ;;
+  StdOptions.OutputOptions.add_options options ;
+  StdOptions.OutputOptions.add_option options ~long_name:"dump" ~help:"dump the cudf file" dump;
+
+  include StdOptions.DistribOptions ;;
+  let default = List.remove StdOptions.DistribOptions.default_options "deb-host-arch" in
+  StdOptions.DistribOptions.add_options ~default options ;
+  StdOptions.DistribOptions.add_option options ~long_name:"deb-triplettable"
+    ~help:"Path to an architecture triplet table like /usr/share/dpkg/triplettable" triplettable;
+  StdOptions.DistribOptions.add_option options ~long_name:"deb-cputable"
+    ~help:"Path to a cpu table like /usr/share/dpkg/cputable" cputable;
 
 end
 
-include Util.Logging(struct let label = __FILE__ end) ;;
+#define __label __FILE__
+let label =  __label ;;
+include Util.Logging(struct let label = label end) ;;
 
 let timer = Util.Timer.create "Solver" 
 
 let main () =
   let posargs = OptParse.OptParser.parse_argv Options.options in
   StdDebug.enable_debug (OptParse.Opt.get Options.verbose);
-  StdDebug.enable_timers (OptParse.Opt.get Options.timers) ["Solver"];
+  StdDebug.enable_timers (OptParse.Opt.get Options.timers) ["Solver";"Load"];
   StdDebug.enable_bars (OptParse.Opt.get Options.progress)
     ["Depsolver_int.univcheck";"Depsolver_int.init_solver"] ;
   StdDebug.all_quiet (OptParse.Opt.get Options.quiet);
@@ -195,8 +198,6 @@ let main () =
       Format.std_formatter
   in
 
-  if failure then Format.fprintf fmt "@[<v 1>report:@,";
-
   let global_constraints = not(OptParse.Opt.get Options.deb_ignore_essential) in
 
   Util.Timer.start timer;
@@ -227,34 +228,28 @@ let main () =
         List.iter (Printf.fprintf oc "%a\n" Debian.Printer.pp_source) l
       end; 0 (* exit code 0 . All packages are installable *)
     end
-    else begin
+    else begin if failure then begin
+      Diagnostic.pp_out_version fmt;
+      Format.fprintf fmt "@[<v 1>report:@,";
       Diagnostic.fprintf ~pp ~minimal ~failure ~explain fmt result;
-      1 (* at least one package is not installable *)
+      Format.fprintf fmt "@]@.";
+      let fn = List.length fg_pkglist in
+      let bn = List.length bg_pkglist in
+      let nb,nf = 
+        let cl = List.length checklist in
+        if cl != 0 then ((fn + bn) - cl,cl) else (bn,fn)
+      in
+      Format.fprintf fmt "background-packages: %d@." nb;
+      Format.fprintf fmt "foreground-packages: %d@." nf;
+      Format.fprintf fmt "total-packages: %d@." universe_size
+    end;
+    1 (* at least one package is not installable *)
     end
   in
   
-  if failure then Format.fprintf fmt "@]@.";
-  
-  let fn = List.length fg_pkglist in
-  let bn = List.length bg_pkglist in
-  
-  let nb,nf = 
-    let cl = List.length checklist in
-    if cl != 0 then ((fn + bn) - cl,cl) else (bn,fn)
-  in
-  
-  if nb > 0 && failure then begin
-    Format.fprintf fmt "background-packages: %d@." nb;
-    Format.fprintf fmt "foreground-packages: %d@." nf
-  end;
-
-  if failure then begin
-    Format.fprintf fmt "total-packages: %d@." universe_size;
-  (*  Format.fprintf fmt "broken-packages: %d@." nbp; *)
-  end;
   exitcode
 ;;
 
 StdUtils.if_application
-~alternatives:["dose-debcoinstall";"deb-coinstall"] __FILE__ main ;;
+~alternatives:["dose-debcoinstall";"deb-coinstall"] __label main ;;
 

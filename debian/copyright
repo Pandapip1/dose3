@@ -7,7 +7,7 @@ Files: *
 Copyright: © 2009-2012 Pietro Abate
 License: LGPL-3+
 
-Files: deb/format822.ml
+Files: common/format822.ml
 Copyright: © 2005-2009 Jérôme Vouillion, Stefano Zacchiroli, Pietro Abate
 License: LGPL-3+
 
@@ -23,12 +23,20 @@ Files: common/util.ml
 Copyright: © 2009 Alain Frisch, Pietro Abate
 License: LGPL-3+
 
-Files: common/url.ml common/url.mli deb/version.ml
+Files: common/url.ml common/url.mli versioning/debian_version.ml
 Copyright: © 2011 Ralf Treinen
 License: LGPL-3+
 
 Files: debian/*
 Copyright: © 2011, 2012 Ralf Treinen, Stefano Zacchiroli
+License: LGPL-3+
+
+Files: debian/update-cudf-solvers
+Copyright: © 2011 Stefano Zacchiroli
+License: LGPL-3+
+
+Files: common/shell_lexer.mll
+Copyright: © 2015 Johannes Schauer <j.schauer@email.de>
 License: LGPL-3+
 
 Files: debian/update-cudf-solvers

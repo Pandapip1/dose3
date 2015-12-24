@@ -16,7 +16,9 @@ module Pcre = Re_pcre
 open ExtLib
 open Common
 
-include Util.Logging(struct let label = __FILE__ end) ;;
+#define __label __FILE__
+let label =  __label ;;
+include Util.Logging(struct let label = label end) ;;
 
 let blank_regexp = Pcre.regexp "[ \t]+" ;;
 
@@ -67,10 +69,10 @@ let parse_popcon s =
 *)
 
 type apt_req =
-  |Install of Format822.vpkgreq list
-  |Remove of Format822.vpkgreq list
-  |Upgrade of Format822.suite option
-  |DistUpgrade of Format822.suite option
+  |Install of Packages_types.vpkgreq list
+  |Remove of Packages_types.vpkgreq list
+  |Upgrade of Packages_types.suite option
+  |DistUpgrade of Packages_types.suite option
 
 let parse_req s = 
   let _loc = Format822.dummy_loc in

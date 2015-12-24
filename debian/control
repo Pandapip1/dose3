@@ -5,21 +5,21 @@ Maintainer: Debian OCaml Maintainers <debian-ocaml-maint@lists.debian.org>
 Uploaders: Stefano Zacchiroli <zack@debian.org>,
  Ralf Treinen <treinen@debian.org>,
  Johannes Schauer <josch@debian.org>
-Build-Depends: debhelper (>= 7.0.50~), dh-ocaml (>= 0.9~),
+Build-Depends: debhelper (>= 9), dh-ocaml (>= 0.9~), dh-autoreconf,
 # use the following line only when autoconf stuff has been patched:
 # automake, autoconf,
- ocaml-nox (>= 3.11.1-3~), camlp4,
+ ocaml-nox (>= 3.11.1-3~), cppo,
  libre-ocaml-dev,
- libextlib-ocaml-dev,
+ libextlib-ocaml-dev (>= 1.7.0),
  libocamlgraph-ocaml-dev (>= 1.8.5),
  libcudf-ocaml-dev (>= 0.7),
- libzip-ocaml-dev, libbz2-ocaml-dev, librpm-dev (>= 4.8),
+ libzip-ocaml-dev, libbz2-ocaml-dev, librpm-dev (>= 4.12),
  perl, graphviz, hevea, texlive-latex-base, texlive-latex-extra
 Standards-Version: 3.9.6
 Homepage: http://www.mancoosi.org/software/
 Vcs-Browser: https://anonscm.debian.org/cgit/pkg-ocaml-maint/packages/dose3.git
 Vcs-Git: git://anonscm.debian.org/pkg-ocaml-maint/packages/dose3.git
-XS-Testsuite: autopkgtest
+Testsuite: autopkgtest
 
 Package: libdose3-ocaml-dev
 Architecture: any
@@ -130,11 +130,3 @@ Description: CUDF solver integration for APT
  .
  Several CUDF solvers are available in Debian. They all provide the cudf-solver
  virtual package.
-
-Package: edos-distcheck
-Section: oldlibs
-Architecture: all
-Depends: ${misc:Depends}, dose-distcheck, dose-builddebcheck
-Description: Checks dependencies of packages (transitional package)
- This is a transitional package which can be safely removed, its only
- purpose is to ease the transition to the dose3 tools.

@@ -36,7 +36,7 @@ module Options = struct
   let combine_scatter = StdOpt.store_true ()
   let prefix = StdOpt.str_option ~default:"" ()
 
-  open OptParser
+  open OptParser ;;
   add options ~long_name:"prefix" ~help:"Prefix output fils with <prefix>" prefix;
   add options ~short_name:'g' ~long_name:"generic" ~help:"" generic;
   add options ~short_name:'p' ~long_name:"scatterplots" ~help:"" scatterplots;
@@ -51,7 +51,9 @@ module Options = struct
   add options ~long_name:"trim" ~help:"Consider only installable packages" trim;
 end
 
-include Util.Logging(struct let label = __FILE__ end) ;;
+#define __label __FILE__
+let label =  __label ;;
+include Util.Logging(struct let label = label end) ;;
 
 (**********************************)
 
@@ -98,7 +100,7 @@ let main () =
   let posargs = OptParse.OptParser.parse_argv Options.options in
   StdDebug.enable_debug (OptParse.Opt.get Options.verbose);
   let universe = 
-    let (_,u,_,_,_) = StdLoaders.load_universe posargs in
+    let (_,u,_,_,_,_) = StdLoaders.load_universe posargs in
     if OptParse.Opt.get Options.trim then
       Depsolver.trim ~global_constraints:false u
     else u

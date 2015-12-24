@@ -163,11 +163,7 @@ let test_coinst_prod =
     let dl = Depsolver.edos_coinstall_prod universe [al;bl] in
     let resl =
       List.map (fun res ->
-        let l =
-          match res.Diagnostic.request with
-          |Diagnostic.PackageList l -> List.sort l
-          |_ -> []
-        in
+        let l = List.sort res.Diagnostic.request in
         let r =
           match res.Diagnostic.result with
           |Diagnostic.Success _ -> true
@@ -334,6 +330,69 @@ let test_ =
   )
 *)
 
+let test_depclean =
+  "" >:: (fun _ ->
+    let a = { Cudf.default_package with Cudf.package = "a" } in
+    let b = { Cudf.default_package with Cudf.package = "broken" ;
+              depends = [[("missingd",None)]] } in
+    let c = { Cudf.default_package with Cudf.package = "c" ; 
+              conflicts = [("broken",None);("missingc",None);("a",None)]} in
+    let d = { Cudf.default_package with Cudf.package = "d" ; 
+              depends = [[("a",None);("broken",None);("missingd",None);("deepbroken",None)];
+                         [("c",None);("e",None);("f",None)]] } in
+    let e = { Cudf.default_package with Cudf.package = "e";
+              depends = [[("b",None)]]; provides = [("deepbroken",None)]} in
+    let f = { Cudf.default_package with Cudf.package = "f" } in
+    let univ = Cudf.load_universe [a;b;c;d;e;f] in
+    let res = Depsolver.depclean univ [d;c] in
+    (*
+    List.iter (fun (pkg,deps,conf) ->
+      Format.printf "Some dependencies of the package %s can be revised :\n" (CudfAdd.string_of_package pkg);
+      List.iter (function
+        |(vpkglist,vpkg,[]) ->
+          Format.printf "The dependency %a from [%a] refers to a missing package therefore useless\n" 
+          (CudfAdd.pp_vpkg CudfAdd.default_pp) vpkg (CudfAdd.pp_vpkglist CudfAdd.default_pp) vpkglist
+        |(vpkglist,vpkg,_) ->
+          Format.printf "The dependency %a from [%a] refers to a broken package therefore useless\n" 
+          (CudfAdd.pp_vpkg CudfAdd.default_pp) vpkg (CudfAdd.pp_vpkglist CudfAdd.default_pp) vpkglist
+      ) deps;
+      Format.printf "Some conflict of the package %s can be revised :\n" (CudfAdd.string_of_package pkg);
+      List.iter (function
+        |(vpkg,[]) ->
+          Format.printf "The conflict %a refers to a missing package therefore useless\n" 
+          (CudfAdd.pp_vpkg CudfAdd.default_pp) vpkg
+        |(vpkg,_) ->
+          Format.printf "The conflict %a refers to a broken package therefore useless\n" 
+          (CudfAdd.pp_vpkg CudfAdd.default_pp) vpkg
+      ) conf;
+    ) res;
+    *)
+    let expected = 
+      [
+        (d,[
+          (* depends via a virtual package on a broken package *)
+          ([("a",None);("broken",None);("missingd",None);("deepbroken",None)],("deepbroken",None),[e]);
+          (* depends on a missing package *)
+          ([("a",None);("broken",None);("missingd",None);("deepbroken",None)],("missingd",None),[]);
+          (* a direct dependency on a broken package *)
+          ([("a",None);("broken",None);("missingd",None);("deepbroken",None)],("broken",None),[b]);
+          (* depends via a real package on a broken package *)
+          ([("c",None);("e",None);("f",None)],("e",None),[e]);
+          (* depends on a package that has a conflict with another package *) 
+          ([("c",None);("e",None);("f",None)],("c",None),[c]);
+        ],[]
+      );
+      (c,[],[
+        (("missingc",None),[]);
+        (* (("broken",None),[b]); *)
+        ]
+      );
+      ]
+    in
+    assert_equal (List.sort res) (List.sort expected)
+  )
+;;
+
 let test_depsolver =
   "depsolver" >::: [
     test_install ;
@@ -352,6 +411,7 @@ let test_depsolver =
     test_reverse_dependencies ;
     test_reverse_dependency_closure ;
     test_conjunctive_dependency_closure ;
+    test_depclean ;
   ]
 
 let solution_set =

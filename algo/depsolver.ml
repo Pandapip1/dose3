@@ -14,7 +14,9 @@ open ExtLib
 open Common
 open CudfAdd
 
-include Util.Logging(struct let label = __FILE__ end) ;;
+#define __label __FILE__
+let label =  __label ;;
+include Util.Logging(struct let label = label end) ;;
 
 type solver = Depsolver_int.solver
 
@@ -69,10 +71,7 @@ let result map universe result =
 ;;
 
 let request universe result = 
-  let from_sat = CudfAdd.inttovar universe in
-  match result with
-  |Diagnostic_int.Sng (_,i) -> Diagnostic.Package (from_sat i)
-  |Diagnostic_int.Lst (_,il) -> Diagnostic.PackageList (List.map from_sat il)
+  List.map (CudfAdd.inttovar universe) (snd result)
 ;;
 
 (* XXX here the threatment of result and request is not uniform.
@@ -107,7 +106,7 @@ let univcheck ?(global_constraints=true) ?callback universe =
     let check = Depsolver_int.pkgcheck global_constraints callback solver tested in
     (* we do not test the last package that encodes the global constraints
      * on the universe as it is tested all the time with all other packages. *)
-    for i = 0 to size - 2 do if not(check i) then incr failed done;
+    for id = 0 to size - 2 do if not(check id) then incr failed done;
     Util.Timer.stop timer !failed
   in
   let map = new Depsolver_int.identity in
@@ -146,69 +145,23 @@ let listcheck ?(global_constraints=true) ?callback universe pkglist =
       aux ~callback:callback_int universe idlist
 ;;
 
-(* callback : Diagnostic.result -> unit *)
-let minimize ?(global_constraints=false) ?callback criteria univ pkg =
-  let cudfpool = Depsolver_int.init_pool_univ ~global_constraints univ in
-  let id = CudfAdd.vartoint univ pkg in
-  (* globalid is a fake package indentifier used to encode global
-   * constraints in the universe *)
-  let globalid = Cudf.universe_size univ in
-  let closure = Depsolver_int.dependency_closure_cache cudfpool [id; globalid] in
-  let pbopool = Depsolver_int.init_criteria ~closure criteria univ in
-  let solver = Depsolver_int.init_solver_closure ~pbopool cudfpool closure in
-  let req = 
-    if global_constraints then
-      Diagnostic_int.Sng (Some globalid,id) 
-    else
-      Diagnostic_int.Sng (None,id)
-  in
-  let callback =
-    match callback with
-    |None -> fun _ -> ()
-    |Some f -> (fun (criteria,res) ->
-        f (criteria,diagnosis solver.Depsolver_int.map univ res req)
-        )
-  in
-  let finalres = Depsolver_int.solve_pbo ~callback solver req in
-  diagnosis solver.Depsolver_int.map univ finalres req
-;;
-
-let edos_install ?(global_constraints=false) univ pkg =
-  let cudfpool = Depsolver_int.init_pool_univ ~global_constraints univ in
-  let id = CudfAdd.vartoint univ pkg in
-  (* globalid is a fake package indentifier used to encode global
-   * constraints in the universe *)
-  let globalid = Cudf.universe_size univ in
-  let closure = Depsolver_int.dependency_closure_cache cudfpool [id; globalid] in
-  let solver = Depsolver_int.init_solver_closure cudfpool closure in
-  let req = 
-    if global_constraints then
-      Diagnostic_int.Sng (Some globalid,id) 
-    else
-      Diagnostic_int.Sng (None,id)
-  in
-  let res = Depsolver_int.solve solver req in
-  diagnosis solver.Depsolver_int.map univ res req
-;;
-
-let edos_coinstall_cache global_constraints univ cudfpool pkglist =
+let edos_install_cache global_constraints univ cudfpool pkglist =
   let idlist = List.map (CudfAdd.vartoint univ) pkglist in
   let globalid = Cudf.universe_size univ in
   let closure = Depsolver_int.dependency_closure_cache cudfpool (globalid::idlist) in
   let solver = Depsolver_int.init_solver_closure cudfpool closure in
-  let req =
-    if global_constraints then
-      Diagnostic_int.Lst (Some globalid,idlist) 
-    else
-      Diagnostic_int.Lst (None,idlist)
-  in
+  let req = if global_constraints then (Some globalid,idlist) else (None,idlist) in
   let res = Depsolver_int.solve solver req in
   diagnosis solver.Depsolver_int.map univ res req
 ;;
 
+let edos_install ?(global_constraints=false) univ pkg =
+  let cudfpool = Depsolver_int.init_pool_univ ~global_constraints univ in
+  edos_install_cache global_constraints univ cudfpool [pkg]
+
 let edos_coinstall ?(global_constraints=false) univ pkglist =
   let cudfpool = Depsolver_int.init_pool_univ ~global_constraints univ in
-  edos_coinstall_cache global_constraints univ cudfpool pkglist
+  edos_install_cache global_constraints univ cudfpool pkglist
 ;;
 
 let edos_coinstall_prod ?(global_constraints=false) univ ll =
@@ -222,7 +175,7 @@ let edos_coinstall_prod ?(global_constraints=false) univ ll =
           List.map (fun h1 -> h1 :: t1) h
         )
   in
-  List.map (edos_coinstall_cache global_constraints univ cudfpool) (permutation ll)
+  List.map (edos_install_cache global_constraints univ cudfpool) (permutation ll)
 ;;
 
 let trim ?(global_constraints=true) universe =
@@ -230,11 +183,23 @@ let trim ?(global_constraints=true) universe =
   let callback d =
     if Diagnostic.is_solution d then
       match d.Diagnostic.request with
-      |Diagnostic.Package p -> trimmed_pkgs := p::!trimmed_pkgs
+      |[p] -> trimmed_pkgs := p::!trimmed_pkgs
       |_ -> assert false
   in
   ignore (univcheck ~global_constraints ~callback universe);
   Cudf.load_universe !trimmed_pkgs
+;;
+
+let trimlist ?(global_constraints=true) universe pkglist =
+  let trimmed_pkgs = ref [] in
+  let callback d =
+    if Diagnostic.is_solution d then
+      match d.Diagnostic.request with
+      |[p] -> trimmed_pkgs := p::!trimmed_pkgs
+      |_ -> assert false
+  in
+  ignore (listcheck ~global_constraints ~callback universe pkglist);
+  !trimmed_pkgs
 ;;
 
 let find_broken ?(global_constraints=true) universe =
@@ -242,7 +207,7 @@ let find_broken ?(global_constraints=true) universe =
   let callback d =
     if not (Diagnostic.is_solution d) then
       match d.Diagnostic.request with
-      |Diagnostic.Package p -> broken_pkgs := p::!broken_pkgs
+      |[p] -> broken_pkgs := p::!broken_pkgs
       |_ -> assert false
   in
   ignore (univcheck ~global_constraints ~callback universe);
@@ -251,9 +216,9 @@ let find_broken ?(global_constraints=true) universe =
 
 let callback_aux acc d =
   match d.Diagnostic.request with
-  |Diagnostic.Package p when (Diagnostic.is_solution d) -> 
+  |[p] when (Diagnostic.is_solution d) -> 
       acc := p::!acc
-  |Diagnostic.Package p ->
+  |[p] ->
       warning "Package %s is not installable" (CudfAdd.string_of_package p)
   |_ -> ()
 ;;
@@ -277,15 +242,15 @@ let find_listbroken ?(global_constraints=true) universe pkglist =
   let callback d =
     if not (Diagnostic.is_solution d) then
       match d.Diagnostic.request with
-      |Diagnostic.Package p -> broken_pkgs := p::!broken_pkgs
+      |[p] -> broken_pkgs := p::!broken_pkgs
       |_ -> assert false
   in
   ignore (listcheck ~global_constraints ~callback universe pkglist);
   !broken_pkgs
 ;;
 
-let dependency_closure ?maxdepth ?conjunctive univ pkglist =
-  Depsolver_int.dependency_closure ?maxdepth ?conjunctive univ pkglist
+let dependency_closure ?maxdepth ?conjunctive ?(global_constraints=false) univ pkglist =
+  Depsolver_int.dependency_closure ?maxdepth ?conjunctive ~global_constraints univ pkglist
 
 let reverse_dependencies univ =
   let rev = Depsolver_int.reverse_dependencies univ in
@@ -348,18 +313,6 @@ type solver_result =
   |Unsat of Diagnostic.diagnosis option
   |Error of string
 
-(* XXX this should be replaced by a proper parser *)
-let criteria_parser s =
-  let open Depsolver_int in
-  List.map (function
-    |"-count(new)" -> Count(New)
-    |"-count(removed)" -> Count(Removed)
-    |"-count(changed)" -> Count(Changed)
-    |"-notuptodate(solution)" -> NotUpToDate(Solution)
-    |"-unsat_recommends(solution)" -> UnsatRecommends(Solution)
-    |s -> fatal "Criteria parsing error : %s" s
-  ) (String.nsplit s ",")
-
 (* add a version constraint to ensure name is upgraded *)
 let upgrade_constr universe name = 
   match Cudf.get_installed universe name with
@@ -405,11 +358,7 @@ let check_request_using ?call_solver ?callback ?criteria ?(explain=false) (pre,u
     (* XXX it should be possible to add a package to a cudf document ! *)
     let pkglist = Cudf.get_packages universe in
     let universe = Cudf.load_universe (dummy::pkglist) in
-    if Option.is_none criteria || explain then
-      edos_install universe dummy
-    else
-      let criteria_array = Array.of_list (criteria_parser (Option.get criteria)) in
-      minimize ?callback criteria_array universe dummy
+    edos_install universe dummy
   in
   match call_solver with
   | None ->
@@ -424,6 +373,7 @@ let check_request_using ?call_solver ?callback ?criteria ?(explain=false) (pre,u
     |CudfSolver.Unsat when not explain -> Unsat None
     |CudfSolver.Unsat when explain -> Unsat (Some (intSolver ~explain universe request))
     |CudfSolver.Error s -> Error s
+;;
 
 (** check if a cudf request is satisfiable. we do not care about
  * universe consistency . We try to install a dummy package *)
@@ -436,5 +386,91 @@ let check_request ?cmd ?callback ?criteria ?explain cudf =
     | None -> None
   in
   check_request_using ?call_solver ?callback ?explain cudf
+;;
 
+type depclean_result =
+  (Cudf.package *
+    (Cudf_types.vpkglist * Cudf_types.vpkg * Cudf.package list) list *
+    (Cudf_types.vpkg * Cudf.package list) list
+  )
+
+(** Depclean. Detect useless dependencies and/or conflicts 
+    to missing or broken packages *)
+let depclean ?(global_constraints=true) ?(callback=(fun _ -> ())) univ pkglist =
+  let cudfpool = Depsolver_int.init_pool_univ ~global_constraints univ in
+  let is_broken =
+    let cache = Hashtbl.create (Cudf.universe_size univ) in
+    fun pkg -> 
+      try Hashtbl.find cache pkg with 
+      |Not_found ->
+        let r = edos_install_cache global_constraints univ cudfpool [pkg] in
+        let res = not(Diagnostic.is_solution r) in
+        Hashtbl.add cache pkg res;
+        res
+  in
+  let enum_conf univ pkg =
+    List.map (fun vpkg ->
+      match CudfAdd.who_provides univ vpkg with
+      |[] -> (vpkg,[])
+      |l -> (vpkg,l)
+    ) pkg.Cudf.conflicts
+  in
+  (* for each vpkglist in the depends field create a new vpkgformula
+     where for each vpkg, only one one possible alternative is considered.
+     We will use this revised vpkgformula to check if the selected alternative
+     is a valid dependency *)
+  let enum_deps univ pkg =
+    let rec aux before acc = function
+      |vpkglist :: after ->
+          let l =
+            List.map (fun vpkg ->
+              match CudfAdd.who_provides univ vpkg with
+              |[] -> (vpkglist,vpkg,[],[])
+              |l -> (vpkglist,vpkg,before@[[vpkg]]@after,l)
+            ) vpkglist
+          in
+          aux (before@[vpkglist]) (l::acc) after
+      |[] -> List.flatten acc
+    in aux [] [] pkg.Cudf.depends
+  in
+  (* if a package is in conflict with another package that is broken or missing,
+     then the conflict can be removed *)
+  let test_conflict l = 
+    List.fold_left (fun acc -> function
+      |(vpkg,[]) -> (vpkg,[])::acc
+      |(vpkg,l) -> acc 
+      (* if the conflict is with a broken package, 
+         it is still a valid conflict *)
+    ) [] l 
+  in
+  (* if a package p depends on a package that make p uninstallable, then it 
+     can be removed. If p depends on a missing package, the dependency can
+     be equally removed *)
+  let test_depends univ cudfpool pkg l =
+    let pool = Depsolver_int.strip_cudf_pool cudfpool in
+    List.fold_left (fun acc -> function
+      |(vpkglist,vpkg,_,[]) -> (vpkglist,vpkg,[])::acc
+      |(vpkglist,vpkg,depends,l) ->
+        let pkgid = Cudf.uid_by_package univ pkg in
+        let (pkgdeps,pkgconf) = pool.(pkgid) in
+        let dll =
+          List.map (fun vpkgs ->
+            (vpkgs, CudfAdd.resolve_vpkgs_int univ vpkgs)
+          ) depends
+        in
+        let _ = pool.(pkgid) <- (dll,pkgconf) in
+        let res = edos_install_cache global_constraints univ cudfpool [pkg] in
+        let _ = pool.(pkgid) <- (pkgdeps,pkgconf) in
+        if not(Diagnostic.is_solution res) then (vpkglist,vpkg,l)::acc else acc
+    ) [] l
+  in
+  List.filter_map (fun pkg ->
+    if not(is_broken pkg) then begin
+      let resdep = test_depends univ cudfpool pkg (enum_deps univ pkg) in
+      let resconf = test_conflict (enum_conf univ pkg) in
+      match resdep,resconf with
+      |[],[] -> None
+      |_,_ -> (callback(pkg,resdep,resconf) ; Some(pkg,resdep,resconf))
+    end else None
+  ) pkglist
 ;;

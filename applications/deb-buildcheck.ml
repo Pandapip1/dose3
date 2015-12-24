@@ -28,16 +28,6 @@ module Options = struct
   let options = OptParser.make ~description
   include StdOptions.MakeOptions(struct let options = options end)
 
-  include StdOptions.DistcheckOptions
-  StdOptions.DistcheckOptions.add_options options ;;
-
-  include StdOptions.InputOptions
-  StdOptions.InputOptions.add_options options ;;
-
-  include StdOptions.DistribOptions;;
-  let default = ["deb-triplettable";"deb-cputable"]@StdOptions.DistribOptions.default_options in
-  StdOptions.DistribOptions.add_options ~default options ;;
-
   let dump = StdOpt.str_option ()
   let maforeign = StdOpt.store_true ()
   let noindep = StdOpt.store_true ()
@@ -45,26 +35,47 @@ module Options = struct
   let triplettable = StdOpt.str_option ()
   let cputable = StdOpt.str_option ()
   let profiles = StdOptions.str_list_option ()
+  let dropalternatives = StdOpt.store_true ()
 
-  open OptParser
-  add options ~long_name:"defaultedMAforeign" ~help:"Convert Arch:all packages to Multi-Arch: foreign" maforeign;
-  add options ~long_name:"DropBuildIndep" ~help:"Drop Build-Indep dependencies" noindep;
-  add options ~long_name:"IncludeExtraSource" ~help:"Include packages with Extra-Source-Only:yes (dropped by default)" includextra;
-  add options ~long_name:"deb-triplettable" ~help:"Path to an architecture triplet table like /usr/share/dpkg/triplettable" triplettable;
-  add options ~long_name:"deb-cputable" ~help:"Path to a cpu table like /usr/share/dpkg/cputable" cputable;
-  add options ~long_name:"dump" ~help:"dump the cudf file" dump;
-  add options ~short_name:'P' ~long_name:"profiles" ~help:"comma separated list of activated build profiles" profiles;
+  include StdOptions.DistcheckOptions ;;
+  StdOptions.DistcheckOptions.add_options options ;;
+
+  include StdOptions.InputOptions ;;
+  StdOptions.InputOptions.add_options options ;;
+
+  include StdOptions.OutputOptions ;;
+  StdOptions.OutputOptions.add_options options ;;
+  StdOptions.OutputOptions.add_option options ~long_name:"dump" ~help:"dump the cudf file" dump;
+
+  include StdOptions.DistribOptions ;;
+  StdOptions.DistribOptions.add_options options ;;
+  StdOptions.DistribOptions.add_option options ~long_name:"deb-triplettable"
+    ~help:"Path to an architecture triplet table like /usr/share/dpkg/triplettable" triplettable;
+  StdOptions.DistribOptions.add_option options ~long_name:"deb-cputable"
+    ~help:"Path to a cpu table like /usr/share/dpkg/cputable" cputable;
+  StdOptions.DistribOptions.add_option options ~long_name:"deb-defaulted-m-a-foreign"
+    ~help:"Convert Arch:all packages to Multi-Arch: foreign" maforeign;
+  StdOptions.DistribOptions.add_option options ~long_name:"deb-drop-b-d-indep"
+    ~help:"Drop Build-Indep dependencies" noindep;
+  StdOptions.DistribOptions.add_option options ~long_name:"deb-include-extra-source"
+    ~help:"Include packages with Extra-Source-Only:yes (dropped by default)" includextra;
+  StdOptions.DistribOptions.add_option options ~short_name:'P' ~long_name:"deb-profiles"
+    ~help:"comma separated list of activated build profiles" profiles;
+  StdOptions.DistribOptions.add_option options ~long_name:"deb-emulate-sbuild"
+    ~help:"replicate sbuild behaviour to only keep the first alternative of build dependencies" dropalternatives;
 
 end
 
-include Util.Logging(struct let label = __FILE__ end) ;;
+#define __label __FILE__
+let label =  __label ;;
+include Util.Logging(struct let label = label end) ;;
 
 let timer = Util.Timer.create "Solver"
 
 let main () =
   let posargs = OptParse.OptParser.parse_argv Options.options in
   StdDebug.enable_debug (OptParse.Opt.get Options.verbose);
-  StdDebug.enable_timers (OptParse.Opt.get Options.timers) ["Solver"];
+  StdDebug.enable_timers (OptParse.Opt.get Options.timers) ["Solver";"Load.DebianSource"];
   Util.Debug.disable "Depsolver_int";
   StdDebug.all_quiet (OptParse.Opt.get Options.quiet);
 
@@ -85,6 +96,7 @@ let main () =
   (* hostarch and noindep can be None *)
   let hostarch = match options.Debian.Debcudf.host with None -> "" | Some s -> s in
   let noindep = OptParse.Opt.get Options.noindep in
+  let dropalternatives = OptParse.Opt.get Options.dropalternatives in
 
   let profiles =
     if OptParse.Opt.is_set Options.profiles then
@@ -107,7 +119,7 @@ let main () =
         Some (OptParse.Opt.get Options.triplettable)
       else None in
     let ctfile = if OptParse.Opt.is_set Options.cputable then
-        Some (OptParse.Opt.get Options.triplettable)
+        Some (OptParse.Opt.get Options.cputable)
       else None in
     Architecture.read_triplettable ~ttfile ~ctfile ()
   end;
@@ -120,7 +132,7 @@ let main () =
     |l -> 
         begin match List.rev l with
         |h::t ->
-          let srclist = StdLoaders.deb_load_source ~profiles ~filter:filter_external_sources ~noindep buildarch hostarch h in
+          let srclist = StdLoaders.deb_load_source ~dropalternatives ~profiles ~filter:filter_external_sources ~noindep buildarch hostarch h in
           let pkglist = Deb.input_raw t in
           (pkglist,srclist)
         |_ -> fatal "An impossible situation occurred ?!#"
@@ -157,6 +169,7 @@ let main () =
   let failure = OptParse.Opt.get Options.failure in
   let success = OptParse.Opt.get Options.success in
   let explain = OptParse.Opt.get Options.explain in
+  let minimal = OptParse.Opt.get Options.minimal in
   let summary = OptParse.Opt.get Options.summary in
 
   let checklist =
@@ -169,6 +182,8 @@ let main () =
       )
     end else sl
   in
+
+  Diagnostic.pp_out_version fmt;
 
   if OptParse.Opt.is_set Options.deb_native_arch then
     Format.fprintf fmt "native-architecture: %s@." (OptParse.Opt.get Options.deb_native_arch);
@@ -184,7 +199,7 @@ let main () =
   if failure || success then Format.fprintf fmt "@[<v 1>report:@,";
   let callback d = 
     if summary then Diagnostic.collect results d ;
-      Diagnostic.fprintf ~pp ~failure ~success ~explain fmt d
+      Diagnostic.fprintf ~pp ~failure ~success ~explain ~minimal fmt d
   in
 
   Util.Timer.start timer;
@@ -218,5 +233,5 @@ StdUtils.if_application
     "deb-buildcheck"; "debbuildcheck";"dose-builddebcheck";
     "deb-crossbuildcheck";"debcrossbuildcheck";
     "dose-debcrossbuildcheck"]
-  __FILE__ main
+  __label main
 ;;

@@ -1,0 +1,37 @@
+dose-distcheck (4.0-1) unstable; urgency=low
+
+  (1.) With the 4.0 release, the following command line options of
+       dose-builddebcheck were renamed:
+
+         --defaultedMAforeign -> --deb-defaulted-m-a-foreign
+         --DropBuildIndep     -> --deb-drop-b-d-indep
+         --IncludeExtraSource -> --deb-include-extra-source
+         --profiles           -> --deb-profiles
+
+  (2.) Additionally, the output of dose-distcheck and dose-builddebcheck now
+       displays package names with architecture specification in the same order
+       as other debian tools, that is <package>:<architecture>. As an example,
+       the following snippet from an older dose-builddebcheck run...
+
+       [...]
+          -
+           package: amd64:adduser
+           version: 3.113+nmu3
+           architecture: all
+           essential: false
+       [...]
+
+       ...will now look like the following:
+
+       [...]
+          -
+           package: adduser:amd64
+           version: 3.113+nmu3
+           architecture: all
+           essential: false
+       [...]
+
+  (3.) Finally, the YAML output now carries a format identifier. Scripts that
+       parse the dose-debcheck explanations have to to be adapted.
+
+ -- Ralf Treinen <treinen@debian.org>  Mon, 31 Aug 2015 10:47:01 +0200

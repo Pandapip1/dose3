@@ -14,7 +14,9 @@ module Pcre = Re_pcre
 open ExtLib
 open Common
 
-include Util.Logging(struct let label = __FILE__ end) ;;
+#define __label __FILE__
+let label =  __label ;;
+include Util.Logging(struct let label = label end) ;;
 
 type name = string
 type version = string
@@ -180,10 +182,11 @@ module Synthesis = struct
     parse_packages_rec [] ch
 
   let parse_packages f filename =
-    let ch = Input.open_file filename in 
-    let l = parse_packages_rec [] ch in
-    Input.close_ch ch;
-    l
+    try
+      let ch = Input.open_file filename in 
+      let l = parse_packages_rec [] ch in
+      Input.close_ch ch; l
+    with Input.File_empty -> []
 
   let input_raw ?(extras=[]) files = input_raw_priv parse_packages files
 

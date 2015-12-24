@@ -12,24 +12,25 @@
 
 exception Invalid_url of string;;
 
-include Util.Logging(struct let label = __FILE__ end) ;;
+#define __label __FILE__
+let label =  __label ;;
+include Util.Logging(struct let label = label end) ;;
 
 (***********************************************************************)
 (* Input schemes *******************************************************)
 
-type debtypes = [ `Edsp | `Deb ]
+type debtypes = [ `Edsp | `Deb | `DebSrc ]
 type rpmtypes = [ `Synthesis | `Hdlist ]
-type osgitypes = [ `Eclipse ]
-type othertypes = [ `Csw | `Cv ]
+type othertypes = [ `Csw | `Pef ]
 
-type filetypes = [ `Cudf | debtypes | rpmtypes | osgitypes | othertypes ]
+type filetypes = [ `Cudf | debtypes | rpmtypes | othertypes ]
 
 let scheme_to_string = function
   | `Edsp -> "edsp"
   | `Csw -> "csw"
-  | `Cv -> "cv"
   | `Deb -> "deb"
-  | `Eclipse -> "eclipse"
+  | `DebSrc -> "debsrc"
+  | `Pef -> "pef"
   | `Cudf -> "cudf"
   | `Synthesis -> "synthesis"
   | `Hdlist -> "hdlist"
@@ -38,17 +39,17 @@ let scheme_to_string = function
 let scheme_of_string = function
   | "edsp" -> `Edsp
   | "csw" -> `Csw
-  | "cv" -> `Cv
   | "deb" -> `Deb
+  | "debsrc" -> `DebSrc
   | "cudf" -> `Cudf
-  | "eclipse" -> `Eclipse
+  | "eclipse" | "pef" -> `Pef
   | "synthesis" -> `Synthesis
   | "hdlist" -> `Hdlist
   | s -> fatal "unknown input scheme" s
 ;;
 
 let supported_input_types =
-  [`Edsp; `Deb ; `Synthesis ; `Hdlist ; `Eclipse ; `Csw ; `Cudf ; `Cv ]
+  [`Edsp; `Deb ; `DebSrc ; `Synthesis ; `Hdlist ; `Pef ; `Csw ; `Cudf ]
 ;;
 
 (***********************************************************************)

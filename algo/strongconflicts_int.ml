@@ -15,7 +15,9 @@
 open ExtLib
 open Common
 
-include Util.Logging(struct let label = __FILE__ end) ;;
+#define __label __FILE__
+let label =  __label ;;
+include Util.Logging(struct let label = label end) ;;
 
 module SG = Defaultgraphs.IntPkgGraph.G
 module PkgV = Defaultgraphs.IntPkgGraph.PkgV
@@ -110,7 +112,7 @@ let strongconflicts univ =
   let try_add_edge stronglist p q x y =
     if not (IG.mem_edge cache p q) then begin
       IG.add_edge cache p q;
-      let req = Diagnostic_int.Lst (None,[p;q]) in
+      let req = (None,[p;q]) in
       match Depsolver_int.solve solver req with
       |Diagnostic_int.Success _ -> ()
       |Diagnostic_int.Failure f ->

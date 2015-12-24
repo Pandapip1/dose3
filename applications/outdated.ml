@@ -19,8 +19,6 @@ open Common
 open Algo
 open DoseparseNoRpm
 
-include Util.Logging(struct let label = __FILE__ end) ;;
-
 module Options = struct
   open OptParse
   let description =
@@ -28,20 +26,24 @@ module Options = struct
   let options = OptParser.make ~description
   include StdOptions.MakeOptions(struct let options = options end)
 
-  include StdOptions.DistcheckOptions
+  include StdOptions.DistcheckOptions ;;
   StdOptions.DistcheckOptions.add_options options ;;
 
-  include StdOptions.InputOptions
+  include StdOptions.InputOptions ;;
   StdOptions.InputOptions.add_options ~default:["checkonly"] options ;;
 
-  include StdOptions.DistribOptions;;
+  include StdOptions.DistribOptions ;;
   StdOptions.DistribOptions.add_options options ;;
 
   let dump = StdOpt.store_true ()
 
-  open OptParser
+  open OptParser ;;
   add options ~long_name:"dump" ~help:"Dump the cudf package list and exit" dump;
 end
+
+#define __label __FILE__
+let label =  __label ;;
+include Util.Logging(struct let label = label end) ;;
 
 let sync (sn,sv,v) p =
   let cn = CudfAdd.encode ("src/"^sn^"/"^sv) in
@@ -130,6 +132,7 @@ let future ?options ?(checklist=[]) repository =
       let pkg = {
         Debian.Packages.default_package with 
         Debian.Packages.name = name;
+        Debian.Packages.architecture = "all";
         version = "1";
         } 
       in
@@ -174,7 +177,7 @@ let future ?options ?(checklist=[]) repository =
       List.fold_left (fun acc1 (target,equiv) ->
         incr sync_index;
         List.fold_left (fun acc2 pkg ->
-          let p = Debian.Debcudf.tocudf tables pkg in
+          let p = Debian.Debcudf.tocudf ?options tables pkg in
           let pv = p.Cudf.version in
 
           let target = Debian.Evolution.align pkg.Debian.Packages.version target in
@@ -200,7 +203,6 @@ let future ?options ?(checklist=[]) repository =
   let universe = Cudf.load_universe (CudfAdd.Cudf_set.elements pkgset) in
 
   universe, tables
-
 ;;
  
 let outdated 
@@ -258,7 +260,7 @@ let outdated
     in
     let l =
       List.filter_map (fun k ->
-        try Some(k,Cudf.lookup_package_property pkg k)
+        try Some(k,(Cudf.lookup_package_property pkg k, true))
         with Not_found -> None
       ) ["architecture";"source";"sourcenumber";"equivs"]
     in
@@ -266,7 +268,8 @@ let outdated
   in
 
   let fmt = Format.std_formatter in
-  Format.fprintf fmt "@[<v 1>report:@,";
+  Diagnostic.pp_out_version fmt;
+  if failure then Format.fprintf fmt "@[<v 1>report:@,";
 
   let results = Diagnostic.default_result universe_size in
   let callback d = 
@@ -329,5 +332,5 @@ let main () =
 
 StdUtils.if_application
 ~alternatives:["dose-outdated";"dose3-outdated";"edos-outdated";"deb-outdated"] 
-__FILE__ main ;;
+__label main ;;
 
