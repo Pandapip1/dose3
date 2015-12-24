@@ -294,7 +294,7 @@ let test_cluster =
           Hashtbl.fold (fun (sn, sv) l acc ->
             (sn,sv,SubClusterSetTest.of_list (
               List.map (fun (v,rv,cluster) -> 
-                let cl = List.map(fun pkg -> (pkg.Packages.name,pkg.Packages.version)) cluster in
+                let cl = List.map(fun pkg -> (pkg#name,pkg#version)) cluster in
                 (v,rv,PkgSetTest.of_list cl)
               ) l
             ))::acc
@@ -460,24 +460,12 @@ let test_multiarch =
     "multi arch same provide-conflicts" >:: (fun _ -> 
       (*
       let f = Filename.concat test_dir "deb/edsp/multiarch-same-provides.edsp" in
-      let (request,pkglist) = Edsp.input_raw ~archs:["arch1";"arch2"] f in
+      let (request,pkglist) = Edsp.input_raw f in
       let tables = Debcudf.init_tables pkglist in
-      let options = {
-        Debcudf.default_options with
-        Debcudf.native = "arch1";
-        Debcudf.foreign = ["arch2"] }
-      in
-      let default_preamble =
-        let l = List.map snd Edsp.extras_tocudf in
-        CudfAdd.add_properties Debcudf.preamble l
-      in
-      let cudf_pkglist = List.map (fun pkg -> Edsp.tocudf tables ~options pkg) pkglist in
+      let cudf_pkglist = List.map (fun pkg -> Edsp.tocudf tables pkg) pkglist in
       let universe = Cudf.load_universe cudf_pkglist in
       let cudf_request = Edsp.requesttocudf tables universe request in
-      let r = Algo.Depsolver.check_request (Some default_preamble,cudf_pkglist,cudf_request) in
-      assert_equal (Algo.Diagnostic.is_solution r) true
-      *) 
-      ()
+*) ()
     );
   ] 
 ;;
@@ -635,7 +623,7 @@ let parse_popcon_triplets =
 (* parse_pkg_req *)
 let parse_pkg_req_triplets =
   let function_to_test = (fun (suite, s) -> Apt.parse_pkg_req suite s) in
-  let returns = returns_result ~printer:Printer.string_of_vpkgreq function_to_test
+  let returns = returns_result ~printer:Pef.Printer.string_of_vpkgreq function_to_test
 (*  and raises  = raises_failure function_to_test *)
   in
   [ ("suite name=1.2", 
@@ -644,11 +632,11 @@ let parse_pkg_req_triplets =
 
     ("suite +name=1.2", 
      ( (Some "suite"), "+name=1.2"), 
-     returns (Some Packages_types.I, (("name", None), Some ("=", "1.2")), Some "suite"));
+     returns (Some Pef.Packages_types.I, (("name", None), Some ("=", "1.2")), Some "suite"));
 
     ("suite -name=1.2", 
      ( (Some "suite"), "-name=1.2"), 
-     returns (Some Packages_types.R, (("name", None), Some ("=", "1.2")), Some "suite"));
+     returns (Some Pef.Packages_types.R, (("name", None), Some ("=", "1.2")), Some "suite"));
 
     ("suite name/suite1", 
      ( (Some "suite"), "name/suite1"), 
@@ -664,11 +652,11 @@ let parse_pkg_req_triplets =
 
     ("none +name", 
      ( None, "+name"), 
-     returns (Some Packages_types.I, (("name", None), None), None));
+     returns (Some Pef.Packages_types.I, (("name", None), None), None));
 
     ("none -name", 
      ( None, "-name"), 
-     returns (Some Packages_types.R, (("name", None), None), None));
+     returns (Some Pef.Packages_types.R, (("name", None), None), None));
 
     ("suite name", 
      ( Some "suite", "name"), 
@@ -693,17 +681,17 @@ let parse_pref_labels_triplets =
 
 (* parse_pref_package *)
 let parse_pref_package_triplets =
-  let function_to_test = (fun s -> Apt.parse_pref_package ((),s)) in
+  let function_to_test = (fun s -> Apt.parse_pref_package ("parse_pref_package_triplets ",((),s))) in
   let returns = returns_result function_to_test
 (*  and raises  = raises_failure function_to_test *)
   in
   [ ("asterisk 1", "*",          returns Apt.Pref.Star);
     ("asterisk 2", "    *     ", returns Apt.Pref.Star);
-    ("name 1",     "name1",      returns (Apt.Pref.Package (Packages.parse_name (Format822.dummy_loc, "name1")))); ]
+    ("name 1",     "name1",      returns (Apt.Pref.Package (Pef.Packages.parse_name ("parse_pref_package_triplets",(Format822.dummy_loc, "name1"))))); ]
 
 (* parse_pin *)
 let parse_pin_triplets =
-  let function_to_test = (fun s -> Apt.parse_pin ((),s)) in
+  let function_to_test = (fun s -> Apt.parse_pin ("parse_pin_triplets",((),s))) in
   let returns = returns_result function_to_test
 (*  and raises  = raises_failure function_to_test *)
   in
@@ -878,11 +866,10 @@ let test_sources2packages =
   let buildarch = "amd64" in
   let sources = Sources.sources2packages ~profiles:["stage1"] buildarch hostarch packagelist in
   let function_to_test src =
-    let src = List.find (fun s -> s.Packages.name = src) sources in
-    src.Packages.depends
+    let src = List.find (fun s -> s#name = src) sources in
+    src#depends
   in
-  let printer = Printer.string_of_vpkgformula in
-  let returns = returns_result ~printer function_to_test in
+  let returns = returns_result ~printer:Pef.Printer.string_of_vpkgformula function_to_test in
   [
     (
       "any/native", "src:source1", returns [
@@ -912,6 +899,138 @@ let test_sources2packages =
   ]
 ;;
 
+(*
+ pkgA provides pkgB | pkgC depends on pkgB | dpkg  | dose3
+--------------------+----------------------+-------+-------
+      unversioned   |      unversioned     | sat   | sat
+      unversioned   |        (= 20)        | unsat | unsat
+      unversioned   |        (<= 10)       | unsat | unsat
+      unversioned   |        (>= 20)       | unsat | unsat
+--------------------+----------------------+-------+-------
+        (= 10)      |      unversioned     | sat   | unsat  ***
+        (= 10)      |        (= 20)        | unsat | unsat
+        (= 10)      |        (<= 10)       | sat   | sat
+        (= 10)      |        (>= 20)       | unsat | unsat
+--------------------+----------------------+-------+-------
+        (= 20)      |      unversioned     | sat   | unsat  ***
+        (= 20)      |        (= 20)        | sat   | sat
+        (= 20)      |        (<= 10)       | unsat | unsat
+        (= 20)      |        (>= 20)       | sat   | sat
+--------------------+----------------------+-------+-------
+    (= 10) (= 20)   |      unversioned     | sat   | unsat  ***
+    (= 10) (= 20)   |        (= 20)        | sat   | sat
+    (= 10) (= 20)   |        (<= 10)       | sat   | sat
+    (= 10) (= 20)   |        (>= 20)       | sat   | sat
+
+
+ pkgA provides pkgB | pkgC conflicts with pkgB | dpkg  | dose3
+--------------------+--------------------------+-------+-------
+      unversioned   |        unversioned       | unsat |  sat   ***
+      unversioned   |          (= 20)          | sat   |  sat
+      unversioned   |          (<= 10)         | sat   |  sat
+      unversioned   |          (>= 20)         | sat   |  sat
+--------------------+--------------------------+-------+-------
+        (= 10)      |        unversioned       | unsat |  sat   ***
+        (= 10)      |          (= 20)          | sat   |  sat
+        (= 10)      |          (<= 10)         | unsat |  sat   ***
+        (= 10)      |          (>= 20)         | sat   |  sat
+--------------------+--------------------------+-------+-------
+        (= 20)      |        unversioned       | unsat |  sat   ***
+        (= 20)      |          (= 20)          | unsat |  sat   ***
+        (= 20)      |          (<= 10)         | sat   |  sat
+        (= 20)      |          (>= 20)         | unsat |  sat   ***
+--------------------+--------------------------+-------+-------
+    (= 10) (= 20)   |        unversioned       | unsat |  sat   ***
+    (= 10) (= 20)   |          (= 20)          | unsat |  sat   ***
+    (= 10) (= 20)   |          (<= 10)         | unsat |  sat   ***
+    (= 10) (= 20)   |          (>= 20)         | unsat |  sat   ***
+*)
+
+let test_versioned_provides =
+  let unversioned = [(("B",None),None)] in
+  let eqversioned10 = [(("B",None),Some("=","10"))] in
+  let eqversioned20 = [(("B",None),Some("=","20"))] in
+  let leqversioned = [(("B",None),Some("<=","10"))] in
+  let geqversioned = [(("B",None),Some(">=","20"))] in
+  let function_to_test univ =
+    let r = Algo.Depsolver.edos_coinstall univ (Cudf.get_packages univ) in
+    Algo.Diagnostic.is_solution r
+  in
+  let printer r = if r then "unsat" else "sat" in
+  let pr_list = Util.string_of_list ~sep:", " Pef.Printer.string_of_vpkg in
+  let returns = returns_result ~printer function_to_test in
+  let res = 
+    List.map (fun (provides,relation,result) ->
+      List.map (fun (provides,relation,result,polarity) ->
+        let a =
+          new Packages.package
+            ~name:("Package",Some "A")
+            ~version:("Version",Some "1")
+            ~architecture:("Architecture",Some "arch1")
+            ~provides:("Provides",Some provides)
+            ~extras:([],Some [("Type","bin")]) []
+        in
+        let c =
+          if polarity then
+            new Packages.package
+              ~name:("Package",Some "C")
+              ~version:("Version",Some "1")
+              ~architecture:("Architecture",Some "arch1")
+              ~depends:("Depends",Some [relation])
+              ~extras:([],Some [("Type","bin")]) []
+          else
+            new Packages.package
+              ~name:("Package",Some "C")
+              ~version:("Version",Some "1")
+              ~architecture:("Architecture",Some "arch1")
+              ~conflicts:("Conflicts",Some relation)
+              ~extras:([],Some [("Type","bin")]) []
+        in
+        let options = {options with Debcudf.native = Some "arch1" } in
+        let tables = Debcudf.init_tables [a;c] in
+        let pkga = (Debcudf.tocudf ~options tables a) in
+        let pkgc = (Debcudf.tocudf ~options tables c) in
+        let univ = Cudf.load_universe [pkga;pkgc] in
+        let s =
+          let us =
+            let o = IO.output_string () in
+            Cudf_printer.pp_io_preamble o Debcudf.preamble;
+            IO.printf o "\n";
+            Cudf_printer.pp_io_universe o univ;
+            IO.close_out o
+          in
+          Printf.sprintf "\nA Provides:%s / C %s:%s\n%s"
+          (pr_list provides)
+          (if polarity then "Depends" else "Conflicts")
+          (pr_list relation) us 
+        in
+        (s,univ,returns result)
+      ) [(provides,relation,result,true);(provides,relation,not result,false)]
+    )
+    [ 
+      (unversioned,unversioned,true);
+      (unversioned,eqversioned20,false);
+      (unversioned,leqversioned,false);
+      (unversioned,geqversioned,false);
+
+      (eqversioned10,unversioned,true);
+      (eqversioned10,eqversioned20,false);
+      (eqversioned10,leqversioned,true);
+      (eqversioned10,geqversioned,false);
+
+      (eqversioned20,unversioned,true);
+      (eqversioned20,eqversioned20,true);
+      (eqversioned20,leqversioned,false);
+      (eqversioned20,geqversioned,true);
+
+      (eqversioned10@eqversioned20,unversioned,true);
+      (eqversioned10@eqversioned20,eqversioned20,true);
+      (eqversioned10@eqversioned20,leqversioned,true);
+      (eqversioned10@eqversioned20,geqversioned,true);
+    ]
+  in List.flatten res
+;;
+
 let test_sources =
   "test_sources" >::: [
     "test select" >::: make_test_cases select_deps;
@@ -922,6 +1041,7 @@ let test_sources =
 let all = 
   "all tests" >::: [ 
     test_parsing;
+    "test versioned provides" >::: make_test_cases test_versioned_provides;
     test_mapping ;
     test_conflicts;
     test_version;

@@ -29,6 +29,7 @@ type rawpackage =
   |Deb of Debian.Packages.package
   |DebSrc of Debian.Sources.source
   |Pef of Pef.Packages.package
+  |Opam of Opam.Packages.package
   |Edsp of Debian.Packages.package
   |Csw of Csw.Packages.package
 #ifdef HASRPM
@@ -52,19 +53,21 @@ let deb_load_list options ?(status=[]) ?(raw=false) dll =
   let pkgll = List.map (List.map (function
       | Deb p -> p
       | DebSrc p ->
+          if Option.is_none options.Debian.Debcudf.native then
+            fatal "--deb-native-arch was not specified while treating Debian Sources File";
         let buildarch = Option.get options.Debian.Debcudf.native in
         let hostarch = Option.get options.Debian.Debcudf.host in
         Debian.Sources.src2pkg ~noindep ~profiles buildarch hostarch p
       | _ -> fatal "cannot handle input"
-    )) dll in
+    )) dll 
+  in
   let pkgl = List.flatten pkgll in
   let pkgl = if status = [] then pkgl else Debian.Packages.merge status pkgl in
   let tables = Debian.Debcudf.init_tables pkgl in
-  let from_cudf (p,i) = (p,Debian.Debcudf.get_real_version tables (p,i)) in
+  let from_cudf (p,i) = Debian.Debcudf.get_real_version tables (p,i) in
   let to_cudf (p,v) = (p,Debian.Debcudf.get_cudf_version tables (p,v)) in
   let cll = 
     List.map (fun l ->
-      (* XXX this is stupid and slow *)
       List.map (Debian.Debcudf.tocudf tables ~options) (Debian.Packages.merge status l)
     ) pkgll
   in
@@ -96,12 +99,29 @@ let deb_load_list options ?(status=[]) ?(raw=false) dll =
   in
   let preamble = Debian.Debcudf.preamble in
   let request = Cudf.default_request in
-  (* only return the raw input if status is empty or otherwise the mapping
-   * from rawll to cll will be wrong *)
   let rawll = if raw && status = [] then Some dll else None in
   let l = (preamble,cll,request,from_cudf,to_cudf,rawll) in
   Util.Timer.stop deb_load_list_timer l
       
+let opam_load_list ?options file =
+  let (request,pkglist) = Opam.Packages.input_raw file in
+  let tables = Pef.Pefcudf.init_tables Versioning.Debian.compare pkglist in
+  let from_cudf (p,i) = (p, Pef.Pefcudf.get_real_version tables (p,i)) in
+  let to_cudf (p,v) = (p, Pef.Pefcudf.get_cudf_version tables (p,v)) in
+  let options =
+    match options with
+    |None -> {
+      Opam.Opamcudf.default_options with
+      Opam.Opamcudf.switch = request.Opam.Packages.switch;
+      switches = request.Opam.Packages.switches;
+      profiles = request.Opam.Packages.profiles }
+    |Some opt -> opt
+  in
+  let cl = List.flatten (List.map (Opam.Opamcudf.tocudf ~options tables) pkglist) in
+  let preamble = Opam.Opamcudf.preamble in
+  let request = Opam.Opamcudf.requesttocudf tables (Cudf.load_universe cl) request in
+  (preamble,[cl;[]],request,from_cudf,to_cudf,None)
+
 let pef_load_list options dll =
   let extras = [("maintainer",("maintainer",`String None))] in
   let pkglist = List.flatten dll in
@@ -159,14 +179,14 @@ let edsp_load_list options file =
         Some p
       end else begin
         warning "Duplicated package (same version, name and architecture) : (%s,%s,%s)"
-          pkg.Debian.Packages.name pkg.Debian.Packages.version pkg.Debian.Packages.architecture;
+          pkg#name pkg#version pkg#architecture;
         None
       end
     ) pkglist
   in
   let request = Debian.Edsp.requesttocudf tables (Cudf.load_universe cudfpkglist) request in
   let to_cudf (p,v) = (p,Debian.Debcudf.get_cudf_version tables (p,v)) in
-  let from_cudf (p,i) = (p, Debian.Debcudf.get_real_version tables (p,i)) in
+  let from_cudf (p,i) = Debian.Debcudf.get_real_version tables (p,i) in
   (preamble,[cudfpkglist;[]],request,from_cudf,to_cudf,None)
 
 let edsp_load_universe options file =
@@ -210,10 +230,10 @@ let parse_cudf doc =
     Cudf_parser.parse p
   with
   |Input.File_empty -> None, [], None
-  |Cudf_parser.Parse_error _
-  |Cudf.Constraint_violation _ as exn -> begin
+  |Cudf_parser.Parse_error (msg, loc) ->
+    fatal "Error while parsing CUDF from %s (%s): %s" doc (Format822.string_of_loc loc) msg ;
+  |Cudf.Constraint_violation _ as exn ->
     fatal "Error while loading CUDF from %s: %s" doc (Printexc.to_string exn)
-  end
 
 (** parse a cudf file and return a triple (preamble,universe,request option).
     If the package is not valid return an empty list of packages *)
@@ -225,7 +245,8 @@ let load_cudf doc =
       Cudf_parser.load p
     with
     |Input.File_empty -> None, Cudf.load_universe [], None
-    |Cudf_parser.Parse_error _
+    |Cudf_parser.Parse_error (msg, loc) ->
+      fatal "Error while parsing CUDF from %s (%s): %s" doc (Format822.string_of_loc loc) msg ;
     |Cudf.Constraint_violation _ as exn -> begin
       fatal "Error while loading CUDF file %s:\n%s" doc (Printexc.to_string exn)
     end 
@@ -287,6 +308,17 @@ let pef_parse_input options urilist =
   in
   pef_load_list options dll
 
+let opam_parse_input ?options urilist =
+  match urilist with
+  |[[p]] when (unpack `Opam p) = "-" -> fatal "no stdin for opam yet"
+  |[[p]] -> opam_load_list ?options (unpack `Opam p)
+  |l ->
+    if List.length (List.flatten l) > 1 then
+      warning "more than one opam request file specified on the command line";
+    let p = List.hd (List.flatten l) in 
+    opam_load_list ?options (unpack `Opam p)
+;;
+
 let csw_parse_input urilist =
   let dll = 
     List.map (fun l ->
@@ -336,6 +368,8 @@ let parse_input ?(options=None) ?(raw=false) urilist =
   
 (*  |`Edsp, Some (StdOptions.Edsp opt) -> edsp_parse_input opt filelist *)
   |`Edsp, _ -> edsp_parse_input Debian.Debcudf.default_options filelist
+  |`Opam, _ -> opam_parse_input filelist
+(* |`Opam, Some (StdOptions.Opam options) -> opam_parse_input ~options filelist *)
 
   |`Pef, Some (StdOptions.Pef opt) -> pef_parse_input opt filelist
 

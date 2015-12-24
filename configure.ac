@@ -1,7 +1,9 @@
-AC_INIT(dose3, 4.0.1, pietro.abate@pps.univ-paris-diderot.fr)
+AC_INIT(dose3, 4.0, pietro.abate@pps.univ-paris-diderot.fr)
 AC_COPYRIGHT(Copyright 2009-2015 Mancoosi Project)
 
 AC_CONFIG_MACRO_DIR([m4])
+
+AC_CHECK_OCAML_OS_TYPE
 
 AC_PROG_OCAML
 if test "$OCAMLC" = "no"; then
@@ -137,9 +139,13 @@ if test "$HAS_OCAMLGRAPH" = "yes" ; then
   fi
   TMPVERSION=`$OCAMLFIND query -format %v ocamlgraph | sed 's/\.//g'`
   PKG_OCAMLGRAPH="package(ocamlgraph)"
-  MLPACK_OCAMLGRAPH="Defaultgraphs Statistics Dominators Strongdeps Strongdeps_int Strongconflicts Strongconflicts_int"
-  DOC_OCAMLGRAPH="algo/Strongdeps algo/Strongconflicts algo/Strongdeps_int algo/Strongconflicts_int algo/Defaultgraphs algo/Statistics"
-  CONFIG_OCAMLGRAPH="-D HASOCAMLGRAPH -D OCAMLGRAPH$TMPVERSION"
+  MLPACK_OCAMLGRAPH="Defaultgraphs
+Statistics
+Dominators
+Strongdeps
+Strongconflicts_int
+Strongconflicts"
+  CONFIG_OCAMLGRAPH="-D HASOCAMLGRAPH -D 'OCAMLGRAPHVERSION $TMPVERSION'"
   OCAMLGRAPH=ocamlgraph
 fi
 
@@ -199,6 +205,10 @@ if test "$HAS_BENCHMARK" = "yes" ; then
   PKG_BENCHMARK="pkg_benchmark"
 fi
 
+AS_IF([test "$OCAMLBEST" = "opt"],[OCAMLBESTCC=$OCAMLOPT],[OCAMLBESTCC=$OCAMLC])
+OCAML_CC="$($OCAMLBESTCC -config | fgrep native_c_compiler | sed -e "s/native_c_compiler: \(.*\) .*/\1/")"
+AC_PROG_CC(["${OCAML_CC}" gcc cl cc])
+
 AC_HEADER_STDC
 
 RPMPATH="-I/usr/include/rpm"
@@ -245,13 +255,26 @@ if test "$HAS_RPM5" = "yes"; then
   HAS_RPM=yes
 fi
 
+OCAML_SYSTEM="$($OCAMLBESTCC -config | fgrep system | sed -e "s/system: \(.*\)/\1/")"
+AC_SUBST(OCAML_SYSTEM)
+
+AS_IF([test "${OCAML_OS_TYPE}" = "Win32"],[
+  AC_MSG_CHECKING([for a workable solution for ln -s])
+  ln -s configure conftestLink
+  AS_IF([test "`cmd /c dir conftestLink 2>/dev/null | fgrep SYMLINK`" = ""],[LN=cp],[LN="ln -s"])
+  AC_MSG_RESULT([$LN])
+],[
+  LN="ln -s"
+])
+AC_SUBST(LN)
+
 #AC_CHECK_HEADERS([sched.h],,AC_MSG_ERROR([missing sched.h]))
 #AC_CHECK_DECLS([sched_setaffinity], [], [], [[
 #                #define _GNU_SOURCE 1
 #                #include <sched.h>
 #                ]])
 
-OCAMLVERSION="OCAML$(echo $OCAMLVERSION | sed 's/\.//g')"
+OCAMLVERSION="$(echo $OCAMLVERSION | sed 's/\.//g')"
 
 AC_SUBST(OCAMLVERSION)
 AC_SUBST(CONFIG_ZIP)

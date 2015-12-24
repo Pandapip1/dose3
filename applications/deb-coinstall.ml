@@ -51,7 +51,7 @@ module Options = struct
 
   include StdOptions.DistribOptions ;;
   let default = List.remove StdOptions.DistribOptions.default_options "deb-host-arch" in
-  StdOptions.DistribOptions.add_options ~default options ;
+  StdOptions.DistribOptions.add_debian_options ~default options ;
   StdOptions.DistribOptions.add_option options ~long_name:"deb-triplettable"
     ~help:"Path to an architecture triplet table like /usr/share/dpkg/triplettable" triplettable;
   StdOptions.DistribOptions.add_option options ~long_name:"deb-cputable"
@@ -117,7 +117,7 @@ let main () =
       else []
     in
     let tables = Debian.Debcudf.init_tables (srclist@pkglist) in
-    let from_cudf (p,i) = (p,Debian.Debcudf.get_real_version tables (p,i)) in
+    let from_cudf (p,i) = Debian.Debcudf.get_real_version tables (p,i) in
     let to_cudf (p,v) = (p,Debian.Debcudf.get_cudf_version tables (p,v)) in
     let srcl =
       let dl = List.map (Debian.Debcudf.tocudf tables ~options) srclist in
@@ -212,7 +212,7 @@ let main () =
           try
             let id = (cudfpkg.Cudf.package,cudfpkg.Cudf.version) in
             let debpkg = Hashtbl.find cudftodeb_table id in
-            Printf.fprintf oc "%a\n" Debian.Printer.pp_package debpkg
+            debpkg#pp oc
           with Not_found -> assert false
         ) is
       else
@@ -225,7 +225,7 @@ let main () =
             ) is
           )
         in
-        List.iter (Printf.fprintf oc "%a\n" Debian.Printer.pp_source) l
+        List.iter (fun pkg -> pkg#pp oc) l
       end; 0 (* exit code 0 . All packages are installable *)
     end
     else begin if failure then begin
@@ -251,5 +251,5 @@ let main () =
 ;;
 
 StdUtils.if_application
-~alternatives:["dose-debcoinstall";"deb-coinstall"] __label main ;;
+~alternatives:["dose-deb-coinstall";"deb-coinstall"] __label main ;;
 

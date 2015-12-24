@@ -66,7 +66,8 @@ module Options = struct
   StdOptions.OutputOptions.add_option options ~short_name:'T' ~help:"Output type format. Default cnf" out_type;;
 
   include StdOptions.DistribOptions ;;
-  StdOptions.DistribOptions.add_options options ;;
+  StdOptions.DistribOptions.add_debian_options options ;;
+  StdOptions.DistribOptions.add_opam_options options ;;
 
 end;;
 
@@ -88,11 +89,11 @@ let loadl to_cudf l =
 ;;
 
 let parse_request to_cudf l =
-  let open Debian in
   let pkgs_of s = (* convert request into list of packages *) 
     let rs = String.strip (snd (String.split s " ")) in
-    let  f = Packages.lexbuf_wrapper Packages_parser.vpkglist_top in
-    loadl to_cudf (f (Format822.dummy_loc,rs)) 
+    let field = ("ceve pkg req",(Format822.dummy_loc,rs)) in
+    let v = Pef.Packages.lexbuf_wrapper Pef.Packages_parser.vpkglist_top field in
+    loadl to_cudf v 
   in              
   let parse acc s =
     if String.starts_with s "install: " then
@@ -231,15 +232,13 @@ let main () =
       |"dimacs" -> Printf.fprintf oc "%s" (Depsolver.output_clauses ~global_constraints ~enc:Depsolver.Dimacs u)
       |"cudf" -> Cudf_printer.pp_cudf oc doc
       |"deb" -> List.iter (function
-          | StdLoaders.Deb p ->
-            Printf.fprintf oc "%a\n" Debian.Printer.pp_package p
+          | StdLoaders.Deb p -> p#pp oc
           | StdLoaders.DebSrc p -> ()
           | _ -> failwith "impossible"
         ) (List.map cudf2deb l)
       |"debsrc" -> List.iter (function
           | StdLoaders.Deb p -> ()
-          | StdLoaders.DebSrc p ->
-            Printf.fprintf oc "%a\n" Debian.Printer.pp_source p
+          | StdLoaders.DebSrc p -> p#pp oc
           | _ -> failwith "impossible"
         ) (List.map cudf2deb l)
       |"table" ->

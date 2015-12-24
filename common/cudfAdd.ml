@@ -83,7 +83,6 @@ let init_hashtables enc_ht dec_ht =
     DecodingHashtable.add dec_ht hchr schr;
     decr n;
   done
-;;
 
 (* Create and initialize twin hashtables,
    one for encoding and one for decoding. *)
@@ -97,7 +96,6 @@ let not_allowed_regexp = Pcre.regexp "[^a-zA-Z0-9@/+().-]";;
 
 let encode s =
   Pcre.substitute ~rex:not_allowed_regexp ~subst:encode_single s
-;;
 
 (* decode *)
 let decode_single s = DecodingHashtable.find dec_ht s;;
@@ -105,7 +103,6 @@ let encoded_char_regexp = Pcre.regexp "%[0-9a-f][0-9a-f]";;
 
 let decode s =
   Pcre.substitute ~rex:encoded_char_regexp ~subst:decode_single s
-;;
 
 (** Pretty Printing *)
 
@@ -130,11 +127,9 @@ type pp = Cudf.package -> string * string * (string * (string * bool)) list
 let default_pp pkg =
   let v = if pkg.Cudf.version > 0 then string_of_version pkg else "nan" in
   (pkg.Cudf.package,v,[])
-;;
 
 let pp from_cudf ?(fields=[]) ?(decode=decode) pkg =
-    let (p,i) = (pkg.Cudf.package,pkg.Cudf.version) in
-    let v = if i > 0 then snd(from_cudf (p,i)) else "nan" in
+    let (p,v) = from_cudf (pkg.Cudf.package,pkg.Cudf.version) in
     let default_fields = ["architecture";"source";"sourcenumber";"essential"] in
     let f b l =
       List.filter_map (fun k ->
@@ -144,7 +139,6 @@ let pp from_cudf ?(fields=[]) ?(decode=decode) pkg =
     in
     let l = (f false fields)@(f true default_fields) in
     (decode p,decode v,l)
-;;
 
 let pp_vpkg pp fmt vpkg =
   let string_of_relop = function
@@ -157,13 +151,16 @@ let pp_vpkg pp fmt vpkg =
   in
   match vpkg with
   |(p,None) ->
-      let (p,_,_) = pp {Cudf.default_package with Cudf.package = p} in
+      let (p,_,_) = 
+        pp {Cudf.default_package with 
+          Cudf.package = p ; 
+          version = Int32.to_int(Int32.max_int)} 
+      in
       Format.fprintf fmt "%s" p
   |(p,Some(c,v)) ->
-      debug "pp_vpkg %s %s %i" p (string_of_relop c) v;
-      let (p,v,_) = pp {Cudf.default_package with Cudf.package = p ; version = v} in
-      Format.fprintf fmt "%s (%s %s)" p (string_of_relop c) v
-;;
+      match pp {Cudf.default_package with Cudf.package = p ; version = v} with
+      |(p,("nan" | ""),_) -> Format.fprintf fmt "%s" p
+      |(p,v,_) -> Format.fprintf fmt "%s (%s %s)" p (string_of_relop c) v
 
 let pp_vpkglist pp fmt =
   let pp_list fmt ~pp_item ~sep l =
@@ -181,8 +178,6 @@ let pp_vpkglist pp fmt =
     | _ -> Format.fprintf fmt "@[<h>%a@]" aux l
   in
   pp_list fmt ~pp_item:(pp_vpkg pp) ~sep:" | "
-;;
-
 
 module StringSet = Set.Make(String)
 
@@ -214,7 +209,6 @@ let get_property prop pkg =
      warning "%s missing" prop;
      raise Not_found
    end
-;;
 
 let is_essential pkg =
   try Cudf.lookup_package_property pkg "essential" = "true"
@@ -239,22 +233,21 @@ let vartoint universe p =
 let inttovar = Cudf.package_by_uid
 
 let normalize_set (l : int list) = 
-  (* List.rev(Util.list_unique l) *)
   List.rev (List.fold_left (fun results x ->
     if List.mem x results then results
     else x::results) [] l
   )
-(*
-  let module Int = struct type t = int let compare = (-) end in
-  let module ISet = Set.Make(Int) in
-  ISet.elements (List.fold_left (fun acc x -> ISet.add x acc) ISet.empty l)
-*)
 
 (* vpkg -> pkg list *)
 let who_provides univ (pkgname,constr) = 
   let pkgl = Cudf.lookup_packages ~filter:constr univ pkgname in
   let prol = Cudf.who_provides ~installed:false univ (pkgname,constr) in
-  pkgl @ (List.map fst prol)
+  let filter = function 
+    |(p,None) -> Some p
+    |(p,Some v) when Cudf.version_matches v constr -> Some p
+    |_ -> None
+  in
+  pkgl @ (List.filter_map filter prol)
 
 (* vpkg -> id list *)
 let resolve_vpkg_int univ vpkg =
@@ -276,11 +269,10 @@ type ctable = (int, int list ref) ExtLib.Hashtbl.t
 
 let who_conflicts conflicts_packages univ pkg = 
   if (Hashtbl.length conflicts_packages) = 0 then
-    warning "Either there are no conflicting packages in the universe or you
+    debug "Either there are no conflicting packages in the universe or you
 CudfAdd.init_conflicts was not invoked before calling CudfAdd.who_conflicts";
   let i = Cudf.uid_by_package univ pkg in
   List.map (Cudf.package_by_uid univ) (get_package_list conflicts_packages i)
-;;
 
 let init_conflicts univ =
   let conflict_pairs = Hashtbl.create 1023 in
@@ -297,7 +289,6 @@ let init_conflicts univ =
     (resolve_vpkgs_int univ p.Cudf.conflicts)
   ) univ;
   conflicts_packages
-;;
 
 (* here we assume that the id given by cudf is a sequential and dense *)
 let compute_pool universe = 
@@ -311,7 +302,6 @@ let compute_pool universe =
     )
   in
   (d,c)
-;;
 
 let cudfop = function
   |Some(("<<" | "<"),v) -> Some(`Lt,v)
@@ -323,7 +313,6 @@ let cudfop = function
   |Some("ALL",v) -> None
   |None -> None
   |Some(c,v) -> fatal "%s %s" c v
-;;
 
 let latest pkglist =
   let h = Hashtbl.create (List.length pkglist) in
@@ -336,4 +325,3 @@ let latest pkglist =
     with Not_found -> Hashtbl.add h p.Cudf.package p
   ) pkglist;
   Hashtbl.fold (fun _ v acc -> v::acc) h []
-;;

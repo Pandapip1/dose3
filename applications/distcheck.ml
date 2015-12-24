@@ -44,7 +44,8 @@ module Options = struct
 
   include StdOptions.DistribOptions ;;
   let default = List.remove StdOptions.DistribOptions.default_options "deb-host-arch" in
-  StdOptions.DistribOptions.add_options ~default options ;;
+  StdOptions.DistribOptions.add_debian_options ~default options ;
+  StdOptions.DistribOptions.add_opam_options ~default options ;;
 
 end
 
@@ -112,7 +113,7 @@ let main () =
       with 
       |[] ->
         fatal "Cannot find any package corresponding to the selector %s" 
-        (Debian.Printer.string_of_vpkglist co)
+        (Util.string_of_list ~sep:", " Pef.Printer.string_of_vpkg co)
       |l -> l
     end else []
   in
@@ -131,7 +132,7 @@ let main () =
       with 
       |[] ->
         fatal "Cannot find any package corresponding to the selector %s" 
-        (Debian.Printer.string_of_vpkglist co)
+        (Util.string_of_list ~sep:", " Pef.Printer.string_of_vpkg co)
       |l -> l
     end else []
   in
@@ -147,6 +148,7 @@ let main () =
   let success = OptParse.Opt.get Options.success in
   let explain = OptParse.Opt.get Options.explain in
   let minimal = OptParse.Opt.get Options.minimal in
+  let condense = OptParse.Opt.get Options.condense in
   let summary = OptParse.Opt.get Options.summary in
   let fmt =
     if OptParse.Opt.is_set Options.outfile then
@@ -184,7 +186,7 @@ let main () =
       ()
 #endif
     in
-    Diagnostic.fprintf ~pp ~failure ~success ~explain ~minimal fmt d
+    Diagnostic.fprintf ~pp ~failure ~success ~explain ~minimal ~condense fmt d
   in
   Util.Timer.start timer;
 
