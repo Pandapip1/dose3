@@ -1,3 +1,10 @@
+dose3 (4.1~beta1-2) experimental; urgency=medium
+
+  * add patch fix-doc-target-without-ocamlopt.patch to make dose3 build on
+    architectures without ocamlopt
+
+ -- Johannes Schauer <josch@debian.org>  Sat, 26 Dec 2015 16:29:13 +0100
+
 dose3 (4.1~beta1-1) experimental; urgency=medium
 
   * new upstream version
