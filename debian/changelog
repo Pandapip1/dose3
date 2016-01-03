@@ -1,3 +1,11 @@
+dose3 (4.0.2-4) UNRELEASED; urgency=medium
+
+  * Team upload.
+  * Disable call to dot during build to avoid FTBFS on some architectures
+    (Closes: #809049).
+
+ -- Mehdi Dogguy <mehdi@debian.org>  Sun, 03 Jan 2016 11:07:45 +0100
+
 dose3 (4.0.2-3) unstable; urgency=medium
 
   * revert modifications done for 4.0.2-2 and restore generation of ocamldoc

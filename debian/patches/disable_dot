@@ -1,0 +1,11 @@
+--- a/Makefile
++++ b/Makefile
+@@ -228,7 +228,7 @@
+ 
+ doc: all
+ 	$(OCAMLBUILD) dose3.docdir/index.html dose3.docdir/index.dot
+-	dot -Grotate=0 -Tsvg -o dose3.docdir/index.svg dose3.docdir/index.dot
++	#dot -Grotate=0 -Tsvg -o dose3.docdir/index.svg dose3.docdir/index.dot
+ 	(cd doc && $(MAKE) all)
+ 
+ man:
