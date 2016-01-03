@@ -1,10 +1,10 @@
-dose3 (4.0.2-4) UNRELEASED; urgency=medium
+dose3 (4.0.2-4) unstable; urgency=medium
 
   * Team upload.
   * Disable call to dot during build to avoid FTBFS on some architectures
     (Closes: #809049).
 
- -- Mehdi Dogguy <mehdi@debian.org>  Sun, 03 Jan 2016 11:07:45 +0100
+ -- Mehdi Dogguy <mehdi@debian.org>  Sun, 03 Jan 2016 11:17:07 +0100
 
 dose3 (4.0.2-3) unstable; urgency=medium
 
