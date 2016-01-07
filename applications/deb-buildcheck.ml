@@ -40,28 +40,31 @@ module Options = struct
   include StdOptions.DistcheckOptions ;;
   StdOptions.DistcheckOptions.add_options options ;;
 
+
   include StdOptions.InputOptions ;;
-  StdOptions.InputOptions.add_options options ;;
+  let default = List.remove StdOptions.InputOptions.default_options "inputtype" in
+  StdOptions.InputOptions.add_options ~default options ;
 
   include StdOptions.OutputOptions ;;
   StdOptions.OutputOptions.add_options options ;;
   StdOptions.OutputOptions.add_option options ~long_name:"dump" ~help:"dump the cudf file" dump;
 
   include StdOptions.DistribOptions ;;
-  StdOptions.DistribOptions.add_options options ;;
-  StdOptions.DistribOptions.add_option options ~long_name:"deb-triplettable"
+  StdOptions.DistribOptions.add_debian_options options ;;
+  let group = StdOptions.DistribOptions.deb_group options in
+  StdOptions.DistribOptions.add_option options ~group ~long_name:"deb-triplettable"
     ~help:"Path to an architecture triplet table like /usr/share/dpkg/triplettable" triplettable;
-  StdOptions.DistribOptions.add_option options ~long_name:"deb-cputable"
+  StdOptions.DistribOptions.add_option options ~group ~long_name:"deb-cputable"
     ~help:"Path to a cpu table like /usr/share/dpkg/cputable" cputable;
-  StdOptions.DistribOptions.add_option options ~long_name:"deb-defaulted-m-a-foreign"
+  StdOptions.DistribOptions.add_option options ~group ~long_name:"deb-defaulted-m-a-foreign"
     ~help:"Convert Arch:all packages to Multi-Arch: foreign" maforeign;
-  StdOptions.DistribOptions.add_option options ~long_name:"deb-drop-b-d-indep"
+  StdOptions.DistribOptions.add_option options ~group ~long_name:"deb-drop-b-d-indep"
     ~help:"Drop Build-Indep dependencies" noindep;
-  StdOptions.DistribOptions.add_option options ~long_name:"deb-include-extra-source"
+  StdOptions.DistribOptions.add_option options ~group ~long_name:"deb-include-extra-source"
     ~help:"Include packages with Extra-Source-Only:yes (dropped by default)" includextra;
-  StdOptions.DistribOptions.add_option options ~short_name:'P' ~long_name:"deb-profiles"
+  StdOptions.DistribOptions.add_option options ~group ~short_name:'P' ~long_name:"deb-profiles"
     ~help:"comma separated list of activated build profiles" profiles;
-  StdOptions.DistribOptions.add_option options ~long_name:"deb-emulate-sbuild"
+  StdOptions.DistribOptions.add_option options ~group ~long_name:"deb-emulate-sbuild"
     ~help:"replicate sbuild behaviour to only keep the first alternative of build dependencies" dropalternatives;
 
 end
@@ -109,7 +112,7 @@ let main () =
   let filter_external_sources par =
     if (OptParse.Opt.get Options.includextra) then true
     else
-      try not(Debian.Packages.parse_bool (Debian.Packages.assoc "extra-source-only" par))
+      try not(Pef.Packages.parse_bool ("extra-source-only",(Pef.Packages.assoc "extra-source-only" par)))
       with Not_found -> true
   in
 
@@ -140,7 +143,7 @@ let main () =
   in
   let tables = Debcudf.init_tables (srclist @ pkglist) in
   let to_cudf (p,v) = (p,Debian.Debcudf.get_cudf_version tables (p,v)) in
-  let from_cudf (p,v) = (p,Debian.Debcudf.get_real_version tables (p,v)) in
+  let from_cudf (p,v) = Debian.Debcudf.get_real_version tables (p,v) in
   let pp = CudfAdd.pp from_cudf in 
 
   (* XXX here latest could be a bit faster if done at the same time of the cudf
@@ -155,8 +158,8 @@ let main () =
   let bl = 
     List.fold_left (fun acc pkg ->
       let pkg = 
-        if OptParse.Opt.get Options.maforeign && pkg.Packages.architecture = "all" then
-          { pkg with Packages.multiarch = `Foreign }
+        if OptParse.Opt.get Options.maforeign && pkg#architecture = "all" then
+          pkg#set_multiarch `Foreign
         else pkg
       in
       (Debcudf.tocudf ~options tables pkg)::acc

@@ -83,8 +83,8 @@ let upgrade tables pkgset universe broken migrationlist =
   let getv v = Debian.Debcudf.get_cudf_version tables ("",v) in
   let to_add = 
     List.fold_left (fun l ((pkg,_),target) ->
-      let name = CudfAdd.encode pkg.Debian.Packages.name in
-      let orig = getv pkg.Debian.Packages.version in
+      let name = CudfAdd.encode pkg#name in
+      let orig = getv pkg#version in
       let newv =
         match target with
         |`Eq v -> getv v
@@ -100,8 +100,8 @@ let upgrade tables pkgset universe broken migrationlist =
   in
   let to_remove = 
     List.fold_left (fun acc ((pkg,_),_) -> 
-      let name = CudfAdd.encode pkg.Debian.Packages.name in
-      let orig = getv pkg.Debian.Packages.version in
+      let name = CudfAdd.encode pkg#name in
+      let orig = getv pkg#version in
       let p = Cudf.lookup_package universe (name,orig) in
       p::acc
     ) broken migrationlist 
@@ -166,8 +166,8 @@ let pp tables pkg =
     try Cudf.lookup_package_property pkg "number"
     with Not_found ->
       if (pkg.Cudf.version mod 2) = 1 then
-        Debian.Debcudf.get_real_version tables
-        (pkg.Cudf.package,pkg.Cudf.version)
+        snd(Debian.Debcudf.get_real_version tables
+        (pkg.Cudf.package,pkg.Cudf.version))
       else if pkg.Cudf.version = 0 then
         (* this is a dependency without constraint *)
         ""
@@ -278,8 +278,8 @@ let challenged
         let pp_list = Diagnostic.pp_list pp_item in
         let cudf_cluster = 
           List.map (fun pkg -> 
-            let name = CudfAdd.encode pkg.Debian.Packages.name in
-            let (pn,pv) = (name, getv pkg.Debian.Packages.version) in
+            let name = CudfAdd.encode pkg#name in
+            let (pn,pv) = (name, getv pkg#version) in
             Cudf.lookup_package universe (pn,pv) 
           ) cluster
         in
@@ -323,11 +323,11 @@ let latest pkglist =
   let h = Hashtbl.create (List.length pkglist) in
   List.iter (fun p ->
     try 
-      let q = Hashtbl.find h p.Debian.Packages.name in
-      if (Version.compare p.Debian.Packages.version q.Debian.Packages.version) > 0 then
-        Hashtbl.replace h p.Debian.Packages.name p
+      let q = Hashtbl.find h p#name in
+      if (Version.compare p#version q#version) > 0 then
+        Hashtbl.replace h p#name p
       else () 
-    with Not_found -> Hashtbl.add h p.Debian.Packages.name p
+    with Not_found -> Hashtbl.add h p#name p
   ) pkglist;
   Hashtbl.fold (fun _ v acc -> v::acc) h []
 ;;

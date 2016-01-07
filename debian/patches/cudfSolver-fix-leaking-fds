@@ -1,0 +1,21 @@
+Author: Johannes Schauer <josch@debian.org>
+Description: cudfSolver.ml: workaround for libcudf fd leak:
+ https://gforge.inria.fr/tracker/index.php?func=detail&aid=18789&group_id=4385&atid=13811
+Origin: commit:73a6c13b73b37efa084686673c6948b653fde01f
+
+diff --git a/common/cudfSolver.ml b/common/cudfSolver.ml
+index a33aa7e..46c86cd 100644
+--- a/common/cudfSolver.ml
++++ b/common/cudfSolver.ml
+@@ -132,9 +132,8 @@ let execsolver exec_pat criteria cudf =
+     raise Unsat
+   else 
+     try begin
+-      let cudf_parser = Cudf_parser.from_file solver_out in
+-      Sys.remove solver_in; Sys.remove solver_out ;
+-      try Cudf_parser.load_solution cudf_parser universe with
++      let f p = Cudf_parser.load_solution_from_file p universe in
++      try finally (fun () -> Sys.remove solver_in; Sys.remove solver_out) f solver_out with
+       |Cudf_parser.Parse_error _
+       |Cudf.Constraint_violation _ ->
+         fatal "(CRASH) Solution file contains an invalid solution"

@@ -16,6 +16,10 @@ open ExtLib
 open Common
 open Packages
 
+#define __label __FILE__
+let label =  __label ;;
+include Util.Logging(struct let label = label end) ;;
+
 type tables = {
   versions_table : (string, string list) Hashtbl.t;
   reverse_table : ((string * int), string) Hashtbl.t
@@ -60,11 +64,11 @@ let init_versions_table table =
     )
   in
   fun pkg ->
-    add pkg.name pkg.version;
-    conj_iter pkg.provides;
-    conj_iter pkg.conflicts ;
-    cnf_iter pkg.depends;
-    cnf_iter pkg.recommends;
+    add pkg#name pkg#version;
+    conj_iter pkg#provides;
+    conj_iter pkg#conflicts ;
+    cnf_iter pkg#depends;
+    cnf_iter pkg#recommends;
 ;;
 
 let init_virtual_table table pkg =
@@ -72,11 +76,11 @@ let init_virtual_table table pkg =
     if not(Hashtbl.mem table name) then
       Hashtbl.add table name ()
   in
-  List.iter (fun (name,_) -> add name) pkg.provides
+  List.iter (fun (name,_) -> add name) pkg#provides
 
 let init_unit_table table pkg =
-  if not(Hashtbl.mem table pkg.name) then
-    Hashtbl.add table pkg.name ()
+  if not(Hashtbl.mem table pkg#name) then
+    Hashtbl.add table pkg#name ()
 
 let init_versioned_table table pkg =
   let add name =
@@ -88,8 +92,8 @@ let init_versioned_table table pkg =
       List.iter (fun (name,_)-> add name) disjunction
     ) 
   in
-  List.iter (fun (name,_) -> add name) pkg.conflicts ;
-  add_iter_cnf pkg.depends
+  List.iter (fun (name,_) -> add name) pkg#conflicts ;
+  add_iter_cnf pkg#depends
 ;;
 
 let init_tables compare pkglist =
@@ -109,41 +113,61 @@ let init_tables compare pkglist =
   Hashtbl.clear temp_versions_table ;
   tables
 
-(* versions start from 1 *)
+(* pef -> cudf . versions start from 1 *)
 let get_cudf_version tables (package,version) =
   try
     let l = Hashtbl.find tables.versions_table package in
     let i = fst(List.findi (fun i a -> a = version) l) in
     Hashtbl.replace tables.reverse_table (CudfAdd.encode package,i+1) version;
     i+1
-  with Not_found ->
-    fatal "Cannot find cudf version for %s (= %s)" (CudfAdd.decode package) version
+  with Not_found -> (
+    warning "Cannot find cudf version for %s (= %s)" (CudfAdd.decode package) version;
+    raise Not_found
+  )
 
+(* cudf -> pef *)
 let get_real_version tables (p,i) =
   try Hashtbl.find tables.reverse_table (p,i)
-  with Not_found ->
-    fatal "Cannot find real version for %s (= %d)" p i
+  with Not_found -> (
+    warning "Cannot find real version for %s (= %d)" p i;
+    raise Not_found
+  )
 
-let loadl tables l =
+let encode_vpkgname ?arch ?(archs=[]) vpkgname =
+  let aux name = function
+    |Some a -> name^":"^a
+    |None -> name
+  in
+  match vpkgname with
+  |(name,None) -> [CudfAdd.encode (aux name arch)]
+  |(name,Some ("any" | "native" )) -> List.map (fun a -> CudfAdd.encode (name^":"^a)) archs
+  |(name,Some a) -> [CudfAdd.encode (name^":"^a)]
+
+let loadl tables ?arch ?(archs=[]) l =
   List.flatten (
-    List.map (fun ((name,_),sel) ->
-      match CudfAdd.cudfop sel with
-      |None -> [(CudfAdd.encode name, None)]
-      |Some(op,v) -> [(CudfAdd.encode name,Some(op,get_cudf_version tables (name,v)))]
+    List.map (fun ((name,_) as vpkgname,constr) ->
+      List.map (fun encname ->
+        match CudfAdd.cudfop constr with
+        |None -> (encname, None)
+        |Some(op,v) -> (encname,Some(op,get_cudf_version tables (name,v)))
+      ) (encode_vpkgname ?arch ~archs vpkgname)
     ) l
   )
 
-let loadlc tables name l = (loadl tables l)
+let loadlp tables ?arch ?(archs=[]) l =
+  List.flatten (
+    List.map (fun ((name,_) as vpkgname,constr) ->
+      List.map (fun encname ->
+        match CudfAdd.cudfop constr with
+        |None -> (encname, None)
+        |Some(`Eq,v) -> (encname,Some(`Eq,get_cudf_version tables (name,v)))
+        |_ -> assert false
+      ) (encode_vpkgname ?arch ~archs vpkgname)
+    ) l
+  )
 
-let loadlp tables l =
-  List.map (fun ((name,_),sel) ->
-    match CudfAdd.cudfop sel with
-    |None  -> (CudfAdd.encode name, None)
-    |Some(`Eq,v) -> (CudfAdd.encode name,Some(`Eq,get_cudf_version tables (name,v)))
-    |_ -> assert false
-  ) l
-
-let loadll tables ll = List.map (loadl tables) ll
+let loadlc tables ?arch ?(archs=[]) l = (loadl tables ?arch ~archs l)
+let loadll tables ?arch ?(archs=[]) ll = List.map (fun l -> (loadl tables ?arch ~archs l)) ll
 
 (* ========================================= *)
 
@@ -158,19 +182,21 @@ let preamble =
   CudfAdd.add_properties Cudf.default_preamble l
 
 let add_extra extras tables pkg =
-  let number = ("number",`String pkg.version) in
+  let number = ("number",`String pkg#version) in
   let l =
     List.filter_map (fun (debprop, (cudfprop,v)) ->
       let debprop = String.lowercase debprop in
       let cudfprop = String.lowercase cudfprop in
       try 
-        let s = List.assoc debprop pkg.extras in
+        let s = List.assoc debprop pkg#extras in
         let typ = Cudf_types.type_of_typedecl v in
-        Some (cudfprop, Cudf_types_pp.parse_value typ s)
+        try Some (cudfprop, Cudf_types_pp.parse_value typ s)
+        with Cudf_types_pp.Type_error _ ->
+          fatal "Cudf Parsing Error while converting properties %s: %s" debprop s
       with Not_found -> None
     ) extras
   in
-  let recommends = ("recommends", `Vpkgformula (loadll tables pkg.recommends)) in
+  let recommends = ("recommends", `Vpkgformula (loadll tables pkg#recommends)) in
 
   List.filter_map (function
     |(_,`Vpkglist []) -> None
@@ -182,16 +208,13 @@ let add_extra extras tables pkg =
 
 let tocudf tables ?(extras=[]) ?(extrasfun=(fun _ _ -> [])) ?(inst=false) pkg =
     { Cudf.default_package with
-      Cudf.package = CudfAdd.encode pkg.name ;
-      Cudf.version = get_cudf_version tables (pkg.name,pkg.version) ;
-      Cudf.depends = loadll tables pkg.depends;
-      Cudf.conflicts = loadlc tables pkg.name pkg.conflicts;
-      Cudf.provides = loadlp tables pkg.provides ;
+      Cudf.package = CudfAdd.encode pkg#name ;
+      Cudf.version = get_cudf_version tables (pkg#name,pkg#version) ;
+      Cudf.depends = loadll tables pkg#depends;
+      Cudf.conflicts = loadlc tables pkg#conflicts;
+      Cudf.provides = loadlp tables pkg#provides ;
       Cudf.pkg_extra = (add_extra extras tables pkg)@(extrasfun tables pkg) ;
     }
-
-let lltocudf = loadll
-let ltocudf = loadl
 
 let load_list compare l =
   let timer = Util.Timer.create "Pef.ToCudf" in
@@ -207,3 +230,15 @@ let load_universe compare l =
   Util.Timer.start timer;
   let univ = Cudf.load_universe pkglist in
   Util.Timer.stop timer univ
+
+(** convert a pef constraint into a cudf constraint *)
+let pefvpkg to_cudf vpkgname =
+  let constr n constr =
+    match CudfAdd.cudfop constr with
+    |None -> None
+    |Some(op,v) -> Some(op,snd(to_cudf (n,v)))
+  in
+  match vpkgname with
+  |((n,None),c) -> (CudfAdd.encode n,constr n c)
+  |((n,Some ("any"|"native")),c) -> (CudfAdd.encode n,constr n c)
+  |((n,Some a),c) -> (CudfAdd.encode (n^":"^a),constr n c)

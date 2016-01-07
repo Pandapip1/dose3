@@ -35,7 +35,7 @@ end
 let vpkg_option ?default ?(metavar = " <vpkg>") () =
   let parse_vpkg s = 
     let _loc = Format822.dummy_loc in
-    Debian.Packages.parse_vpkg (_loc,s)
+    Pef.Packages.parse_vpkg ("cmdline <vpkg>",(_loc,s))
   in
   OptParse.Opt.value_option metavar default
   parse_vpkg (fun _ s -> Printf.sprintf "invalid vpackage '%s'" s)
@@ -45,7 +45,7 @@ let vpkg_option ?default ?(metavar = " <vpkg>") () =
 let vpkglist_option ?default ?(metavar = " <vpkglst>") () =
   let parse_vpkglist s = 
     let _loc = Format822.dummy_loc in
-    Debian.Packages.parse_vpkglist (_loc,s)
+    Pef.Packages.parse_vpkglist ("cmdline <vpkglst>",(_loc,s))
   in
   OptParse.Opt.value_option metavar default
   parse_vpkglist (fun _ s -> Printf.sprintf "invalid vpackage list '%s'" s)
@@ -58,12 +58,22 @@ let pkglist_option ?default ?(metavar = " <pkglst>") () =
     List.map (function
       |((n,a),Some("=",v)) -> (n,a,v)
       |((n,a),None) ->
-          raise (Debian.Packages.ParseError (s,"you must specify a version" ))
-      |_ -> raise (Debian.Packages.ParseError (s,""))
-    ) (Debian.Packages.parse_vpkglist (_loc,s))
+          raise (Format822.ParseError ([],s,"you must specify a version" ))
+      |_ -> raise (Format822.ParseError ([],s,""))
+    ) (Pef.Packages.parse_vpkglist ("cmdline <pkglst>",(_loc,s)))
   in
   OptParse.Opt.value_option metavar default
   parse_vpkglist (fun _ s -> Printf.sprintf "invalid package list '%s'" s)
+;;
+
+(* this is a ,-separated list of optimization criteria *)
+let criteria_option ?default ?(metavar = " <criteria>") () =
+  let parse_criteria s =
+    let _loc = Format822.dummy_loc in
+    Criteria.parse_criteria ("cmdline <criteria>",(_loc,s))
+  in
+  OptParse.Opt.value_option metavar default
+  parse_criteria (fun _ s -> Printf.sprintf "invalid criteria list '%s'" s)
 ;;
 
 (* *************************************** *)
@@ -120,6 +130,7 @@ module DistcheckOptions = struct
   let failure = StdOpt.store_true ()
   let explain = StdOpt.store_true ()
   let minimal = StdOpt.store_true ()
+  let condense = StdOpt.store_true ()
   let summary = StdOpt.store_true ()
 
   let default_options = [
@@ -127,6 +138,7 @@ module DistcheckOptions = struct
     "failure";
     "explain";
     "explain-minimal";
+    "explain-condense";
     "summary"
   ]
 
@@ -140,7 +152,9 @@ module DistcheckOptions = struct
       if List.mem "explain" default then
         add options ~group ~short_name:'e' ~long_name:"explain" ~help:"Explain the results" explain;
       if List.mem "explain-minimal" default then
-        add options ~group ~short_name:'m' ~long_name:"explain-minimal" ~help:"" minimal;
+        add options ~group ~short_name:'m' ~long_name:"explain-minimal" ~help:"Do not print dependency chains of results" minimal;
+      if List.mem "explain-condense" default then
+        add options ~group ~short_name:'c' ~long_name:"explain-condense" ~help:"Compress explanation graph" condense;
       if List.mem "failure" default then
         add options ~group ~short_name:'f' ~long_name:"failures" ~help:"Only show failures" failure;
       if List.mem "success" default then
@@ -201,12 +215,20 @@ end
 module InputOptions = struct
   open OptParse ;;
 
+  exception Format
+  let itypes = (List.map Url.scheme_to_string Url.supported_input_types)
+  let in_option ?default ?(metavar = Printf.sprintf "<%s>" (String.concat "|" itypes)) () =
+    let coerce s = if List.mem s itypes then s else raise Format in
+    let supported = String.concat ", " itypes in
+    let error _ s = Printf.sprintf "input format \"%s\" not supported. Must be one of: %s" s supported in
+    Opt.value_option metavar default coerce error
+
   let trim = StdOpt.store_true ()
   let latest = StdOpt.store_true ()
   let checkonly = StdDebian.vpkglist_option ()
   let background = incr_str_list ()
   let foreground = incr_str_list ()
-  let inputtype = StdOpt.str_option ()
+  let inputtype = in_option ()
 
   let default_options = [
     (* "trim"; *)
@@ -271,6 +293,7 @@ end
 type options =
   |Deb of Debian.Debcudf.options
   |Pef of Debian.Debcudf.options
+  |Opam of Opam.Opamcudf.options
   |Edsp of Debian.Debcudf.options
   |Csw
   |Rpm
@@ -284,7 +307,10 @@ module DistribOptions = struct
   let deb_host_arch = StdOpt.str_option ()
   let deb_ignore_essential = StdOpt.store_true ()
   let deb_builds_from = StdOpt.store_true ()
-  let int_versions = StdOpt.store_true ()
+
+  let opam_switch = StdOpt.str_option ~default:"system" ()
+  let opam_switches = str_list_option ()
+  let opam_profiles = str_list_option ()
 
   let default_options = [
     "deb-native-arch";
@@ -292,10 +318,10 @@ module DistribOptions = struct
     "deb-foreign-archs";
     "deb-ignore-essential";
     "deb-builds-from";
+    "opam-switch";
+    "opam-switches";
+    "opam-profiles"
   ]
-
-  let group = ref None
-  let descr = "Debian Specific Options"
 
   let set_deb_options () =
     let native = Opt.opt deb_native_arch in
@@ -333,6 +359,25 @@ module DistribOptions = struct
     }
   ;;
 
+  let set_opam_options () =
+    let switch = Opt.get opam_switch in
+    let switches =
+      if Opt.is_set opam_switches then
+        Opt.get opam_switches
+      else []
+    in
+    let profiles =
+      if Opt.is_set opam_profiles then
+        Opt.get opam_profiles
+      else []
+    in
+    { Opam.Opamcudf.default_options with
+      Opam.Opamcudf.switch = switch;
+      switches = switches;
+      profiles = profiles;
+    }
+  ;;
+
   let set_default_options = function
     |`Deb -> Some (
       Deb { 
@@ -345,41 +390,81 @@ module DistribOptions = struct
         Debian.Debcudf.ignore_essential = true
       })
     |`Pef -> Some (Pef Debian.Debcudf.default_options)
+    |`Opam -> Some (Opam Opam.Opamcudf.default_options)
     |_ -> None
 
   let set_options = function
     |`Deb |`DebSrc -> Some (Deb (set_deb_options ()))
     |`Edsp -> Some (Edsp (set_deb_options ()))
     |`Pef -> Some (Pef Debian.Debcudf.default_options)
+    |`Opam -> Some (Opam (set_opam_options ()))
     |_ -> None
   ;;
 
-  let add_options ?(default=default_options) options =
+  let deb_group =
+    let g = ref None in
+    fun options ->
+      match !g with
+      |Some group -> group
+      |None -> begin
+          let group = OptParser.add_group options "Debian Specific Options" in
+          g := Some group;
+          group
+      end
+
+  let opam_group =
+    let g = ref None in
+    fun options ->
+      match !g with
+      |Some group -> group
+      |None -> begin
+          let group = OptParser.add_group options "Opam Specific Options" in
+          g := Some group;
+          group
+      end
+
+  let add_debian_options ?(default=default_options) options =
     let open OptParser in
     if List.length default > 0 then begin
-      let group = create_group group descr options in
+      let group = deb_group options in
       if List.mem "deb-native-arch" default then
         add options ~group ~long_name:"deb-native-arch"
-        ~help:"Native architecture" deb_native_arch;
+          ~help:"Native architecture" deb_native_arch;
       if List.mem "deb-host-arch" default then
         add options ~group ~long_name:"deb-host-arch" 
-        ~help:"Native/cross compile host architecture, defaults to native architecture" deb_host_arch;
+          ~help:"Native/cross compile host architecture, defaults to native architecture" deb_host_arch;
       if List.mem "deb-foreign-archs" default then
         add options ~group ~long_name:"deb-foreign-archs" 
-        ~help:"Foreign architectures in addition to native and host architectures" deb_foreign_archs;
+          ~help:"Foreign architectures in addition to native and host architectures" deb_foreign_archs;
       if List.mem "deb-ignore-essential" default then
         add options ~group ~long_name:"deb-ignore-essential" 
-        ~help:"Ignore Essential Packages" deb_ignore_essential;
+          ~help:"Ignore Essential Packages" deb_ignore_essential;
       if List.mem "deb-builds-from" default then
         add options ~group ~long_name:"deb-builds-from"
           ~help:"Add builds-from relationship of binary packages on source packages as dependency" deb_builds_from;
     end
 
-  let add_option ?short_name ?long_name ?help options =
+  let add_opam_options ?(default=default_options) options =
     let open OptParser in
-    let group = create_group group descr options in
-    add options ~group ?short_name ?long_name ?help 
+    if List.length default > 0 then begin
+      let group = opam_group options in
+      if List.mem "opam-switch" default then
+        add options ~group ~long_name:"opam-switch"
+          ~help:"Active Switch" opam_switch;
+      if List.mem "opam-switches" default then
+        add options ~group ~long_name:"opam-switches"
+          ~help:"Available Switches" opam_switches;
+      if List.mem "opam-profiles" default then
+        add options ~group ~long_name:"opam-profiles"
+          ~help:"Build Profiles" opam_profiles;
+
+    end
+
+  let add_option ?group ?short_name ?long_name ?help options v =
+    let open OptParser in
+    match group with
+    |None -> add options ?short_name ?long_name ?help v
+    |Some group -> add options ~group ?short_name ?long_name ?help v
   ;;
 
-(*  let rpm_group = add_group options "Rpm Specific Options" in *)
 end

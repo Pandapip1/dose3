@@ -34,23 +34,24 @@ let load ?(check=true) universe =
       (Cudf_checker.explain_reason (r :> Cudf_checker.bad_solution_reason)) ;
   |_,_ -> assert false
 
+(*
 let reason map universe =
   let from_sat = CudfAdd.inttovar universe in
   let globalid = Cudf.universe_size universe in
   List.filter_map (function
-    |Diagnostic_int.Dependency(i,vl,il) when i = globalid -> None
-    |Diagnostic_int.Missing(i,vl) when i = globalid -> 
+    |Diagnostic.DependencyInt(i,vl,il) when i = globalid -> None
+    |Diagnostic.MissingInt(i,vl) when i = globalid -> 
         fatal "the package encoding global constraints can't be missing"
-    |Diagnostic_int.Conflict(i,j,vpkg) when i = globalid || j = globalid -> 
+    |Diagnostic.ConflictInt(i,j,vpkg) when i = globalid || j = globalid -> 
         fatal "the package encoding global constraints can't be in conflict"
 
-    |Diagnostic_int.Dependency(i,vl,il) -> Some (
+    |Diagnostic.DependencyInt(i,vl,il) -> Some (
         Diagnostic.Dependency(from_sat (map#inttovar i),vl,List.map (fun i -> from_sat (map#inttovar i)) il)
     )
-    |Diagnostic_int.Missing(i,vl) -> Some (
+    |Diagnostic.MissingInt(i,vl) -> Some (
         Diagnostic.Missing(from_sat (map#inttovar i),vl)
     )
-    |Diagnostic_int.Conflict(i,j,vpkg) -> Some (
+    |Diagnostic.ConflictInt(i,j,vpkg) -> Some (
         Diagnostic.Conflict(from_sat (map#inttovar i),from_sat (map#inttovar j),vpkg)
     )
   )
@@ -59,14 +60,14 @@ let result map universe result =
   let from_sat = CudfAdd.inttovar universe in
   let globalid = Cudf.universe_size universe in
   match result with
-  |Diagnostic_int.Success f_int ->
+  |Diagnostic.SuccessInt f_int ->
       Diagnostic.Success (fun ?(all=false) () ->
         List.filter_map (function 
           |i when i = globalid -> None
           |i -> Some ({(from_sat i) with Cudf.installed = true})
         ) (f_int ~all ())
       )
-  |Diagnostic_int.Failure f -> Diagnostic.Failure (fun () ->
+  |Diagnostic.FailureInt f -> Diagnostic.Failure (fun () ->
       reason map universe (f ()))
 ;;
 
@@ -82,10 +83,11 @@ let request universe result =
  * Ideally the compiler should make sure that we use the correct indexes
  * but we should annotate everything making packing/unpackaing handling
  * a bit too heavy *)
-let diagnosis map universe res req =
+let diagnosis map universe ( res : Diagnostic.result_int ) req : Diagnostic.diagnosis =
   let result = result map universe res in
   let request = request universe req in
   { Diagnostic.result = result ; request = request }
+*)
 
 (** [univcheck ?callback universe] check all packages in the
     universe for installability 
@@ -93,7 +95,7 @@ let diagnosis map universe res req =
     @return the number of packages that cannot be installed
 *)
 let univcheck ?(global_constraints=true) ?callback universe =
-  let aux ?callback univ =
+  let aux ?callback univ : int =
     let timer = Util.Timer.create "Algo.Depsolver.univcheck" in
     Util.Timer.start timer;
     let solver = Depsolver_int.init_solver_univ univ in
@@ -109,11 +111,11 @@ let univcheck ?(global_constraints=true) ?callback universe =
     for id = 0 to size - 2 do if not(check id) then incr failed done;
     Util.Timer.stop timer !failed
   in
-  let map = new Depsolver_int.identity in
+  let map = new Common.Util.identity in
   match callback with
   |None -> aux universe
   |Some f ->
-      let callback_int (res,req) = f (diagnosis map universe res req) in
+      let callback_int (res,req) = f (Diagnostic.diagnosis map universe res req) in
       aux ~callback:callback_int universe
 ;;
 
@@ -137,11 +139,11 @@ let listcheck ?(global_constraints=true) ?callback universe pkglist =
     Util.Timer.stop timer !failed
   in
   let idlist = List.map (CudfAdd.vartoint universe) pkglist in
-  let map = new Depsolver_int.identity in
+  let map = new Common.Util.identity in
   match callback with
   |None -> aux universe idlist
   |Some f ->
-      let callback_int (res,req) = f (diagnosis map universe res req) in
+      let callback_int (res,req) = f (Diagnostic.diagnosis map universe res req) in
       aux ~callback:callback_int universe idlist
 ;;
 
@@ -152,7 +154,7 @@ let edos_install_cache global_constraints univ cudfpool pkglist =
   let solver = Depsolver_int.init_solver_closure cudfpool closure in
   let req = if global_constraints then (Some globalid,idlist) else (None,idlist) in
   let res = Depsolver_int.solve solver req in
-  diagnosis solver.Depsolver_int.map univ res req
+  Diagnostic.diagnosis solver.Depsolver_int.map univ res req
 ;;
 
 let edos_install ?(global_constraints=false) univ pkg =
@@ -446,8 +448,7 @@ let depclean ?(global_constraints=true) ?(callback=(fun _ -> ())) univ pkglist =
   (* if a package p depends on a package that make p uninstallable, then it 
      can be removed. If p depends on a missing package, the dependency can
      be equally removed *)
-  let test_depends univ cudfpool pkg l =
-    let pool = Depsolver_int.strip_cudf_pool cudfpool in
+  let test_depends univ (`CudfPool pool) pkg l =
     List.fold_left (fun acc -> function
       |(vpkglist,vpkg,_,[]) -> (vpkglist,vpkg,[])::acc
       |(vpkglist,vpkg,depends,l) ->

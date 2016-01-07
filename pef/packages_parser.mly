@@ -4,21 +4,14 @@
 open ExtLib
 open Common
 
-let parse_relop = function
-  | "="  -> `Eq
-  | "!=" -> `Neq
-  | ">=" -> `Geq
-  | ">" | ">>"  -> `Gt
-  | "<=" -> `Leq
-  | "<" | "<<"  -> `Lt
-  | _ -> assert false   (* lexer shouldn't have returned such a RELOP! *)
-
-let parse_multiarch = function
-  |("None"|"none"|"No"|"no") -> `No
-  |("Allowed"|"allowed") -> `Allowed
-  |("Foreign"|"foreign") -> `Foreign
-  |("Same"|"same") -> `Same
-  |s -> raise (Format822.Type_error ("Field Multi-Arch has a wrong value : "^ s))
+let parse_vpkgname name =
+  try
+    match String.split name ":" with
+    |n,"any" -> (n,Some "any")
+    |n,"native" -> (n,Some "native")
+    |n,"" -> raise Parsing.Parse_error
+    |n,a -> (n,Some a)
+  with ExtString.Invalid_string -> (name,None)
 
 %}
 
@@ -32,7 +25,6 @@ let parse_multiarch = function
 %type <Packages_types.version> version_top 
 
 %type <Packages_types.architecture list> archlist_top
-%type <Packages_types.multiarch> multiarch_top 
 %type <Packages_types.source> source_top 
 
 %type <Packages_types.vpkgname> vpkgname_top
@@ -47,17 +39,15 @@ let parse_multiarch = function
 %type <Packages_types.vpkgreq list> requestlist_top
 
 %start pkgname_top version_top
-%start multiarch_top source_top
+%start source_top
 %start vpkgname_top vpkg_top vpkglist_top vpkgformula_top
 %start builddepsformula_top builddepslist_top
 %start request_top requestlist_top archlist_top
-
 
 %%
 
 pkgname_top: pkgname EOL { $1 } ;
 version_top: version EOL { $1 } ;
-multiarch_top: multiarch EOL { $1 } ;
 source_top: source EOL { $1 } ;
 
 vpkgname_top: vpkgname EOL { $1 } ;
@@ -77,7 +67,6 @@ archlist_top: archlist EOL { $1 } ;
 
 pkgname: IDENT { $1 } ;
 version: IDENT { $1 } ;
-multiarch: IDENT { parse_multiarch $1 }
 
 source:
   |IDENT                        { ($1,None) }
@@ -92,10 +81,7 @@ relop:
 
 /**************************************/ 
 
-vpkgname:
-  |IDENT              { try let (n,a) = String.split $1 ":" in (n,Some a) 
-                        with Invalid_string -> ($1,None) } 
-;
+vpkgname: IDENT { parse_vpkgname $1 } ;
 
 constr:
   |                            { None }
@@ -115,11 +101,13 @@ vpkglist_ne:
 ;
 
 vpkgformula:
+  |                               { [ ] }
   | or_formula                    { [ $1 ] }
   | or_formula COMMA vpkgformula  { $1 :: $3 }
 ;
 
 or_formula:
+  |                             { [ ] }
   | vpkg                        { [ $1 ] }
   | vpkg PIPE or_formula        { $1 :: $3 }
 ;
@@ -127,9 +115,9 @@ or_formula:
 /**************************************/ 
 
 buidldep:
-  |vpkg                            { ($1,[],[]) }
+  |vpkg                                 { ($1,[],[]) }
   |vpkg LBRACKET buildarchlist RBRACKET { ($1,$3,[]) }
-  |vpkg buildprofileformula { ($1,[],$2) }
+  |vpkg buildprofileformula             { ($1,[],$2) }
   |vpkg LBRACKET buildarchlist RBRACKET buildprofileformula { ($1,$3,$5) }
 ;
 
@@ -139,16 +127,19 @@ builddepslist:
 ;
 
 builddepslist_ne:
+  |                                  { [ ] }
   | buidldep                         { [ $1 ] }
   | buidldep COMMA builddepslist_ne  { $1 :: $3 }
 ;
 
 builddepsformula:
-  | builddeps_or_formula                            { [ $1 ] }
+  |                                                { [ ] }
+  | builddeps_or_formula                           { [ $1 ] }
   | builddeps_or_formula COMMA builddepsformula    { $1 :: $3 }
 ;
 
 builddeps_or_formula:
+  |                                      { [ ] }
   | buidldep                             { [ $1 ] }
   | buidldep PIPE builddeps_or_formula   { $1 :: $3 }
 ;
@@ -161,19 +152,19 @@ buildarch:
 ;
 
 buildarchlist:
-  |             { [] }
+  |                  { [] }
   | buildarchlist_ne { $1 }
 ;
 
 buildarchlist_ne:
-  | buildarch                       { [ $1 ] }
-  | buildarch buildarchlist_ne      { $1 :: $2 }
+  | buildarch                  { [ $1 ] }
+  | buildarch buildarchlist_ne { $1 :: $2 }
 ;
 
 /**************************************/ 
 
 buildprofileformula:
-  | { [] }
+  |                        { [] }
   | buildprofileformula_ne { $1 }
 ;
 
@@ -188,11 +179,12 @@ buildprofile:
 ;
 
 buildprofilelist:
-  |             { [] }
+  |                     { [] }
   | buildprofilelist_ne { $1 }
 ;
 
 buildprofilelist_ne:
+  |                                   { [ ] }
   | buildprofile                      { [ $1 ] }
   | buildprofile buildprofilelist_ne  { $1 :: $2 }
 ;
@@ -235,21 +227,11 @@ reqlist_ne:
 
 %%
 
-let error_wrapper f lexer lexbuf =
-  let syntax_error msg =
-    raise (Format822.Syntax_error (msg, Format822.loc_of_lexbuf lexbuf)) 
-  in
-  try f lexer lexbuf with
-  |Parsing.Parse_error -> syntax_error "parse error"
-  |Failure _m when String.starts_with _m "lexing" -> syntax_error "lexer error"
-  |Format822.Type_error _ -> syntax_error "type error"
-  |_ -> assert false
-
-let pkgname_top = error_wrapper pkgname_top
-let version_top = error_wrapper version_top
-let vpkg_top = error_wrapper vpkg_top
-let vpkglist_top = error_wrapper vpkglist_top
-let vpkgformula_top = error_wrapper vpkgformula_top
-let source_top = error_wrapper source_top
-let request_top = error_wrapper request_top
-let requestlist_top = error_wrapper requestlist_top
+let pkgname_top = Format822.error_wrapper "pkgname" pkgname_top
+let version_top = Format822.error_wrapper "version" version_top
+let vpkg_top = Format822.error_wrapper "vpkg" vpkg_top
+let vpkglist_top = Format822.error_wrapper "vpkglist" vpkglist_top
+let vpkgformula_top = Format822.error_wrapper "vpkgformula" vpkgformula_top
+let source_top = Format822.error_wrapper "source" source_top
+let request_top = Format822.error_wrapper "request" request_top
+let requestlist_top = Format822.error_wrapper "requestlist" requestlist_top
