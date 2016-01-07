@@ -3,8 +3,9 @@ dose3 (4.1-1) unstable; urgency=medium
   * new upstream version. This release implements versioned provides
     (Closes: #786671).
     - refreshed patch disable-dot.
+  * configure: explicit --bindir and --libdir
 
- -- Ralf Treinen <treinen@debian.org>  Thu, 07 Jan 2016 18:39:47 +0100
+ -- Ralf Treinen <treinen@debian.org>  Thu, 07 Jan 2016 18:49:53 +0100
 
 dose3 (4.1~beta1-1) experimental; urgency=medium
 
