@@ -1,9 +1,11 @@
---- a/Makefile
-+++ b/Makefile
-@@ -228,7 +228,7 @@
- 
+Index: dose3/Makefile
+===================================================================
+--- dose3.orig/Makefile	2016-01-07 18:38:09.663420357 +0100
++++ dose3/Makefile	2016-01-07 18:38:34.951509185 +0100
+@@ -253,7 +253,7 @@
  doc: all
- 	$(OCAMLBUILD) dose3.docdir/index.html dose3.docdir/index.dot
+ 	$(OCAMLBUILD) -package unix scripts/pack.native
+ 	scripts/doc.sh $(OCAMLEXT)
 -	dot -Grotate=0 -Tsvg -o dose3.docdir/index.svg dose3.docdir/index.dot
 +	#dot -Grotate=0 -Tsvg -o dose3.docdir/index.svg dose3.docdir/index.dot
  	(cd doc && $(MAKE) all)
