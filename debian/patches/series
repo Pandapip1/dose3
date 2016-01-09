@@ -3,3 +3,4 @@ binaries-prefix-edos
 disable_dot
 fix_ftbfs_on_bytecode_arch
 fix_META
+cudf_max_int
