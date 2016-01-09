@@ -2,3 +2,4 @@ binaries-prefix-edos
 # librpm-4.12
 disable_dot
 fix_ftbfs_on_bytecode_arch
+fix_META
