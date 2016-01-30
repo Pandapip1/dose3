@@ -5,3 +5,4 @@ fix_ftbfs_on_bytecode_arch
 fix_META
 cudf_max_int
 lexing-debian-fields
+add-gnuhardened1-linux
