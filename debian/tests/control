@@ -1,4 +1,4 @@
-Tests: dose-debcheck
+Tests: dose-debcheck bug811569
 Depends: dose-distcheck
 
 Tests: dose-builddebcheck
