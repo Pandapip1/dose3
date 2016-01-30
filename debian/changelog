@@ -1,12 +1,12 @@
 dose3 (4.1-4) UNRELEASED; urgency=medium
 
-  * fix name of dose-deb-coinstall in package description of dose-extra
-    (closes: #812203)
   * patch lexing-debian-fields: syntax of debian fields according to
     debian policy. Patch taken from upstream. (closes: #811569)
-  * add a test case for bug#811569
   * patch add-gnuhardened1-linux: compile on hardenend1-linux-amd64. Thanks
     to Balint Reczey for the patch! (closes: #812786)
+  * fix name of dose-deb-coinstall in package description of dose-extra
+    (closes: #812203)
+  * add test cases for bug#811569 and bug#790422.
 
  -- Ralf Treinen <treinen@debian.org>  Sat, 30 Jan 2016 17:24:29 +0100
 
