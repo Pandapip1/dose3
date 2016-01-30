@@ -2,8 +2,10 @@ dose3 (4.1-4) UNRELEASED; urgency=medium
 
   * fix name of dose-deb-coinstall in package description of dose-extra
     (closes: #812203)
+  * patch lexing-debian-fields: syntax of debian fields according to
+    debian policy. Patch taken from upstream. (closes: #811569)
 
- -- treinen <treinen@debian.org>  Fri, 29 Jan 2016 18:31:35 +0100
+ -- Ralf Treinen <treinen@debian.org>  Sat, 30 Jan 2016 15:22:27 +0100
 
 dose3 (4.1-3) unstable; urgency=medium
 
