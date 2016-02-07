@@ -1,0 +1,10 @@
+dose-distcheck (4.1-4) unstable; urgency=medium
+  Dose 4.1 has introduced a change in the output format, unfortunately without
+  bumping the version number of the output format. This concerns:
+  - names of source packages: until 4.0 these where displayed as "src:name".
+    In 4.1, this artificial "src:" prefix has been dropped.
+  - virtual packages: until 4.0, these where displayed in dependency chains
+    (as part of explanations of non-installability) as "--virtual-name".
+    In 4.1, this artificial "--virtual-" prefix has been dropped.
+
+ -- Ralf Treinen <treinen@debian.org>  Mon, 31 Aug 2015 10:47:01 +0200
