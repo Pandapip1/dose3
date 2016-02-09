@@ -8,8 +8,9 @@ dose3 (4.2-1) UNRELEASED; urgency=medium
       * fix_ftbfs_on_bytecode_arch
       * fix_META
       * cudf_max_int
+   * d/rules: upstream has renamed manpage buildcheck into deb-buildcheck
 
- -- Ralf Treinen <treinen@debian.org>  Tue, 09 Feb 2016 21:31:47 +0100
+ -- Ralf Treinen <treinen@debian.org>  Tue, 09 Feb 2016 21:36:20 +0100
 
 dose3 (4.1-4) unstable; urgency=medium
 
