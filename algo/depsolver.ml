@@ -20,18 +20,7 @@ include Util.Logging(struct let label = label end) ;;
 
 type solver = Depsolver_int.solver
 
-(** @param check if the universe is consistent *)
-let load ?(check=true) universe =
-  let is_consistent check universe =
-    if check then Cudf_checker.is_consistent universe
-    else (true,None)
-  in
-  match is_consistent check universe with
-  |true,None -> Depsolver_int.init_solver_univ universe 
-  |false,Some(r) -> 
-      fatal "%s"
-      (Cudf_checker.explain_reason (r :> Cudf_checker.bad_solution_reason)) ;
-  |_,_ -> assert false
+let load universe = Depsolver_int.init_solver_univ universe
 
 (** [univcheck ?callback universe] check all packages in the
     universe for installability 
@@ -123,6 +112,43 @@ let edos_coinstall_prod ?(global_constraints=false) univ ll =
   in
   List.map (edos_install_cache global_constraints univ cudfpool) (permutation ll)
 ;;
+
+let is_consistent univ =
+  match Cudf_checker.is_consistent univ with
+  |true, None ->
+      { Diagnostic.request = [] ;
+        result =
+          Diagnostic.Success (fun ?(all=false) () ->
+            if all then
+              Cudf.get_packages ~filter:(fun p -> p.Cudf.installed) univ
+            else []
+          )
+      }
+  |false, Some  `Unsat_dep (nv,vpkgformula) ->
+      let pkg = Cudf.lookup_package univ nv in
+      { Diagnostic.request = [pkg] ;
+        result =
+          Diagnostic.Failure (fun () ->
+            List.map (fun vpkglist ->
+              Diagnostic.Missing(pkg,vpkglist)
+            ) vpkgformula
+          )
+      }
+  |false, Some `Conflict (nv,vpkglist) ->
+      let pkg1 = Cudf.lookup_package univ nv in
+      { Diagnostic.request = [pkg1] ;
+        result =
+          Diagnostic.Failure (fun () ->
+            List.flatten (
+              List.map (fun vpkg ->
+                List.map (fun pkg2 ->
+                  Diagnostic.Conflict (pkg1,pkg2,vpkg)
+                ) (CudfAdd.who_provides univ vpkg)
+              ) vpkglist
+            )
+          )
+      }
+  |(true|false),_ -> fatal "Bug in Cudf_checker.is_consistent"
 
 let trim ?(global_constraints=true) universe =
   let trimmed_pkgs = ref [] in
