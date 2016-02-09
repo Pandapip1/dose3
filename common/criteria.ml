@@ -27,15 +27,15 @@ let parse_criteria v = lexbuf_wrapper Criteria_parser.criteria_top v
   is why the deb822 field name has to be sanitized.
   The first eight hex chars of the md5sum of the fieldname, the match type
   and the search string are appended because:
-    - sanitizing deb822 field names might make them not unique anymore
-    - regexp may contain mostly special characters that would otherwise all
-      be deleted, creating a non-unique field name
-    - regexp might be very long but cutting of the regex might make the
-      result non-unique
-    - a hash solves all these problems because it contains only valid
-      characters while being unique for any input (minus unlikely collisions)
-
- Cudf properties are identifiers as per cudf spec and must start with
+  - sanitizing deb822 field names might make them not unique anymore
+  - regexp may contain mostly special characters that would otherwise all
+    be deleted, creating a non-unique field name
+  - regexp might be very long but cutting of the regex might make the
+    result non-unique
+  - a hash solves all these problems because it contains only valid
+    characters while being unique for any input (minus unlikely collisions)
+ 
+  Cudf properties are identifiers as per cudf spec and must start with
   a lowercase latin letter, followed by lowercase latin letters, dashes
   or arabic numerals and must be of length one or greater.
   We restrict ourselves to US ASCII characters because checking for
@@ -92,7 +92,7 @@ let to_string ?(solver="dumb") criteria =
             pr "sum(%s,%s)" (string_of_set set) (makefield ~sep field r)
           | Sum (set, attr) ->
               pr "sum(%s,%s)" (string_of_set set) attr
-          | Unsatrec set -> pr "unsatrec(%s)" (string_of_set set)
+          | Unsatrec set -> pr "unsat_recommends(%s)" (string_of_set set)
           | Aligned (set, attr1, attr2) ->
               pr "aligned(%s,%s,%s)" (string_of_set set) attr1 attr2
           | NotUptodate set ->

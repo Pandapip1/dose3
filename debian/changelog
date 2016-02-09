@@ -1,9 +1,43 @@
-dose3 (4.1~beta1-2) experimental; urgency=medium
+dose3 (4.1-4) unstable; urgency=medium
 
-  * add patch fix-doc-target-without-ocamlopt.patch to make dose3 build on
-    architectures without ocamlopt
+  * patch lexing-debian-fields: syntax of debian fields according to
+    debian policy. Patch taken from upstream. (closes: #811569)
+  * patch add-gnuhardened1-linux: compile on hardenend1-linux-amd64. Thanks
+    to Balint Reczey for the patch! (closes: #812786)
+  * fix name of dose-deb-coinstall in package description of dose-extra
+    (closes: #812203)
+  * dose-{distcheck,builddebcheck}.NEWS: announce changes in printing of
+    package names (closes: #810303)
+  * add test cases for bug#811569 and bug#790422.
 
- -- Johannes Schauer <josch@debian.org>  Sat, 26 Dec 2015 16:29:13 +0100
+ -- Ralf Treinen <treinen@debian.org>  Sun, 07 Feb 2016 18:36:16 +0100
+
+dose3 (4.1-3) unstable; urgency=medium
+
+  * Fix META file: debian.cm{,x}a needs pef.cm{,x}a. The latter must
+    appear first in the META file.
+  * Add patch to correclty compute max_int on 32bits architectures
+    (Closes: #810513). Thanks to Julian Andres Klode for the patch.
+
+ -- Mehdi Dogguy <mehdi@debian.org>  Sat, 09 Jan 2016 20:01:04 +0100
+
+dose3 (4.1-2) unstable; urgency=medium
+
+  * Team upload.
+  * Fix FTBFS on bytecode architectures.
+    - add patch fix_ftbfs_on_bytecode_arch
+
+ -- Mehdi Dogguy <mehdi@debian.org>  Thu, 07 Jan 2016 22:07:30 +0100
+
+dose3 (4.1-1) unstable; urgency=medium
+
+  * new upstream version. This release implements versioned provides
+    (Closes: #786671).
+    - refreshed patch disable-dot.
+  * configure: explicit --bindir and --libdir
+
+ -- Ralf Treinen <treinen@debian.org>  Thu, 07 Jan 2016 18:49:53 +0100
+>>>>>>> master
 
 dose3 (4.1~beta1-1) experimental; urgency=medium
 
@@ -13,6 +47,21 @@ dose3 (4.1~beta1-1) experimental; urgency=medium
   * bump version of build-dependency ocamlgraph and ocaml-nox
 
  -- Ralf Treinen <treinen@debian.org>  Thu, 24 Dec 2015 14:52:09 +0100
+
+dose3 (4.0.2-4) unstable; urgency=medium
+
+  * Team upload.
+  * Disable call to dot during build to avoid FTBFS on some architectures
+    (Closes: #809049).
+
+ -- Mehdi Dogguy <mehdi@debian.org>  Sun, 03 Jan 2016 11:17:07 +0100
+
+dose3 (4.1~beta1-2) experimental; urgency=medium
+
+  * add patch fix-doc-target-without-ocamlopt.patch to make dose3 build on
+    architectures without ocamlopt
+
+ -- Johannes Schauer <josch@debian.org>  Sat, 26 Dec 2015 16:29:13 +0100
 
 dose3 (4.0.2-3) unstable; urgency=medium
 

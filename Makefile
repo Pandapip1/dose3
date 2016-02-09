@@ -13,15 +13,23 @@ APPFLAGS := $(VERBOSE) -j 10
 #OBFLAGS := $(OBFLAGS) -tag profile -tag debug
 #OBFLAGS := $(OBFLAGS) -classic-display
 
+addnotrpm:
+	@if [ ! -s doseparseNoRpm ]; then $(LN) doseparse doseparseNoRpm ; fi
+	@cd doseparse ; \
+		if [ ! -s doseparseNoRpm.mlpack ]; then \
+			$(LN) doseparse.mlpack doseparseNoRpm.mlpack ; \
+		fi ; \
+	cd -
+
 myocamlbuild.ml: myocamlbuild.ml.pp
-	  cppo $(CPPOFLAGS) $< -o $@
+	cppo $(CPPOFLAGS) $< -o $@
 
 all: libs apps man
 
-apps: myocamlbuild.ml itarget $(BYTELIBS) $(OPTLIBS) 
+apps: addnotrpm myocamlbuild.ml itarget $(BYTELIBS) $(OPTLIBS) 
 	$(OCAMLBUILD) $(APPFLAGS) applications/apps.otarget
 
-libs: myocamlbuild.ml itarget $(BYTELIBS) $(OPTLIBS) $(CMXSLIBS) $(ALIBS)
+libs: addnotrpm myocamlbuild.ml itarget $(BYTELIBS) $(OPTLIBS) $(CMXSLIBS) $(ALIBS)
 
 cleandoselib:
 	rm -Rf $(DOSELIBS)
@@ -152,6 +160,7 @@ clean:
 		done)
 	rm -f myocamlbuild.ml
 	rm -f applications/apps.itarget
+	rm -f doseparseNoRpm doseparse/doseparseNoRpm.mlpack
 	cd doc && $(MAKE) clean
 
 distclean: clean
@@ -243,7 +252,7 @@ credits:
 
 doc: all
 	$(OCAMLBUILD) -package unix scripts/pack.native
-	scripts/doc.sh
+	scripts/doc.sh $(OCAMLEXT)
 	dot -Grotate=0 -Tsvg -o dose3.docdir/index.svg dose3.docdir/index.dot
 	(cd doc && $(MAKE) all)
 
