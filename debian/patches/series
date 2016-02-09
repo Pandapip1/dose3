@@ -1,3 +1,2 @@
 binaries-prefix-edos
-fix-doc-target-without-ocamlopt.patch
 # librpm-4.12
