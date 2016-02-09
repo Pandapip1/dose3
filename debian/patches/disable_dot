@@ -1,10 +1,10 @@
 Index: dose3/Makefile
 ===================================================================
---- dose3.orig/Makefile	2016-01-07 18:38:09.663420357 +0100
-+++ dose3/Makefile	2016-01-07 18:38:34.951509185 +0100
-@@ -253,7 +253,7 @@
+--- dose3.orig/Makefile	2016-02-09 21:10:52.221693890 +0100
++++ dose3/Makefile	2016-02-09 21:10:52.221693890 +0100
+@@ -264,7 +264,7 @@
  doc: all
- 	$(OCAMLBUILD) -package unix scripts/pack.native
+ 	$(OCAMLBUILD) -package unix scripts/pack.$(OCAMLEXT)
  	scripts/doc.sh $(OCAMLEXT)
 -	dot -Grotate=0 -Tsvg -o dose3.docdir/index.svg dose3.docdir/index.dot
 +	#dot -Grotate=0 -Tsvg -o dose3.docdir/index.svg dose3.docdir/index.dot

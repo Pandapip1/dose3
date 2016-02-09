@@ -1,3 +1,16 @@
+dose3 (4.2-1) UNRELEASED; urgency=medium
+
+  * New upstream version:
+    - refreshed patches:
+      * binaries-prefix-edos
+      * disable_dot
+    - dropped patches integrated by upstream:
+      * fix_ftbfs_on_bytecode_arch
+      * fix_META
+      * cudf_max_int
+
+ -- Ralf Treinen <treinen@debian.org>  Tue, 09 Feb 2016 21:31:47 +0100
+
 dose3 (4.1-4) unstable; urgency=medium
 
   * patch lexing-debian-fields: syntax of debian fields according to
@@ -37,7 +50,6 @@ dose3 (4.1-1) unstable; urgency=medium
   * configure: explicit --bindir and --libdir
 
  -- Ralf Treinen <treinen@debian.org>  Thu, 07 Jan 2016 18:49:53 +0100
->>>>>>> master
 
 dose3 (4.1~beta1-1) experimental; urgency=medium
 

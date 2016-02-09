@@ -3,8 +3,8 @@ Description: all binaries have prefix dose-
 
 Index: dose3/doc/manpages/distcheck.pod
 ===================================================================
---- dose3.orig/doc/manpages/distcheck.pod	2015-12-24 14:48:23.552855492 +0100
-+++ dose3/doc/manpages/distcheck.pod	2015-12-24 14:48:23.548855473 +0100
+--- dose3.orig/doc/manpages/distcheck.pod	2016-02-09 21:01:27.251169260 +0100
++++ dose3/doc/manpages/distcheck.pod	2016-02-09 21:04:51.788085555 +0100
 @@ -1,25 +1,25 @@
  =head1 NAME
  
@@ -48,15 +48,15 @@ Index: dose3/doc/manpages/distcheck.pod
  containing the input. The package metadata found in that file must
  correspond to the I<type> given in the URI.
  
--When invoked as I<typeB<check>> then the type of input is assumed to
-+When invoked as I<B<dose->typeB<check>> then the type of input is assumed to
- be I<type>, and repositories (in positional arguments or in the values of
- options B<--fg> and B<--bg>) are simply given in form of a pathname of a file
+-When invoked as I<typeB<check>> then the type of input is assumed to be
++When invoked as I<B<dose->typeB<check>> then the type of input is assumed to be
+ I<type>, and repositories (in positional arguments or in the values of options
+ B<--fg> and B<--bg>) are simply given in form of a pathname of a file
  containing the repository. If no positional argument is given then input is
--read from standard input.  B<distcheck> also compressed files (.gz , .bz2) as
-+read from standard input.  B<dose-distcheck> also compressed files (.gz , .bz2) as
- positional arguments. Input read on standard input cannot be in compressed
- form.
+-read from standard input. B<distcheck> also accepts compressed files (.gz ,
++read from standard input. B<dose-distcheck> also accepts compressed files (.gz ,
+ .bz2) as positional arguments. Input read on standard input cannot be in
+ compressed form.
  
 @@ -62,7 +62,7 @@
  The input file has to contain stanzas in the format
@@ -94,11 +94,11 @@ Index: dose3/doc/manpages/distcheck.pod
  project. 
  
  =cut
-Index: dose3/doc/manpages/buildcheck.pod
+Index: dose3/doc/manpages/deb-buildcheck.pod
 ===================================================================
---- dose3.orig/doc/manpages/buildcheck.pod	2015-12-24 14:48:23.552855492 +0100
-+++ dose3/doc/manpages/buildcheck.pod	2015-12-24 14:48:23.548855473 +0100
-@@ -283,7 +283,7 @@
+--- dose3.orig/doc/manpages/deb-buildcheck.pod	2016-02-09 21:01:27.251169260 +0100
++++ dose3/doc/manpages/deb-buildcheck.pod	2016-02-09 21:01:27.251169260 +0100
+@@ -284,7 +284,7 @@
  =head1 SEE ALSO
  
  L<B<deb-control>(5)>, 
@@ -109,8 +109,8 @@ Index: dose3/doc/manpages/buildcheck.pod
  <http://www.mancoosi.org> is the home page of the Mancoosi project. 
 Index: dose3/doc/manpages/outdated.pod
 ===================================================================
---- dose3.orig/doc/manpages/outdated.pod	2015-12-24 14:48:23.552855492 +0100
-+++ dose3/doc/manpages/outdated.pod	2015-12-24 14:48:23.548855473 +0100
+--- dose3.orig/doc/manpages/outdated.pod	2016-02-09 21:01:27.251169260 +0100
++++ dose3/doc/manpages/outdated.pod	2016-02-09 21:01:27.251169260 +0100
 @@ -1,16 +1,16 @@
  =head1 NAME
  
@@ -162,8 +162,8 @@ Index: dose3/doc/manpages/outdated.pod
   
 Index: dose3/doc/manpages/challenged.pod
 ===================================================================
---- dose3.orig/doc/manpages/challenged.pod	2015-12-24 14:48:23.552855492 +0100
-+++ dose3/doc/manpages/challenged.pod	2015-12-24 14:48:23.548855473 +0100
+--- dose3.orig/doc/manpages/challenged.pod	2016-02-09 21:01:27.251169260 +0100
++++ dose3/doc/manpages/challenged.pod	2016-02-09 21:01:27.251169260 +0100
 @@ -1,19 +1,19 @@
  =head1 NAME
  
@@ -225,8 +225,8 @@ Index: dose3/doc/manpages/challenged.pod
  
 Index: dose3/doc/manpages/debcoinstall.pod
 ===================================================================
---- dose3.orig/doc/manpages/debcoinstall.pod	2015-12-24 14:48:23.552855492 +0100
-+++ dose3/doc/manpages/debcoinstall.pod	2015-12-24 14:48:23.548855473 +0100
+--- dose3.orig/doc/manpages/debcoinstall.pod	2016-02-09 21:01:27.251169260 +0100
++++ dose3/doc/manpages/debcoinstall.pod	2016-02-09 21:01:27.251169260 +0100
 @@ -1,19 +1,19 @@
  =head1 NAME
  
@@ -268,8 +268,8 @@ Index: dose3/doc/manpages/debcoinstall.pod
   --fg essential > essential_coinstall_src
 Index: dose3/doc/manpages/ceve.pod
 ===================================================================
---- dose3.orig/doc/manpages/ceve.pod	2015-12-24 14:48:23.552855492 +0100
-+++ dose3/doc/manpages/ceve.pod	2015-12-24 14:48:23.548855473 +0100
+--- dose3.orig/doc/manpages/ceve.pod	2016-02-09 21:01:27.251169260 +0100
++++ dose3/doc/manpages/ceve.pod	2016-02-09 21:01:27.251169260 +0100
 @@ -1,18 +1,18 @@
  =head1 NAME
  
