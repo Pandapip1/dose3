@@ -11,8 +11,9 @@ dose3 (4.2-1) UNRELEASED; urgency=medium
    * d/rules: upstream has renamed manpage buildcheck into deb-buildcheck
    * drop build-dependency on graphviz, since generation of dot files is
      deliberately disabled (by patch disable_dot).
-
- -- Ralf Treinen <treinen@debian.org>  Tue, 09 Feb 2016 21:43:20 +0100
+   * Standards-Version 3.9.7 (no change)
+   
+ -- Ralf Treinen <treinen@debian.org>  Tue, 09 Feb 2016 21:49:41 +0100
 
 dose3 (4.1-4) unstable; urgency=medium
 
