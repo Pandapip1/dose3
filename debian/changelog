@@ -8,12 +8,14 @@ dose3 (4.2-1) UNRELEASED; urgency=medium
       * fix_ftbfs_on_bytecode_arch
       * fix_META
       * cudf_max_int
+   * fixed patch add-gnuhardened1-linux, thanks to Balint Reczey
+     (closes: #812786, again)
    * d/rules: upstream has renamed manpage buildcheck into deb-buildcheck
    * drop build-dependency on graphviz, since generation of dot files is
      deliberately disabled (by patch disable_dot).
    * Standards-Version 3.9.7 (no change)
    
- -- Ralf Treinen <treinen@debian.org>  Tue, 09 Feb 2016 21:49:41 +0100
+ -- Ralf Treinen <treinen@debian.org>  Wed, 10 Feb 2016 08:50:18 +0100
 
 dose3 (4.1-4) unstable; urgency=medium
 
