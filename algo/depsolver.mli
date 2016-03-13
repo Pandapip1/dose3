@@ -15,33 +15,24 @@
 (** the solver is an abstract data type associated to a universe *)
 type solver
 
-(** initialize the solver. If [check] is true (default), then check 
-    for universe consistency (cf. Cudf_checker.is_consistent) *)
-val load : ?check : bool -> Cudf.universe -> solver
+(** initialize the solver *)
+val load : Cudf.universe -> solver
 
-(*
-(** Turn a result from Diagnostic_int into one of Diagnostic *)
-val result : Depsolver_int.identity -> Cudf.universe -> Diagnostic.result_int -> Diagnostic.result
-
-(** Turn a request from Diagnostic_int into one of Diagnostic *)
-val request : Cudf.universe -> Diagnostic.request_int -> Diagnostic.request
-*)
+(** check if the universe universe is consistent (all installed packages are coinstallable)
+    This function is a wrapper of Cudf_checker.is_consistent. *)
+val is_consistent : Cudf.universe -> Diagnostic.diagnosis
 
 (** check if the given package can be installed in the universe 
  
     @param global_constraints : enforce global constraints on the given
     universe. In particular packages marked as `Keep_package must be always
-    installed. Default false.
-
-*)
+    installed. Default false. *)
 val edos_install : ?global_constraints:bool -> Cudf.universe -> Cudf.package -> Diagnostic.diagnosis
 
 (** check if the give package list can be installed in the universe 
-  
     @param global_constraints : enforce global constraints on the given
     universe. In particular packages marked as `Keep_package must be always
-    installed. Default false.
-*)
+    installed. Default false.  *)
 val edos_coinstall : ?global_constraints:bool -> Cudf.universe -> Cudf.package list -> Diagnostic.diagnosis
 
 (** accept a list of list of packages and return the coinstallability test of
@@ -167,3 +158,11 @@ val check_request_using:
   ?criteria:string ->
   ?explain : bool ->
   Cudf.cudf -> solver_result
+
+#ifdef HASOCAMLGRAPH
+(** Build the installation graph from a cudf solution universe and sets of packages to be 
+    installed/removed (see CudfAdd.make_summary) *)
+val installation_graph: solution:Cudf.universe -> 
+  (Common.CudfAdd.Cudf_set.t * Common.CudfAdd.Cudf_set.t) -> 
+    Defaultgraphs.ActionGraph.G.t
+#endif

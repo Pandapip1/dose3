@@ -95,21 +95,27 @@ let decode name =
    translated differently considering the profiles associated to each dependency *)
 let tocudf tables ?(options=default_options) ?(extras=[]) pkg =
   let all_switches = (List.unique (options.switch::options.switches)) in
+  if options.switch = "" then warning "Now default switch specified in opam -> cudf conversion";
   List.fold_left (fun acc switch ->
     (* include this package if it is not declared as not available and if it is
      * used in some dependency. Otherwise there is no point to include it *)
     if List.mem "all" pkg#switch || List.mem switch pkg#switch then
       let depends = if options.depopts then pkg#depends@pkg#depopts else pkg#depends in
+      let keep =
+        if List.mem switch pkg#baselist then `Keep_package else 
+        if List.mem switch pkg#pinnedlist then `Keep_version 
+        else `Keep_none
+      in
       let cudfpkg = 
         { Cudf.default_package with
           Cudf.package = CudfAdd.encode (pkg#name^":"^switch);
-          Cudf.version = Pef.Pefcudf.get_cudf_version tables (pkg#name,pkg#version);
-          Cudf.installed = List.mem switch pkg#installedlist;
-          Cudf.keep = if List.mem switch pkg#baselist then `Keep_version else `Keep_none;
-          Cudf.depends = Pef.Pefcudf.loadll tables ~arch:switch ~archs:all_switches depends;
-          Cudf.conflicts = Pef.Pefcudf.loadlc tables ~arch:switch ~archs:all_switches pkg#conflicts;
-          Cudf.provides = Pef.Pefcudf.loadlp tables ~arch:switch ~archs:all_switches pkg#provides;
-          Cudf.pkg_extra = add_extra extras tables (switch,options.switch) pkg;
+          version = Pef.Pefcudf.get_cudf_version tables (pkg#name,pkg#version);
+          installed = List.mem switch pkg#installedlist;
+          keep; 
+          depends = Pef.Pefcudf.loadll tables ~arch:switch ~archs:all_switches depends;
+          conflicts = Pef.Pefcudf.loadlc tables ~arch:switch ~archs:all_switches pkg#conflicts;
+          provides = Pef.Pefcudf.loadlp tables ~arch:switch ~archs:all_switches pkg#provides;
+          pkg_extra = add_extra extras tables (switch,options.switch) pkg;
         }
       in (cudfpkg::acc)
     else acc
@@ -152,16 +158,16 @@ let requesttocudf tables universe request =
     Cudf.upgrade = encode_vpkglist tables switch request.Packages.upgrade;
     }
 
-let load_list compare l =
+let load_list ?(options=default_options) compare l =
   let timer = Util.Timer.create "Opam.ToCudf" in
   Util.Timer.start timer;
   let tables = Pef.Pefcudf.init_tables compare l in
-  let pkglist = List.flatten (List.map (tocudf tables) l) in
+  let pkglist = List.flatten (List.map (tocudf ~options tables) l) in
   Pef.Pefcudf.clear tables;
   Util.Timer.stop timer pkglist
 
-let load_universe compare l =
-  let pkglist = load_list compare l in
+let load_universe ?(options=default_options) compare l =
+  let pkglist = load_list ~options compare l in
   let timer = Util.Timer.create "Opam.ToCudf" in
   Util.Timer.start timer;
   let univ = Cudf.load_universe pkglist in
