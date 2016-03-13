@@ -1,6 +1,7 @@
-dose3 (4.2-1) UNRELEASED; urgency=medium
+dose3 (4.2-1) experimental; urgency=medium
 
-  * New upstream version.
+  * New upstream version. This version fixes a bug in the manpage of
+    dose-builddebcheck (closes: #811248)
     - refreshed patches:
       * binaries-prefix-edos
       * disable_dot

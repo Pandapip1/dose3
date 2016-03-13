@@ -3,8 +3,8 @@ Description: all binaries have prefix dose-
 
 Index: dose3/doc/manpages/distcheck.pod
 ===================================================================
---- dose3.orig/doc/manpages/distcheck.pod	2016-02-09 21:01:27.251169260 +0100
-+++ dose3/doc/manpages/distcheck.pod	2016-02-09 21:04:51.788085555 +0100
+--- dose3.orig/doc/manpages/distcheck.pod	2016-03-13 20:05:52.014344883 +0100
++++ dose3/doc/manpages/distcheck.pod	2016-03-13 20:05:52.014344883 +0100
 @@ -1,25 +1,25 @@
  =head1 NAME
  
@@ -96,8 +96,17 @@ Index: dose3/doc/manpages/distcheck.pod
  =cut
 Index: dose3/doc/manpages/deb-buildcheck.pod
 ===================================================================
---- dose3.orig/doc/manpages/deb-buildcheck.pod	2016-02-09 21:01:27.251169260 +0100
-+++ dose3/doc/manpages/deb-buildcheck.pod	2016-02-09 21:01:27.251169260 +0100
+--- dose3.orig/doc/manpages/deb-buildcheck.pod	2016-03-13 20:05:52.014344883 +0100
++++ dose3/doc/manpages/deb-buildcheck.pod	2016-03-13 20:07:36.166799219 +0100
+@@ -266,7 +266,7 @@
+ possible to install a mix build environment on amd64 plus armel, assuming that
+ the binary packages described in file Packages are available: 
+ 
+- deb-builddebcheck --failures --successes --deb-native-arch=amd64 \
++ dose-builddebcheck --failures --successes --deb-native-arch=amd64 \
+  --deb-foreign-archs=armel,linux-any --deb-host-arch=armel \
+  DebianPackages/Sid-amd64-armel-Packages-050812.bz2 
+  DebianPackages/Sid-Sources-single-version-050812.bz2
 @@ -284,7 +284,7 @@
  =head1 SEE ALSO
  
@@ -109,8 +118,8 @@ Index: dose3/doc/manpages/deb-buildcheck.pod
  <http://www.mancoosi.org> is the home page of the Mancoosi project. 
 Index: dose3/doc/manpages/outdated.pod
 ===================================================================
---- dose3.orig/doc/manpages/outdated.pod	2016-02-09 21:01:27.251169260 +0100
-+++ dose3/doc/manpages/outdated.pod	2016-02-09 21:01:27.251169260 +0100
+--- dose3.orig/doc/manpages/outdated.pod	2016-03-13 20:05:52.014344883 +0100
++++ dose3/doc/manpages/outdated.pod	2016-03-13 20:05:52.014344883 +0100
 @@ -1,16 +1,16 @@
  =head1 NAME
  
@@ -162,8 +171,8 @@ Index: dose3/doc/manpages/outdated.pod
   
 Index: dose3/doc/manpages/challenged.pod
 ===================================================================
---- dose3.orig/doc/manpages/challenged.pod	2016-02-09 21:01:27.251169260 +0100
-+++ dose3/doc/manpages/challenged.pod	2016-02-09 21:01:27.251169260 +0100
+--- dose3.orig/doc/manpages/challenged.pod	2016-03-13 20:05:52.014344883 +0100
++++ dose3/doc/manpages/challenged.pod	2016-03-13 20:05:52.014344883 +0100
 @@ -1,19 +1,19 @@
  =head1 NAME
  
@@ -225,8 +234,8 @@ Index: dose3/doc/manpages/challenged.pod
  
 Index: dose3/doc/manpages/debcoinstall.pod
 ===================================================================
---- dose3.orig/doc/manpages/debcoinstall.pod	2016-02-09 21:01:27.251169260 +0100
-+++ dose3/doc/manpages/debcoinstall.pod	2016-02-09 21:01:27.251169260 +0100
+--- dose3.orig/doc/manpages/debcoinstall.pod	2016-03-13 20:05:52.014344883 +0100
++++ dose3/doc/manpages/debcoinstall.pod	2016-03-13 20:05:52.014344883 +0100
 @@ -1,19 +1,19 @@
  =head1 NAME
  
@@ -268,8 +277,8 @@ Index: dose3/doc/manpages/debcoinstall.pod
   --fg essential > essential_coinstall_src
 Index: dose3/doc/manpages/ceve.pod
 ===================================================================
---- dose3.orig/doc/manpages/ceve.pod	2016-02-09 21:01:27.251169260 +0100
-+++ dose3/doc/manpages/ceve.pod	2016-02-09 21:01:27.251169260 +0100
+--- dose3.orig/doc/manpages/ceve.pod	2016-03-13 20:05:52.014344883 +0100
++++ dose3/doc/manpages/ceve.pod	2016-03-13 20:05:52.014344883 +0100
 @@ -1,18 +1,18 @@
  =head1 NAME
  
