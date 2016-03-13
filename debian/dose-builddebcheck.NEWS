@@ -1,3 +1,9 @@
+dose-distcheck (4.2-1) experimental; urgency=medium
+
+  * The output version of the yaml output has been bumped to 1.1
+
+ -- Ralf Treinen <treinen@debian.org>  Sun, 13 Mar 2016 20:02:22 +0100
+
 dose-distcheck (4.1-4) unstable; urgency=medium
   Dose 4.1 has introduced a change in the output format, unfortunately without
   bumping the version number of the output format. This concerns:

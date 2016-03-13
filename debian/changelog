@@ -1,6 +1,6 @@
 dose3 (4.2-1) UNRELEASED; urgency=medium
 
-  * New upstream version:
+  * New upstream version.
     - refreshed patches:
       * binaries-prefix-edos
       * disable_dot
@@ -11,6 +11,7 @@ dose3 (4.2-1) UNRELEASED; urgency=medium
    * fixed patch add-gnuhardened1-linux, thanks to Balint Reczey
      (closes: #812786, again)
    * d/rules: upstream has renamed manpage buildcheck into deb-buildcheck
+   * d/*.NEWS: say that format version of yaml output has been bumped
    * drop build-dependency on graphviz, since generation of dot files is
      deliberately disabled (by patch disable_dot).
    * Standards-Version 3.9.7 (no change)
