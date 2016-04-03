@@ -51,6 +51,7 @@ $(DOSELIBS)/cudf.%:
 	$(OCAMLBUILD) $(OBFLAGS) cudf/cudf.$*
 	@mkdir -p $(DOSELIBS)
 	@cp _build/cudf/*.cmi $(DOSELIBS)
+	@rm _build/cudf/*.cmi
 	@for i in _build/cudf/cudf.*; do \
 	  if [ -e $$i ]; then \
 	  cp $$i $(DOSELIBS) ; \
@@ -64,6 +65,7 @@ $(DOSELIBS)/common.%: common/*.ml common/*.mli
 	@for i in _build/common/common.*; do \
 	  if [ -e $$i ]; then \
 	  cp $$i $(DOSELIBS) ; \
+		rm $$i ;\
 	  rm -f $(DOSELIBS)/*.mlpack $(DOSELIBS)/*.cmx ; \
 	  fi ; \
 	done
@@ -74,6 +76,7 @@ $(DOSELIBS)/versioning.%: versioning/*.ml versioning/*.mli
 	@for i in _build/versioning/versioning.*; do \
 	  if [ -e $$i ]; then \
 	  cp $$i $(DOSELIBS) ; \
+		rm $$i ;\
 	  rm -f $(DOSELIBS)/*.mlpack $(DOSELIBS)/*.cmx ; \
 	  fi ; \
 	done
@@ -83,6 +86,7 @@ $(DOSELIBS)/algo.%: algo/*.ml algo/*.mli $(DOSELIBS)/common.%
 	@for i in _build/algo/algo.*; do \
 	  if [ -e $$i ]; then \
 	  cp $$i $(DOSELIBS) ; \
+		rm $$i ;\
 	  rm -f $(DOSELIBS)/*.mlpack $(DOSELIBS)/*.cmx ; \
 	  fi ; \
 	done
@@ -92,6 +96,7 @@ $(DOSELIBS)/debian.%: deb/*.ml deb/*.mli $(DOSELIBS)/pef.%
 	@for i in _build/deb/debian.*; do \
 	  if [ -e $$i ]; then \
 	  cp $$i $(DOSELIBS) ; \
+		rm $$i ;\
 	  rm -f $(DOSELIBS)/*.mlpack $(DOSELIBS)/*.cmx ; \
 	  fi ; \
 	done
@@ -101,6 +106,7 @@ $(DOSELIBS)/opam.%: opam/*.ml opam/*.mli $(DOSELIBS)/pef.%
 	@for i in _build/opam/opam.*; do \
 	  if [ -e $$i ]; then \
 	  cp $$i $(DOSELIBS) ; \
+		rm $$i ;\
 	  rm -f $(DOSELIBS)/*.mlpack $(DOSELIBS)/*.cmx ; \
 	  fi ; \
 	done
@@ -110,6 +116,7 @@ $(DOSELIBS)/rpm.%: rpm/*.ml $(DOSELIBS)/algo.%
 	@for i in _build/rpm/rpm.*; do \
 	  if [ -e $$i ]; then \
 	  cp $$i $(DOSELIBS) ; \
+		rm $$i ;\
 	  rm -f $(DOSELIBS)/*.mlpack $(DOSELIBS)/*.cmx ; \
 	  fi ; \
 	done
@@ -119,6 +126,7 @@ $(DOSELIBS)/pef.%: pef/*.ml pef/*.mli
 	@for i in _build/pef/pef.*; do \
 	  if [ -e $$i ]; then \
 	  cp $$i $(DOSELIBS) ; \
+		rm $$i ;\
 	  rm -f $(DOSELIBS)/*.mlpack $(DOSELIBS)/*.cmx ; \
 	  fi ; \
 	done
@@ -128,6 +136,7 @@ $(DOSELIBS)/csw.%: opencsw/*.ml $(DOSELIBS)/versioning.%
 	@for i in _build/opencsw/csw.*; do \
 	  if [ -e $$i ]; then \
 	  cp $$i $(DOSELIBS) ; \
+		rm $$i ;\
 	  rm -f $(DOSELIBS)/*.mlpack $(DOSELIBS)/*.cmx ; \
 	  fi ; \
 	done
@@ -137,6 +146,7 @@ $(DOSELIBS)/doseparse.%: $(DOSELIBS)/pef.% $(DOSELIBS)/debian.%
 	@for i in _build/doseparse/doseparse.*; do \
 	  if [ -e $$i ]; then \
 	  cp $$i $(DOSELIBS) ; \
+		rm $$i ;\
 	  rm -f $(DOSELIBS)/*.mlpack $(DOSELIBS)/*.cmx $(DOSELIBS)/*.ml ; \
 	  fi ; \
 	done
@@ -146,6 +156,7 @@ $(DOSELIBS)/doseparseNoRpm.%: $(DOSELIBS)/pef.% $(DOSELIBS)/debian.%
 	@for i in _build/doseparseNoRpm/doseparseNoRpm.*; do \
 	  if [ -e $$i ]; then \
 			cp $$i $(DOSELIBS) ;\
+			rm $$i ;\
 			rm -f $(DOSELIBS)/*.mlpack $(DOSELIBS)/*.cmx ;\
 	  fi ; \
 	done
@@ -251,7 +262,7 @@ credits:
 	@git log --pretty=format:'%aN        %aE' | LC_ALL=C sort -u | awk -F'\t' '{printf("\t%s <%s>\n",$$1,$$2)}';
 
 doc: all
-	$(OCAMLBUILD) -package unix scripts/pack.native
+	$(OCAMLBUILD) -package unix scripts/pack.$(OCAMLEXT)
 	scripts/doc.sh $(OCAMLEXT)
 	dot -Grotate=0 -Tsvg -o dose3.docdir/index.svg dose3.docdir/index.dot
 	(cd doc && $(MAKE) all)
@@ -261,7 +272,7 @@ man:
 
 upload: doc
 	(cd doc && $(MAKE) upload)
-	rsync -avz -O dose3.docdir/ scm.gforge.inria.fr:/home/groups/dose/htdocs/doc/api/
+	rsync -avz -O dose3.docdir/ scm.gforge.inria.fr:/home/groups/dose/htdocs/API/
 
 .PHONY: \
 	common algo pef versioning debian rpm csw doseparseNoRpm doseparse \

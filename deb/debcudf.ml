@@ -27,7 +27,7 @@ module Version = Versioning.Debian
 let label =  __label ;;
 include Util.Logging(struct let label = label end) ;;
 
-let max32int = Int32.to_int(Int32.max_int);;
+let max32int = if Int32.to_int(Int32.max_int) < 0 then max_int else Int32.to_int(Int32.max_int);;
 
 module SMap = Map.Make (String)
 
@@ -186,7 +186,6 @@ let init_tables ?(step=1) ?(versionlist=[]) pkglist =
   List.iter (fun pkg -> ivt pkg ; ivrt pkg ; ivdt pkg ; iut pkg) pkglist ;
   let l = Util.StringPairHashtbl.fold (fun v _ acc -> v::acc) temp_versions_table [] in
   let add_reverse i (n,v) =
-    debug "Add Reverse (%s,%s) %i" n v i;
     try 
       let m = Util.IntHashtbl.find tables.reverse_table i in 
       m := (SMap.add n v !m)
@@ -198,7 +197,6 @@ let init_tables ?(step=1) ?(versionlist=[]) pkglist =
   let rec numbers (prec,i) = function
     |[] -> ()
     |(v,n)::t ->
-      debug "Numbers %s %s" n v;
       if Version.equal v prec then begin
         add tables.versions_table v i;
         if n <> "" then add_reverse i (n,v);
@@ -221,18 +219,19 @@ let get_cudf_version tables (package,version) =
     raise Not_found
   end
 
+let get_real_name name = 
+  (* Remove --virtual- and architecture encoding *)
+  let n = (CudfAdd.decode name) in
+  if ExtString.String.starts_with n "--vir" then
+    ExtString.String.slice ~first:10 n
+  else
+    try
+      let (n,a) = ExtString.String.split n ":" in
+      if n = "src" then a else n
+    with Invalid_string -> n
+
 let get_real_version tables (name,cudfversion) =
-  let package =
-    (* XXX this is a hack. Remove --virtual- and architecture encoding *)
-    let n = (CudfAdd.decode name) in
-    if ExtString.String.starts_with n "--vir" then
-      ExtString.String.slice ~first:10 n
-    else
-      try
-        let (n,a) = ExtString.String.split n ":" in
-        if n = "src" then a else n
-      with Invalid_string -> n
-  in
+  let package = get_real_name name in
   try
     if cudfversion = max32int || cudfversion = max32int - 1 then 
       (package,"nan")
