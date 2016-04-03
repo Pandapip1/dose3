@@ -2,8 +2,9 @@ dose3 (4.2-2) unstable; urgency=medium
 
   * Upload to sid.
   * Dropped the Testsuite field in d/control, as it is no longer needed.
+  * d/copyright: updated filename versioning/debian.ml 
 
- -- Ralf Treinen <treinen@debian.org>  Sun, 03 Apr 2016 21:41:08 +0200
+ -- Ralf Treinen <treinen@debian.org>  Sun, 03 Apr 2016 21:51:31 +0200
 
 dose3 (4.2-1) experimental; urgency=medium
 
