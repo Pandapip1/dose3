@@ -1,3 +1,9 @@
+dose3 (4.2-2) unstable; urgency=medium
+
+  * Upload to sid.
+
+ -- Ralf Treinen <treinen@debian.org>  Sun, 03 Apr 2016 21:39:54 +0200
+
 dose3 (4.2-1) experimental; urgency=medium
 
   * New upstream version. This version fixes a bug in the manpage of
