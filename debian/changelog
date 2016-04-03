@@ -5,8 +5,9 @@ dose3 (4.2-2) unstable; urgency=medium
     - updated filename versioning/debian.ml
     - removed duplicate paragraph for debian/update-cudf-solvers
   * Vcs-git: replaced insecure git: URI by https:
+  * patch disable-dot: add Author and Description
 
- -- Ralf Treinen <treinen@debian.org>  Sun, 03 Apr 2016 21:59:34 +0200
+ -- Ralf Treinen <treinen@debian.org>  Sun, 03 Apr 2016 22:04:33 +0200
 
 dose3 (4.2-1) experimental; urgency=medium
 

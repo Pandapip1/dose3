@@ -1,3 +1,6 @@
+Author: Mehdi Dogguy <mehdi@debian.org>
+Description: Disable call to dot to avoid FTBFS on some architectures
+
 Index: dose3/Makefile
 ===================================================================
 --- dose3.orig/Makefile	2016-02-09 21:10:52.221693890 +0100
