@@ -1,3 +1,9 @@
+dose3 (4.3-1) experimental; urgency=medium
+
+  * New upstream version.
+
+ -- Ralf Treinen <treinen@debian.org>  Sat, 23 Apr 2016 17:12:57 +0200
+
 dose3 (4.2-2) unstable; urgency=medium
 
   * Dropped the Testsuite field in d/control, as it is no longer needed.
