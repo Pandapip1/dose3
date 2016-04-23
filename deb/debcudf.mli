@@ -23,6 +23,8 @@ type options = {
   host : string option;   (** the host architecture - cross compile *)
   ignore_essential : bool ;
   builds_from : bool ;    (** whether to add the builds-from relationship from binary to source packages *)
+  drop_bd_indep : bool ;  (** whether or not to ignore the Build-Depends-Indep field *)
+  profiles : string list ; (** list of active build profiles *)
 }
 
 val default_options : options
@@ -37,11 +39,13 @@ val clear : tables -> unit
 val get_cudf_version : tables -> Pef.Packages_types.name * Pef.Packages_types.version -> int
 
 (** Get the orgininal debian package name. Remove deb -> cudf conversion cruft *)
-val get_real_name : Cudf_types.pkgname -> string
+val get_real_name : Cudf_types.pkgname -> (string * string option)
 
 (** return the real version associated to a Cudf package *)
 val get_real_version : tables -> Cudf_types.pkgname * Cudf_types.version -> 
-  (Pef.Packages_types.name * Pef.Packages_types.version)
+  (Pef.Packages_types.name *
+   Pef.Packages_types.architecture option *
+   Pef.Packages_types.version)
 
 (** [tocudf tbl p] 
     convert the a debian package representation to cudf.

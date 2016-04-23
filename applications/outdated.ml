@@ -226,7 +226,7 @@ let outdated
     if OptParse.Opt.is_set Options.checkonly then begin
       List.flatten (
         List.map (fun ((n,a),c) ->
-          let (name,filter) = Debian.Debutil.debvpkg to_cudf ((n,a),c) in
+          let (name,filter) = Pef.Pefcudf.pefvpkg to_cudf ((n,a),c) in
           Cudf.lookup_packages ~filter universe name
         ) (OptParse.Opt.get Options.checkonly)
       )
@@ -234,11 +234,11 @@ let outdated
   in
 
   let pp pkg =
-    let p = 
-      let n = Debian.Debcudf.get_real_name pkg.Cudf.package in
+    let (p,a) = 
+      let (n,a) = Debian.Debcudf.get_real_name pkg.Cudf.package in
       if String.starts_with n "src/" then
-        Printf.sprintf "Source conflict (%s)" n
-      else n
+        (Printf.sprintf "Source conflict (%s)" n,a)
+      else (n,a)
     in
     let v = 
       if pkg.Cudf.version > 0 then begin
@@ -248,8 +248,10 @@ let outdated
           try Cudf.lookup_package_property pkg "number"
           with Not_found ->
             if (pkg.Cudf.version mod 2) = 1 then
-              snd(Debian.Debcudf.get_real_version tables 
-              (pkg.Cudf.package,pkg.Cudf.version))
+              let (_,_,v) =
+                Debian.Debcudf.get_real_version tables 
+                (pkg.Cudf.package,pkg.Cudf.version)
+              in v
             else
               fatal "Real package without Debian Version"
       end
@@ -261,7 +263,7 @@ let outdated
         with Not_found -> None
       ) ["architecture";"source";"sourcenumber";"equivs"]
     in
-    (p,v,l)
+    (p,a,v,l)
   in
 
   let fmt = Format.std_formatter in

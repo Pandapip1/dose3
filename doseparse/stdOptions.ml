@@ -38,7 +38,7 @@ let vpkg_option ?default ?(metavar = " <vpkg>") () =
     Pef.Packages.parse_vpkg ("cmdline <vpkg>",(_loc,s))
   in
   OptParse.Opt.value_option metavar default
-  parse_vpkg (fun _ s -> Printf.sprintf "invalid vpackage '%s'" s)
+  parse_vpkg (fun _ s -> Printf.sprintf "Invalid vpackage '%s'" s)
 ;;
 
 (* this is a ,-separated list of vpkgs of the form "a (<c> v)" *)
@@ -48,7 +48,7 @@ let vpkglist_option ?default ?(metavar = " <vpkglst>") () =
     Pef.Packages.parse_vpkglist ("cmdline <vpkglst>",(_loc,s))
   in
   OptParse.Opt.value_option metavar default
-  parse_vpkglist (fun _ s -> Printf.sprintf "invalid vpackage list '%s'" s)
+  parse_vpkglist (fun _ s -> Printf.sprintf "Invalid vpackage list '%s'" s)
 ;;
 
 (* this is a ,-separated list of vpkgs of the form "a (= v)" *)
@@ -63,7 +63,7 @@ let pkglist_option ?default ?(metavar = " <pkglst>") () =
     ) (Pef.Packages.parse_vpkglist ("cmdline <pkglst>",(_loc,s)))
   in
   OptParse.Opt.value_option metavar default
-  parse_vpkglist (fun _ s -> Printf.sprintf "invalid package list '%s'" s)
+  parse_vpkglist (fun _ s -> Printf.sprintf "Invalid package list '%s'" s)
 ;;
 
 (* this is a ,-separated list of optimization criteria *)
@@ -73,7 +73,7 @@ let criteria_option ?default ?(metavar = " <criteria>") () =
     Criteria.parse_criteria ("cmdline <criteria>",(_loc,s))
   in
   OptParse.Opt.value_option metavar default
-  parse_criteria (fun _ s -> Printf.sprintf "invalid criteria list '%s'" s)
+  parse_criteria (fun _ s -> Printf.sprintf "Invalid criteria list '%s'" s)
 ;;
 
 (* *************************************** *)
@@ -222,12 +222,20 @@ module InputOptions = struct
     let error _ s = Printf.sprintf "input format \"%s\" not supported. Must be one of: %s" s supported in
     Opt.value_option metavar default coerce error
 
+  let vtypes = Versioning.Utils.supported_formats
+  let comp_option ?default ?(metavar = Printf.sprintf "<%s>" (String.concat "|" vtypes)) () =
+    let coerce s = if List.mem s vtypes then s else raise Not_found in
+    let supported = String.concat ", " vtypes in
+    let error _ s = Printf.sprintf "comparison function \"%s\" not supported. Must be one of: %s" s supported in
+    Opt.value_option metavar default coerce error
+
   let trim = StdOpt.store_true ()
   let latest = StdOpt.store_true ()
   let checkonly = StdDebian.vpkglist_option ()
   let background = incr_str_list ()
   let foreground = incr_str_list ()
   let inputtype = in_option ()
+  let compare = comp_option ()
 
   let default_options = [
     (* "trim"; *)
@@ -236,6 +244,7 @@ module InputOptions = struct
     "checkonly";
     "bg";
     "fg";
+    "compare";
   ]
 
   let group = ref None
@@ -278,6 +287,10 @@ module InputOptions = struct
         add options ~group ~long_name:"bg"
         ~help:("Additional Packages lists that are NOT checked but used "^
                "for resolving dependencies (can be repeated)") background;
+      if List.mem "compare" default then
+        add options ~group ~long_name:"compare"
+        ~help:"When used with a pef input type, selects a comparison function" compare;
+
     end
   ;;
 
@@ -306,6 +319,8 @@ module DistribOptions = struct
   let deb_host_arch = StdOpt.str_option ()
   let deb_ignore_essential = StdOpt.store_true ()
   let deb_builds_from = StdOpt.store_true ()
+  let deb_drop_bd_indep = StdOpt.store_true ()
+  let deb_profiles = str_list_option ()
 
   let opam_switch = StdOpt.str_option ~default:"system" ()
   let opam_switches = str_list_option ()
@@ -317,6 +332,8 @@ module DistribOptions = struct
     "deb-foreign-archs";
     "deb-ignore-essential";
     "deb-builds-from";
+    "deb-drop-b-d-indep";
+    "deb-profiles";
     "opam-switch";
     "opam-switches";
     "opam-profiles"
@@ -348,6 +365,13 @@ module DistribOptions = struct
           []
       end
     in
+    let profiles =
+      if Opt.is_set deb_profiles then
+        Opt.get deb_profiles
+      else
+        try String.nsplit (Sys.getenv "DEB_BUILD_PROFILES") " "
+        with Not_found -> []
+    in
     {
       Debian.Debcudf.default_options with
       Debian.Debcudf.native = native;
@@ -355,6 +379,8 @@ module DistribOptions = struct
       host = host;
       ignore_essential = Opt.get deb_ignore_essential;
       builds_from = Opt.get deb_builds_from;
+      drop_bd_indep = Opt.get deb_drop_bd_indep;
+      profiles = profiles;
     }
   ;;
 
@@ -441,6 +467,12 @@ module DistribOptions = struct
       if List.mem "deb-builds-from" default then
         add options ~group ~long_name:"deb-builds-from"
           ~help:"Add builds-from relationship of binary packages on source packages as dependency" deb_builds_from;
+      if List.mem "deb-drop-b-d-indep" default then
+        add options ~group ~long_name:"deb-drop-b-d-indep"
+          ~help:"Drop the Build-Depends-Indep field from source packages (build no Architecture:all packages)" deb_drop_bd_indep;
+      if List.mem "deb-profiles" default then
+        add options ~group ~long_name:"deb-profiles"
+          ~help:"comma separated list of activated build profiles" deb_profiles;
     end
 
   let add_opam_options ?(default=default_options) options =

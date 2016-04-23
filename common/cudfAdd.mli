@@ -16,7 +16,7 @@ val hash : Cudf.package -> int
 (** Sort function: sorts a CUDF packages list using the standard CUDF comparison operator in ascending order *)
 val sort : Cudf.package list -> Cudf.package list
 
-(** Data structures: *)
+(** {2 Data structures} *)
 
 (** Specialized hashtable for CUDF packages. *)
 module Cudf_hashtbl : (Hashtbl.S with type key = Cudf.package)
@@ -125,9 +125,16 @@ val vartoint : Cudf.universe -> Cudf.package -> int
 *)
 val inttovar : Cudf.universe -> int -> Cudf.package
 
-val cudfop :
+(*
+(** convert pef operators to cudf *)
+val cudf_op:
+  string -> [> `Eq | `Neq | `Geq | `Gt | `Leq | `Lt ] 
+
+(** convert pef constraints to cudf *)
+val cudf_constr:
   (string * string) option ->
   ([> `Eq | `Neq | `Geq | `Gt | `Leq | `Lt ] * string) option
+*)
 
 val compute_pool : Cudf.universe -> int list list array * int list array
 
@@ -155,7 +162,7 @@ val string_of_package : Cudf.package -> string
 
 (* Function signature for cudf package printer. The output represents
    a triple (name, version, (field name, value) list *)
-type pp = Cudf.package -> string * string * (string * (string * bool)) list
+type pp = Cudf.package -> string * string option * string * (string * (string * bool)) list
 
 (** [pp ?decode from_cudf pkg] package pretty printer.
     [from_cudf] a function that gets a (name,cudfversion) pair and returns a (name,realversion).
@@ -168,7 +175,7 @@ type pp = Cudf.package -> string * string * (string * (string * bool)) list
     as "nan"
 *)
 val pp :
-  (Cudf_types.pkgname * Cudf_types.version -> string * string) ->
+  (Cudf_types.pkgname * Cudf_types.version -> string * string option * string) ->
   ?fields: string list->
   ?decode: (Cudf_types.pkgname -> string) -> pp
 
@@ -184,4 +191,5 @@ val pp_vpkg : pp -> Format.formatter -> Cudf_types.vpkg -> unit
 (** cudf vpkglist printer. *)
 val pp_vpkglist : pp -> Format.formatter -> Cudf_types.vpkglist -> unit
 
-
+(** Compute the depenency cone of a list of packages *)
+val cone: Cudf.universe -> Cudf.package list -> Cudf.package list

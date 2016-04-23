@@ -4,9 +4,7 @@ NAME=@PACKAGE_NAME@
 CFLAGS=@CFLAGS@ -fPIC -Wall -pedantic -Werror -Wno-long-long -warn-error FPSXY
 CPPFLAGS=@CPPFLAGS@
 LDFLAGS=@LDFLAGS@
-CPPOFLAGS=-V OCAML:$(shell ocamlc -version)
-
-
+CPPOFLAGS=@CPPOFLAGS@
 OCAMLFIND=@OCAMLFIND@
 
 DOSELIBS = _build/doselibs
@@ -104,6 +102,7 @@ endif
 LIBNAMES += common/common \
 						versioning/versioning \
 						pef/pef \
+						npm/npm \
 						deb/debian \
 						opencsw/csw \
 						opam/opam \
@@ -160,5 +159,5 @@ endif
 
 #ounit support
 ifeq ("@HAS_OUNIT@","yes")
-  TESTS= common deb algo pef opam $(TEST_RPM)
+  TESTS= common versioning npm deb algo pef opam $(TEST_RPM)
 endif

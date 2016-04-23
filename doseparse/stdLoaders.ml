@@ -30,6 +30,7 @@ type rawpackage =
   |DebSrc of Debian.Sources.source
   |Pef of Pef.Packages.package
   |Opam of Opam.Packages.package
+  |Npm of Npm.Packages.package
   |Edsp of Debian.Packages.package
   |Csw of Csw.Packages.package
 #ifdef HASRPM
@@ -47,9 +48,8 @@ let read_deb ?filter ?(extras=[]) fname =
  *)
 let deb_load_list options ?(status=[]) ?(raw=false) dll =
   Util.Timer.start deb_load_list_timer;
-  (* FIXME: allow to pass noindep and profiles to sources2packages *)
-  let noindep = false in
-  let profiles = [] in
+  let noindep = options.Debian.Debcudf.drop_bd_indep in
+  let profiles = options.Debian.Debcudf.profiles in
   let pkgll = List.map (List.map (function
       | Deb p -> p
       | DebSrc p ->
@@ -103,10 +103,23 @@ let deb_load_list options ?(status=[]) ?(raw=false) dll =
   let l = (preamble,cll,request,from_cudf,to_cudf,rawll) in
   Util.Timer.stop deb_load_list_timer l
       
+let npm_load_list file =
+  let (request,pkglist) = Npm.Packages.input_raw file in
+  let tables = Pef.Pefcudf.init_tables Versioning.SemverNode.compare pkglist in
+  let from_cudf (p,i) = (p,None,Pef.Pefcudf.get_real_version tables (p,i)) in
+  let to_cudf (p,v) = (p, Pef.Pefcudf.get_cudf_version tables (p,v)) in
+  let cl = List.map (Pef.Pefcudf.tocudf tables) pkglist in
+  let preamble = Npm.Npmcudf.preamble in
+  let request = Cudf.default_request in
+  (*
+  let request = Npm.Npmcudf.requesttocudf tables (Cudf.load_universe cl) request in
+  *)
+  (preamble,[cl;[]],request,from_cudf,to_cudf,None)
+
 let opam_load_list ?options file =
   let (request,pkglist) = Opam.Packages.input_raw file in
   let tables = Pef.Pefcudf.init_tables Versioning.Debian.compare pkglist in
-  let from_cudf (p,i) = (p, Pef.Pefcudf.get_real_version tables (p,i)) in
+  let from_cudf (p,i) = (p,None,Pef.Pefcudf.get_real_version tables (p,i)) in
   let to_cudf (p,v) = (p, Pef.Pefcudf.get_cudf_version tables (p,v)) in
   let options =
     match options with
@@ -122,11 +135,12 @@ let opam_load_list ?options file =
   let request = Opam.Opamcudf.requesttocudf tables (Cudf.load_universe cl) request in
   (preamble,[cl;[]],request,from_cudf,to_cudf,None)
 
-let pef_load_list options dll =
+let pef_load_list ?compare options dll =
+  let compare = match compare with Some c -> c |None -> Versioning.Debian.compare in
   let extras = [("maintainer",("maintainer",`String None))] in
   let pkglist = List.flatten dll in
-  let tables = Pef.Pefcudf.init_tables Versioning.Debian.compare pkglist in
-  let from_cudf (p,i) = (p, Pef.Pefcudf.get_real_version tables (p,i)) in
+  let tables = Pef.Pefcudf.init_tables compare pkglist in
+  let from_cudf (p,i) = (p,None,Pef.Pefcudf.get_real_version tables (p,i)) in
   let to_cudf (p,v) = (p, Pef.Pefcudf.get_cudf_version tables (p,v)) in
   let cll =
     List.map (fun l ->
@@ -140,7 +154,7 @@ let pef_load_list options dll =
 let csw_load_list dll =
   let pkglist = List.flatten dll in
   let tables = Csw.Cswcudf.init_tables pkglist in
-  let from_cudf (p,i) = (p, Csw.Cswcudf.get_real_version tables (p,i)) in
+  let from_cudf (p,i) = (p,None,Csw.Cswcudf.get_real_version tables (p,i)) in
   let to_cudf (p,v) = (p, Csw.Cswcudf.get_cudf_version tables (p,v)) in
   let cll = 
     List.map (fun l ->
@@ -208,7 +222,7 @@ let rpm_load_list dll =
     ) dll
   in
   (* Rpm.Rpmcudf.clear tables; *)
-  let from_cudf (p,i) = (p,string_of_int i) in
+  let from_cudf (p,i) = (p,None,string_of_int i) in
   let to_cudf (p,v) = (p,Rpm.Rpmcudf.get_cudf_version tables (p,v)) in
   let preamble = Rpm.Rpmcudf.preamble in
   let request = Cudf.default_request in
@@ -263,7 +277,7 @@ let cudf_load_list file =
     |Some p , pkglist, None -> p, pkglist, Cudf.default_request
     |Some p , pkglist, Some req -> p, pkglist, req
   in
-  let from_cudf (p,i) = (p,string_of_int i) in
+  let from_cudf (p,i) = (p,None,string_of_int i) in
   let to_cudf (p,v) = (p,int_of_string v) in
   (preamble,[pkglist;[]],request,from_cudf,to_cudf,None)
 
@@ -298,7 +312,7 @@ let deb_parse_input options ?(status=[]) ?(raw=false) urilist =
   in
   deb_load_list options ~status ~raw dll
 
-let pef_parse_input options urilist =
+let pef_parse_input ?compare options urilist =
   let extras = [("maintainer",None)] in
   let dll = 
     List.map (fun l ->
@@ -306,7 +320,18 @@ let pef_parse_input options urilist =
         Pef.Packages.input_raw ~extras filelist
     ) urilist
   in
-  pef_load_list options dll
+  pef_load_list ?compare options dll
+
+let npm_parse_input ?options urilist =
+  match urilist with
+  |[[p]] when (unpack `Npm p) = "-" -> fatal "no stdin for npm yet"
+  |[[p]] -> npm_load_list (unpack `Npm p)
+  |l ->
+    if List.length (List.flatten l) > 1 then
+      warning "more than one npm request file specified on the command line";
+    let p = List.hd (List.flatten l) in 
+    npm_load_list (unpack `Npm p)
+;;
 
 let opam_parse_input ?options urilist =
   match urilist with
@@ -354,14 +379,14 @@ let edsp_parse_input options urilist =
 (* If yes return that instance of scheme, and the list of paths  *)
 (* in uris.                                                      *)
 (** parse a list of uris of the same type and return a cudf packages list *)
-let parse_input ?(options=None) ?(raw=false) urilist =
+let parse_input ?(options=None) ?(raw=false) ?compare urilist =
   let filelist = List.map (List.map Input.parse_uri) urilist in
   match Input.guess_format urilist, options with
   |`Cudf, None -> cudf_parse_input filelist
 
   |`Deb, None
   |`DebSrc, None -> deb_parse_input Debian.Debcudf.default_options ~raw filelist
-  |`Pef, None -> pef_parse_input Debian.Debcudf.default_options filelist
+  |`Pef, None -> pef_parse_input ?compare Debian.Debcudf.default_options filelist
 
   |`Deb, Some (StdOptions.Deb opt)
   |`DebSrc, Some (StdOptions.Deb opt) -> deb_parse_input opt ~raw filelist
@@ -369,9 +394,10 @@ let parse_input ?(options=None) ?(raw=false) urilist =
 (*  |`Edsp, Some (StdOptions.Edsp opt) -> edsp_parse_input opt filelist *)
   |`Edsp, _ -> edsp_parse_input Debian.Debcudf.default_options filelist
   |`Opam, _ -> opam_parse_input filelist
+  |`Npm, _ -> npm_parse_input filelist
 (* |`Opam, Some (StdOptions.Opam options) -> opam_parse_input ~options filelist *)
 
-  |`Pef, Some (StdOptions.Pef opt) -> pef_parse_input opt filelist
+  |`Pef, Some (StdOptions.Pef opt) -> pef_parse_input ?compare opt filelist
 
   |`Csw, None -> csw_parse_input filelist
 
@@ -424,18 +450,18 @@ let deb_load_source ?filter ?(dropalternatives=false) ?(profiles=[]) ?(noindep=f
 ;;
 
 (** parse and merge a list of files into a cudf package list *)
-let load_list ?(options=None) ?(raw=false) urilist =
+let load_list ?(options=None) ?(raw=false) ?compare urilist =
   info "Parsing and normalizing..." ;
   Util.Timer.start load_list_timer;
-  let u = parse_input ~options ~raw urilist in
+  let u = parse_input ~options ~raw ?compare urilist in
   Util.Timer.stop load_list_timer u
 ;;
 
 (** parse and merge a list of files into a cudf universe *)
-let load_universe ?(options=None) ?(raw=false) uris =
+let load_universe ?(options=None) ?(raw=false) ?compare uris =
   info "Parsing and normalizing..." ;
   Util.Timer.start load_list_timer;
-  let (pr,cll,r,f,t,w) = parse_input ~options ~raw [uris] in
+  let (pr,cll,r,f,t,w) = parse_input ~options ~raw ?compare [uris] in
   let u = (pr,Cudf.load_universe (List.flatten cll), r, f, t, w) in
   Util.Timer.stop load_list_timer u
 ;;

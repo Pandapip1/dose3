@@ -10,10 +10,11 @@
 (*  library, see the COPYING file for more information.                               *)
 (**************************************************************************************)
 
+(** {2 Un-installability reasons} *)
+
 (** The request provided to the solver *)
 type request = Cudf.package list
 
-(** {2 Un-installability reasons} *)
 type reason =
   |Dependency of (Cudf.package * Cudf_types.vpkg list * Cudf.package list)
   (** Not strictly a un-installability, Dependency (a,vpkglist,pkglist) is used
@@ -53,7 +54,8 @@ type result_int =
 
 type request_int = (int option * int list)
 
-(** {2 Helpers Functions } *)
+(** {3 Helpers Functions } *)
+
 (** Turn an integer result into a cudf result *)
 val diagnosis : Common.Util.projection -> Cudf.universe ->
   result_int -> request_int -> diagnosis
@@ -63,6 +65,8 @@ val result : Common.Util.projection -> Cudf.universe -> result_int -> result
 
 (** Turn an integer request into a cudf request *)
 val request : Cudf.universe -> 'a * int list -> Cudf.package list
+
+(** {2 Pretty Priting Functions } *)
 
 module ResultHash : Hashtbl.S with type key = reason
 
@@ -89,18 +93,6 @@ val pp_out_version : Format.formatter -> unit
 (** default package pretty printer. *)
 val pp_package : ?source:bool -> ?fields:bool -> Common.CudfAdd.pp -> Format.formatter -> Cudf.package -> unit
 
-(** print a list of cudf dependency. The label specifies the type of 
-    dependency ("depends" by default) *)
-val pp_dependency :
-  Common.CudfAdd.pp ->
-  ?label : string ->
-  Format.formatter ->
-  Cudf.package * Cudf_types.vpkglist -> unit
-
-(** Print the list of dependencies of a package. *)
-val pp_dependencies : Common.CudfAdd.pp ->
-  Format.formatter -> (Cudf.package * Cudf_types.vpkglist) list list -> unit
-
 val pp_list :
   (Format.formatter -> 'a -> unit) -> Format.formatter -> 'a list -> unit
 
@@ -125,15 +117,6 @@ val pp_summary :
   ?pp : Common.CudfAdd.pp ->
   ?explain : bool -> unit -> Format.formatter -> summary -> unit
 
-val print_error_human :
-  ?prefix:string -> Common.CudfAdd.pp ->
-  Cudf.package -> Format.formatter -> reason list -> unit
-
-(** print a human readable explanation (DEV) *)
-val fprintf_human :
-  ?pp : Common.CudfAdd.pp ->
-  ?prefix : string -> Format.formatter -> diagnosis -> unit
-
 (** [printf fmt d] print the output of the solver in yaml format 
     to the formatter [fmt].
     @param pp cudf package printer
@@ -154,9 +137,7 @@ val printf :
   ?pp : Common.CudfAdd.pp ->
   ?failure : bool -> ?success : bool -> ?explain : bool -> diagnosis -> unit
 
-#ifdef HASOCAMLGRAPH
 (** print the explanation graph in dot format to the standard formatter *)
 val print_dot :
   ?pp : Common.CudfAdd.pp -> ?condense : bool ->
   ?addmissing : bool -> ?dir : string -> diagnosis -> unit
-#endif

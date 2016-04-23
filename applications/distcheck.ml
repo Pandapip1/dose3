@@ -27,6 +27,7 @@ module Options = struct
   let options = OptParser.make ~description
   include StdOptions.MakeOptions(struct let options = options end)
 
+  let lowmem = StdOpt.store_false ();;
   let coinst = StdDebian.vpkglist_option ();;
   let fields = StdOptions.str_list_option ();;
 
@@ -34,6 +35,7 @@ module Options = struct
   StdOptions.DistcheckOptions.add_options options ;;
   StdOptions.DistcheckOptions.add_option options ~long_name:"coinst" ~help:"Check if these packages are coinstallable" coinst;;
   StdOptions.DistcheckOptions.add_option options ~long_name:"fields" ~help:"Print additional fields if available" fields;;
+  StdOptions.DistcheckOptions.add_option options ~long_name:"lowmem" ~help:"Serialise multiple distcheck runs to save memory" lowmem;;
 
   include StdOptions.InputOptions ;;
   let default = "dot"::(StdOptions.InputOptions.default_options) in
@@ -43,7 +45,11 @@ module Options = struct
   StdOptions.OutputOptions.add_options options ;;
 
   include StdOptions.DistribOptions ;;
-  let default = List.remove StdOptions.DistribOptions.default_options "deb-host-arch" in
+  let default =
+    List.fold_left (fun acc e ->
+      List.remove acc e
+    ) StdOptions.DistribOptions.default_options ["deb-host-arch";"deb-drop-b-d-indep";"deb-profiles"]
+  in
   StdOptions.DistribOptions.add_debian_options ~default options ;
   StdOptions.DistribOptions.add_opam_options ~default options ;;
 
@@ -87,11 +93,17 @@ let main () =
     if OptParse.Opt.get Options.latest then CudfAdd.latest fg_pkglist
     else fg_pkglist
   in
+  let fn = List.length fg_pkglist in
+  let bn = List.length bg_pkglist in
   let universe = 
     let s = CudfAdd.to_set (fg_pkglist @ bg_pkglist) in
     Cudf.load_universe (CudfAdd.Cudf_set.elements s) 
   in
   let universe_size = Cudf.universe_size universe in
+  info "Cudf Universe: %d packages" universe_size;
+
+  (* we get back a bit of memory *)
+  if universe_size > 500000 then Gc.full_major () ;
 
   if OptParse.Opt.is_set Options.checkonly && 
     OptParse.Opt.is_set Options.coinst then
@@ -105,7 +117,7 @@ let main () =
         List.flatten (
           List.filter_map (fun ((n,a),c) ->
             try
-              let (name,filter) = Debian.Debutil.debvpkg to_cudf ((n,a),c) in
+              let (name,filter) = Pef.Pefcudf.pefvpkg to_cudf ((n,a),c) in
               Some(Cudf.lookup_packages ~filter universe name)
             with Not_found -> None
           ) co
@@ -115,7 +127,7 @@ let main () =
         fatal "Cannot find any package corresponding to the selector %s" 
         (Util.string_of_list ~sep:", " Pef.Printer.string_of_vpkg co)
       |l -> l
-    end else []
+    end else if bg_pkglist = [] then fg_pkglist else []
   in
 
   let coinstlist = 
@@ -125,7 +137,7 @@ let main () =
       match
         List.filter_map (fun ((n,a),c) ->
           try
-            let (name,filter) = Debian.Debutil.debvpkg to_cudf ((n,a),c) in
+            let (name,filter) = Pef.Pefcudf.pefvpkg to_cudf ((n,a),c) in
             Some(Cudf.lookup_packages ~filter universe name)
           with Not_found -> None
         ) co
@@ -146,7 +158,12 @@ let main () =
   info "Solving..." ;
   let failure = OptParse.Opt.get Options.failure in
   let success = OptParse.Opt.get Options.success in
-  let explain = OptParse.Opt.get Options.explain in
+  let explain =
+    if success || failure then
+      OptParse.Opt.get Options.explain 
+    else false
+  in
+  let explain_summary = OptParse.Opt.get Options.explain in
   let minimal = OptParse.Opt.get Options.minimal in
   let condense = OptParse.Opt.get Options.condense in
   let summary = OptParse.Opt.get Options.summary in
@@ -169,24 +186,30 @@ let main () =
 
   Diagnostic.pp_out_version fmt;
 
+  if OptParse.Opt.is_set Options.deb_native_arch then
+    Format.fprintf fmt "native-architecture: %s@."
+	(OptParse.Opt.get Options.deb_native_arch);
+ 
+  if OptParse.Opt.is_set Options.deb_foreign_archs then
+    Format.fprintf fmt "foreign-architecture: %s@."
+	(String.concat "," (OptParse.Opt.get Options.deb_foreign_archs));
+ 
   if failure || success then Format.fprintf fmt "@[<v 1>report:@,";
+
   let callback d =
-    if summary then Diagnostic.collect results d ;
     let pp =
       if input_type = `Cudf then 
         fun pkg -> pp ~decode:(fun x -> x) pkg 
       else fun pkg -> pp pkg
     in
-    let _ = 
-#ifdef HASOCAMLGRAPH 
-      if not(Diagnostic.is_solution d) && (OptParse.Opt.get Options.dot) then
-        let dir = OptParse.Opt.opt Options.outdir in
-        Diagnostic.print_dot ~pp ~addmissing:explain ?dir d
-#else
-      ()
-#endif
-    in
-    Diagnostic.fprintf ~pp ~failure ~success ~explain ~minimal ~condense fmt d
+    if summary then Diagnostic.collect results d ;
+
+    (if not(Diagnostic.is_solution d) && (OptParse.Opt.get Options.dot) then
+      let dir = OptParse.Opt.opt Options.outdir in
+      Diagnostic.print_dot ~pp ~addmissing:explain ?dir d);
+
+    if failure || success then
+      Diagnostic.fprintf ~pp ~failure ~success ~explain ~minimal ~condense fmt d
   in
   Util.Timer.start timer;
 
@@ -201,23 +224,35 @@ let main () =
     Format.fprintf fmt "total-tuples: %d@." number_checks;
     Format.fprintf fmt "broken-tuples: %d@." nbt;
     nbt
-  end else begin 
+  end else begin
+    let univcheck = 
+      if OptParse.Opt.get Options.lowmem 
+      then Depsolver.univcheck
+      else Depsolver.univcheck_lowmem
+    in
     let global_constraints = not(OptParse.Opt.get Options.deb_ignore_essential) in
     let nbp =
       if (OptParse.Opt.is_set Options.checkonly) && (List.length checklist) = 0 then 0
-      else if OptParse.Opt.is_set Options.checkonly then 
-        Depsolver.listcheck ~global_constraints ~callback universe checklist
-      else if bg_pkglist = [] then
-          Depsolver.univcheck ~global_constraints ~callback universe 
+      else if OptParse.Opt.is_set Options.checkonly || not(bg_pkglist = []) then 
+        let subuniverse =
+          let l =
+            if global_constraints then
+              Cudf.fold_packages (fun acc pkg ->
+                  match pkg.Cudf.keep with
+                  |`Keep_package |`Keep_version  -> pkg::acc
+                  |_ -> acc
+              ) checklist universe
+            else checklist
+          in
+          Cudf.load_universe (CudfAdd.cone universe l)
+        in
+        Depsolver.listcheck ~global_constraints ~callback ~explain subuniverse checklist
       else
-        Depsolver.listcheck ~global_constraints ~callback universe fg_pkglist
+        univcheck ~global_constraints ~callback ~explain universe 
     in
     ignore(Util.Timer.stop timer ());
     
     if failure || success then Format.fprintf fmt "@]@.";
-    
-    let fn = List.length fg_pkglist in
-    let bn = List.length bg_pkglist in
     
     let nb,nf = 
       let cl = List.length checklist in
@@ -232,7 +267,7 @@ let main () =
     Format.fprintf fmt "total-packages: %d@." universe_size;
     Format.fprintf fmt "broken-packages: %d@." nbp;
     if summary then 
-      Format.fprintf fmt "@[%a@]@." (Diagnostic.pp_summary ~explain ~pp ()) results;
+      Format.fprintf fmt "@[%a@]@." (Diagnostic.pp_summary ~explain:explain_summary ~pp ()) results;
     nbp
   end
 ;;

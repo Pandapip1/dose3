@@ -1,12 +1,12 @@
 true: -traverse
-<{common,versioning,algo,doseparse,doseparseNoRpm,deb,opam,opencsw,pef,rpm,applications,experimental}/**>: traverse
+<{common,versioning,algo,doseparse,doseparseNoRpm,deb,opam,npm,opencsw,pef,rpm,applications,experimental}/**>: traverse
 
-<doseparseNoRpm/*.ml{i,}>: pp(cppo @CONFIG_ZIP@ @CONFIG_BZ2@ @CONFIG_OCAMLGRAPH@)
-<doseparse/*.ml{i,}>: pp(cppo @CONFIG_ZIP@ @CONFIG_BZ2@ @CONFIG_RPM@ @CONFIG_OCAMLGRAPH@)
+<doseparseNoRpm/*.ml{i,}>: pp(cppo @CPPOFLAGS@ @CONFIG_ZIP@ @CONFIG_BZ2@ @CONFIG_OCAMLGRAPH@)
+<doseparse/*.ml{i,}>: pp(cppo @CPPOFLAGS@ @CONFIG_ZIP@ @CONFIG_BZ2@ @CONFIG_RPM@ @CONFIG_OCAMLGRAPH@)
 
-<{common,algo,versioning}/*.ml{i,}>: pp(cppo @CONFIG_ZIP@ @CONFIG_BZ2@ @CONFIG_RPM@ @CONFIG_OCAMLGRAPH@)
+<{common,algo,versioning}/*.ml{i,}>: pp(cppo @CPPOFLAGS@ @CONFIG_ZIP@ @CONFIG_BZ2@ @CONFIG_RPM@ @CONFIG_OCAMLGRAPH@)
 
-<applications/*.ml> or <experimental/*/*.ml> or <experimental/*.ml>: pp(cppo @CONFIG_PARMAP@ @CONFIG_OCAMLGRAPH@)
+<applications/*.ml> or <experimental/*/*.ml> or <experimental/*.ml>: pp(cppo @CPPOFLAGS@ @CONFIG_PARMAP@ @CONFIG_OCAMLGRAPH@)
 
 <*/*.ml{i,}>: pp(cppo)
 <*/*.ml{i,}>: package(extlib), @PKG_CUDF@, package(re.pcre)
@@ -15,21 +15,27 @@ true: -traverse
 
 <common/tests.*>: use_common
 <algo/tests.*>: use_common
+<versioning/tests.*>: use_common
 <pef/tests.*>: use_common, use_versioning
 <opam/tests.*>: use_common, use_versioning, use_pef
+<npm/tests.*>: use_common, use_versioning, use_pef
 <deb/tests.*>: use_common, use_versioning, use_pef, use_algo
 <rpm/tests.*>: use_common, use_versioning, @USE_RPM@, use_algo, package(re.str)
 
-<versioning/*.ml{i,}>: use_common, package(re.pcre)
 <common/*.ml{i,}>: @PKG_ZIP@, @PKG_BZ2@
-<deb/*.ml{i,}>: use_common, use_versioning
+<versioning/*.ml{i,}>: use_common, package(re.pcre)
+<pef/*.ml{i,}>: use_common
+<opam/*.ml{i,}>: use_common, use_versioning, use_pef
+<npm/*.ml{i,}>: use_common, use_versioning, use_pef
+<deb/*.ml{i,}>: use_common, use_versioning, use_pef
 <rpm/*.ml{i,}>: use_common
-<algo/*.ml{i,}>: use_common, @PKG_OCAMLGRAPH@
-<pef/*.ml{i,}>: use_common, use_debian
-<opam/*.ml{i,}>: use_common, use_pef
 <opencsw/*.ml{i,}>: use_common, use_versioning
-<doseparse/*.ml{i,}>: use_common, use_versioning, use_debian, use_opam, use_pef, use_csw, @USE_RPM@
-<doseparseNoRpm/*.ml{i,}>: use_common, use_versioning, use_debian, use_opam, use_pef, use_csw
+
+<algo/*.ml{i,}>: use_common, package(ocamlgraph)
+
+<doseparse/*.ml{i,}>: use_common, use_versioning, use_debian, use_opam, use_npm, use_pef, use_csw, @USE_RPM@
+<doseparseNoRpm/*.ml{i,}>: use_common, use_versioning, use_debian, use_opam, use_npm, use_pef, use_csw
+
 <rpm/librpm4_stubs.*>: use_rpm, use_rpm4
 <rpm/librpm5_stubs.*>: use_rpm, use_rpm5
 <rpm/rpm.cm{x,}a>: @USE_RPM@
@@ -41,14 +47,15 @@ true: -traverse
 <deb/*.cmx> and not <deb/debian.cmx>: for-pack(Debian)
 <pef/*.cmx> and not <pef/pef.cmx>: for-pack(Pef)
 <opam/*.cmx> and not <opam/opam.cmx>: for-pack(Opam)
+<npm/*.cmx> and not <npm/npm.cmx>: for-pack(Npm)
 <opencsw/*.cmx> and not <opencsw/csw.cmx>: for-pack(Csw)
 <rpm/*.cmx> and not <rpm/rpm.cmx>: for-pack(Rpm)
 <doseparse/*.cmx> and not <doseparse/doseparse*.cmx>: for-pack(Doseparse)
 <doseparseNoRpm/*.cmx> and not <doseparseNoRpm/doseparse*.cmx>: for-pack(DoseparseNoRpm)
 
-<{applications,experimental}/*>: use_common, use_versioning, use_debian, use_opam, use_pef, use_csw
-<{applications,experimental}/*>: package(extlib), package(re.pcre), package(unix), package(re.str)
-<{applications,experimental}/*>: @PKG_CUDF@, @PKG_OCAMLGRAPH@, @PKG_ZIP@, @PKG_BZ2@
+<{applications,experimental}/*>: use_common, use_versioning, use_debian, use_opam, use_npm, use_pef, use_csw
+<{applications,experimental}/*>: package(extlib), package(re.pcre), package(unix), package(re.str), package(ocamlgraph)
+<{applications,experimental}/*>: @PKG_CUDF@, @PKG_ZIP@, @PKG_BZ2@
 
 <applications/apt-cudf.*>: use_doseparseNoRpm, use_algo
 <applications/deb-buildcheck.*>: use_algo, use_doseparseNoRpm

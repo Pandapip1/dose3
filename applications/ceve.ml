@@ -20,10 +20,8 @@ open Doseparse
 let label =  __label ;;
 include Util.Logging(struct let label = label end) ;;
 
-#ifdef HASOCAMLGRAPH
-  module DGraph = Defaultgraphs.SyntacticDependencyGraph
-  module PGraph = Defaultgraphs.PackageGraph
-#endif
+module DGraph = Defaultgraphs.SyntacticDependencyGraph
+module PGraph = Defaultgraphs.PackageGraph
 
 module Options = struct
   open OptParse
@@ -79,10 +77,10 @@ let loadl to_cudf l =
         let n = match aop with Some a -> name^":"^a | None -> name in
         CudfAdd.encode n
       in
-      match CudfAdd.cudfop sel with
+      match sel with
       |None -> [(encname, None)]
       |Some(op,v) ->
-          [(encname,Some(op,snd(to_cudf (encname,v))))]
+          [(encname,Some(Pef.Pefcudf.pefcudf_op op,snd(to_cudf (encname,v))))]
     ) l
   )
 ;;
@@ -156,7 +154,7 @@ let main () =
     if OptParse.Opt.get Options.trim then Depsolver.trim ~global_constraints u else u
   in
   let get_cudfpkglist ((n,a),c) =
-    let (name,filter) = Debian.Debutil.debvpkg to_cudf ((n,a),c) in
+    let (name,filter) = Pef.Pefcudf.pefvpkg to_cudf ((n,a),c) in
     CudfAdd.who_provides universe (name,filter)
   in
 
@@ -190,117 +188,111 @@ let main () =
       Cudf.get_packages universe
   in
 
-  (* fill hashtable with mapping from cudf id to Debian.Packages and
-   * Debian.Sources if the output type is deb or debsrc *)
-  let cudftodeb_table = Hashtbl.create 30000 in
-  begin match OptParse.Opt.get Options.out_type with
-    | "deb" | "debsrc" -> begin
-        (* limit the mapping in the hashtable to the packages in plist *)
-        let plist_set = CudfAdd.to_set plist in
-        match rawll with
-        | Some dll ->
-          List.iter2 (List.iter2 (fun cudfpkg debpkg ->
-              if CudfAdd.Cudf_set.mem cudfpkg plist_set then
-                let id = (cudfpkg.Cudf.package,cudfpkg.Cudf.version) in
-                Hashtbl.add cudftodeb_table id debpkg
-            )) pkgll dll
-        | None -> failwith "If out_type is deb or debsrc, then the raw list must not be None"
-      end
-    | _ -> ()
-  end;
-
-  let cudf2deb cudfpkg =
-    let id = (cudfpkg.Cudf.package,cudfpkg.Cudf.version) in
-    try
-      Hashtbl.find cudftodeb_table id
-    with Not_found ->
-      failwith (Printf.sprintf "cannot find cudf package the mapping - is the input deb:// or debsrc://?")
-  in
-
-  let output ll =
-    List.iter (fun l ->
-      let u = Cudf.load_universe l in
-      let doc = (preamble,u,request) in
-      let oc =
-        if OptParse.Opt.is_set Options.outfile then 
-          open_out (OptParse.Opt.get Options.outfile)
-        else stdout
+  (* Main iteration . Everything happens here *)
+  List.iter (fun l ->
+    let u = Cudf.load_universe l in
+    let doc = (preamble,u,request) in
+    let oc =
+      if OptParse.Opt.is_set Options.outfile then 
+        open_out (OptParse.Opt.get Options.outfile)
+      else stdout
+    in
+    if OptParse.Opt.is_set Options.grp_type then (
+      let t = OptParse.Opt.get Options.out_type in
+      if not(t = "dot" || t = "gml" || t= "grml") then
+        info "Option -G %s is not compatible with format %s. Ingored" (OptParse.Opt.get Options.grp_type) t
+    );
+    begin match OptParse.Opt.get Options.out_type with
+    |"cnf" -> Printf.fprintf oc "%s" (Depsolver.output_clauses ~global_constraints ~enc:Depsolver.Cnf u)
+    |"dimacs" -> Printf.fprintf oc "%s" (Depsolver.output_clauses ~global_constraints ~enc:Depsolver.Dimacs u)
+    |"cudf" -> Cudf_printer.pp_cudf oc doc
+    |"deb"|"debsrc" as t -> begin
+      (* fill hashtable with mapping from cudf id to Debian.Packages and
+       * Debian.Sources if the output type is deb or debsrc *)
+      let cudftodeb_table = Hashtbl.create 30000 in
+      (* limit the mapping in the hashtable to the packages in plist *)
+      let plist_set = CudfAdd.to_set plist in
+      begin match rawll with
+      | Some dll ->
+        List.iter2 (List.iter2 (fun cudfpkg debpkg ->
+            if CudfAdd.Cudf_set.mem cudfpkg plist_set then
+              let id = (cudfpkg.Cudf.package,cudfpkg.Cudf.version) in
+              Hashtbl.add cudftodeb_table id debpkg
+          )) pkgll dll
+      | None -> fatal "If -T is deb or debsrc, then the raw list must not be None" end;
+      let cudf2deb cudfpkg =
+        let id = (cudfpkg.Cudf.package,cudfpkg.Cudf.version) in
+        try
+          Hashtbl.find cudftodeb_table id
+        with Not_found ->
+          fatal "cannot find cudf package the mapping - is the input deb:// or debsrc://?"
       in
-      begin match OptParse.Opt.get Options.out_type with
-      |"cnf" -> Printf.fprintf oc "%s" (Depsolver.output_clauses ~global_constraints ~enc:Depsolver.Cnf u)
-      |"dimacs" -> Printf.fprintf oc "%s" (Depsolver.output_clauses ~global_constraints ~enc:Depsolver.Dimacs u)
-      |"cudf" -> Cudf_printer.pp_cudf oc doc
-      |"deb" -> List.iter (function
+      if t = "deb" then
+        List.iter (function
           | StdLoaders.Deb p -> p#pp oc
           | StdLoaders.DebSrc p -> ()
-          | _ -> failwith "impossible"
+          | _ -> assert false
         ) (List.map cudf2deb l)
-      |"debsrc" -> List.iter (function
+      else if t = "debsrc" then
+        List.iter (function
           | StdLoaders.Deb p -> ()
           | StdLoaders.DebSrc p -> p#pp oc
-          | _ -> failwith "impossible"
+          | _ -> assert false
         ) (List.map cudf2deb l)
-      |"table" ->
-#ifdef HASOCAMLGRAPH 
-        Printf.fprintf oc "%d\t%d\t%d\n"
-        (Cudf.universe_size u) (Defaultgraphs.SyntacticDependencyGraph.G.nb_edges (Defaultgraphs.SyntacticDependencyGraph.dependency_graph u))
-        (nr_conflicts u)
-#else
-        failwith (Printf.sprintf "format table not supported: needs ocamlgraph")
-#endif
-
-      |("dot" | "gml" | "grml") as t -> 
-#ifdef HASOCAMLGRAPH 
-        let fmt = Format.formatter_of_out_channel oc in
-        begin match OptParse.Opt.get Options.grp_type with
-          |"syn" ->
-            let g = Defaultgraphs.SyntacticDependencyGraph.dependency_graph u in
-            if t = "dot" then Defaultgraphs.SyntacticDependencyGraph.DotPrinter.print fmt g
-            else if t = "gml" then Defaultgraphs.SyntacticDependencyGraph.GmlPrinter.print fmt g
-            else if t = "grml" then Defaultgraphs.SyntacticDependencyGraph.GraphmlPrinter.print fmt g
+    end;
+    |"table" ->
+      Printf.fprintf oc "%d\t%d\t%d\n"
+      (Cudf.universe_size u) 
+      (Defaultgraphs.SyntacticDependencyGraph.G.nb_edges 
+        (Defaultgraphs.SyntacticDependencyGraph.dependency_graph u))
+      (nr_conflicts u)
+    |("dot" | "gml" | "grml") as t -> 
+      let fmt = Format.formatter_of_out_channel oc in
+      begin match OptParse.Opt.get Options.grp_type with
+        |"syn" ->
+          let g = Defaultgraphs.SyntacticDependencyGraph.dependency_graph u in
+          if t = "dot" then Defaultgraphs.SyntacticDependencyGraph.DotPrinter.print fmt g
+          else if t = "gml" then Defaultgraphs.SyntacticDependencyGraph.GmlPrinter.print fmt g
+          else if t = "grml" then Defaultgraphs.SyntacticDependencyGraph.GraphmlPrinter.print fmt g
+          else assert false
+        |("pkg" | "strdeps" | "conj"| "dom") as gt ->
+          let g =
+            if gt = "pkg" then Defaultgraphs.PackageGraph.dependency_graph u
+            else if gt = "strdeps" then
+              let g = Strongdeps.strongdeps_univ u in
+              (* if input are Debian packages and --deb-ignore-essential was
+               * not given, connect all binary packages to the Essential:yes
+               * packages *)
+              if global_constraints && (input_type = `Deb || input_type = `DebSrc) then begin
+                let essential = List.filter CudfAdd.is_essential l in
+                Defaultgraphs.PackageGraph.G.iter_edges
+                  (Defaultgraphs.PackageGraph.G.add_edge g)
+                  (Strongdeps.strongdeps u essential);
+                Defaultgraphs.PackageGraph.G.iter_vertex
+                  (fun v -> List.iter
+                      (Defaultgraphs.PackageGraph.add_edge ~transitive:true g v)
+                      essential) g
+              end;
+              g
+            else if gt = "conj" then Strongdeps.conjdeps_univ u
+            else if gt = "dom" then
+              let g = Strongdeps.strongdeps_univ ~transitive:true universe in
+              Dominators.dominators_tarjan g
             else assert false
-          |("pkg" | "strdeps" | "conj"| "dom") as gt ->
-            let g =
-              if gt = "pkg" then Defaultgraphs.PackageGraph.dependency_graph u
-              else if gt = "strdeps" then
-                let g = Strongdeps.strongdeps_univ u in
-                (* if input are Debian packages and --deb-ignore-essential was
-                 * not given, connect all binary packages to the Essential:yes
-                 * packages *)
-                if global_constraints && (input_type = `Deb || input_type = `DebSrc) then begin
-                  let essential = List.filter CudfAdd.is_essential l in
-                  Defaultgraphs.PackageGraph.G.iter_edges
-                    (Defaultgraphs.PackageGraph.G.add_edge g)
-                    (Strongdeps.strongdeps u essential);
-                  Defaultgraphs.PackageGraph.G.iter_vertex
-                    (fun v -> List.iter
-                        (Defaultgraphs.PackageGraph.add_edge ~transitive:true g v)
-                        essential) g
-                end;
-                g
-              else if gt = "conj" then Strongdeps.conjdeps_univ u
-              else if gt = "dom" then
-                let g = Strongdeps.strongdeps_univ ~transitive:true universe in
-                Dominators.dominators_tarjan g
-              else assert false
-            in
-            if t = "dot" then
-              Defaultgraphs.PackageGraph.DotPrinter.print fmt g
-            else if t = "gml" then
-              Defaultgraphs.PackageGraph.GmlPrinter.print fmt g
-            else if t = "grml" then
-              Defaultgraphs.PackageGraph.GraphmlPrinter.print fmt g
-            else assert false
-          |s -> failwith (Printf.sprintf "type %s not supported" s)
-        end
-#else
-        failwith (Printf.sprintf "format %s not supported: needs ocamlgraph" t)
-#endif
-      |_ -> assert false
-      end ;
-      close_out oc;
-    ) ll
-  in output [plist]
+          in
+          if t = "dot" then
+            Defaultgraphs.PackageGraph.DotPrinter.print fmt g
+          else if t = "gml" then
+            Defaultgraphs.PackageGraph.GmlPrinter.print fmt g
+          else if t = "grml" then
+            Defaultgraphs.PackageGraph.GraphmlPrinter.print fmt g
+          else fatal "Option -T %s not supported together with -G %s" t gt
+        |s -> fatal "Opation %s not supported" s
+      end
+    |t -> fatal "-T %s format unknown." t
+    end ;
+    close_out oc;
+  ) [plist]
 ;;
 
 StdUtils.if_application ~alternatives:["dose-ceve";"ceve"] __label (fun () -> main (); 0) ;;
