@@ -1,5 +1,2 @@
 binaries-prefix-edos
-# librpm-4.12
 disable_dot
-lexing-debian-fields
-add-gnuhardened1-linux
