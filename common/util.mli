@@ -23,6 +23,8 @@ val memo : ('a -> 'b) -> 'a -> 'b
 
 val timestamp : unit -> string
 
+val max32int : int
+
 (** Debug, ProgressBars, Timers and Loggers *)
 
 type label = string
@@ -158,6 +160,11 @@ module IntHashtbl : Hashtbl.S with type key = int
 module IntPairHashtbl : Hashtbl.S with type key = int * int
 module StringHashtbl : Hashtbl.S with type key = string
 module StringPairHashtbl : Hashtbl.S with type key = string * string
+
+(** hash consing for strings *)
+val hashcons: string StringHashtbl.t -> string -> string
+val hits : int ref
+val miss : int ref
 
 val range : int -> int -> int list
 

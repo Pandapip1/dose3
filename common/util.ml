@@ -55,6 +55,12 @@ let timestamp () =
     tm.Unix.tm_sec
 ;;
 
+let max32int =
+  if Int32.to_int(Int32.max_int) < 0 then
+    max_int
+  else Int32.to_int(Int32.max_int)
+;;
+
 type label = string
 
 module type Messages = sig
@@ -297,6 +303,18 @@ module StringHashtbl = Hashtbl.Make (
     let hash s = Hashtbl.hash s
   end
 )
+
+let hits = ref 0;;
+let miss = ref 0;;
+let hashcons table x =
+  try 
+    let s = StringHashtbl.find table x in
+    incr hits;
+    s 
+  with Not_found ->
+    incr miss;
+    StringHashtbl.add table x x; x
+;;
 
 module StringPairHashtbl = Hashtbl.Make (
   struct

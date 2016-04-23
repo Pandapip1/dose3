@@ -30,11 +30,9 @@ module Options = struct
 
   let dump = StdOpt.str_option ()
   let maforeign = StdOpt.store_true ()
-  let noindep = StdOpt.store_true ()
   let includextra = StdOpt.store_true ()
   let triplettable = StdOpt.str_option ()
   let cputable = StdOpt.str_option ()
-  let profiles = StdOptions.str_list_option ()
   let dropalternatives = StdOpt.store_true ()
 
   include StdOptions.DistcheckOptions ;;
@@ -42,7 +40,11 @@ module Options = struct
 
 
   include StdOptions.InputOptions ;;
-  let default = List.remove StdOptions.InputOptions.default_options "inputtype" in
+  let default = 
+    List.fold_left (fun acc e ->
+      List.remove acc e
+    ) StdOptions.InputOptions.default_options ["inputtype";"fg";"bg";"compare"]
+  in
   StdOptions.InputOptions.add_options ~default options ;
 
   include StdOptions.OutputOptions ;;
@@ -58,12 +60,8 @@ module Options = struct
     ~help:"Path to a cpu table like /usr/share/dpkg/cputable" cputable;
   StdOptions.DistribOptions.add_option options ~group ~long_name:"deb-defaulted-m-a-foreign"
     ~help:"Convert Arch:all packages to Multi-Arch: foreign" maforeign;
-  StdOptions.DistribOptions.add_option options ~group ~long_name:"deb-drop-b-d-indep"
-    ~help:"Drop Build-Indep dependencies" noindep;
   StdOptions.DistribOptions.add_option options ~group ~long_name:"deb-include-extra-source"
     ~help:"Include packages with Extra-Source-Only:yes (dropped by default)" includextra;
-  StdOptions.DistribOptions.add_option options ~group ~short_name:'P' ~long_name:"deb-profiles"
-    ~help:"comma separated list of activated build profiles" profiles;
   StdOptions.DistribOptions.add_option options ~group ~long_name:"deb-emulate-sbuild"
     ~help:"replicate sbuild behaviour to only keep the first alternative of build dependencies" dropalternatives;
 
@@ -96,23 +94,17 @@ let main () =
   let options = Options.set_deb_options () in
   (* buildarch and native arch must be set to some architecture at this point *)
   let buildarch = Option.get options.Debian.Debcudf.native in
-  (* hostarch and noindep can be None *)
+  (* hostarch can be None *)
   let hostarch = match options.Debian.Debcudf.host with None -> "" | Some s -> s in
-  let noindep = OptParse.Opt.get Options.noindep in
+  let noindep = options.Debian.Debcudf.drop_bd_indep in
   let dropalternatives = OptParse.Opt.get Options.dropalternatives in
-
-  let profiles =
-    if OptParse.Opt.is_set Options.profiles then
-      OptParse.Opt.get Options.profiles
-    else
-      try String.nsplit (Sys.getenv "DEB_BUILD_PROFILES") " "
-      with Not_found -> []
-  in
+  let profiles = options.Debian.Debcudf.profiles in
 
   let filter_external_sources par =
     if (OptParse.Opt.get Options.includextra) then true
     else
-      try not(Pef.Packages.parse_bool ("extra-source-only",(Pef.Packages.assoc "extra-source-only" par)))
+      try not(Pef.Packages.parse_bool
+        ("extra-source-only",(Pef.Packages.assoc "extra-source-only" par)))
       with Not_found -> true
   in
 
@@ -135,7 +127,13 @@ let main () =
     |l -> 
         begin match List.rev l with
         |h::t ->
-          let srclist = StdLoaders.deb_load_source ~dropalternatives ~profiles ~filter:filter_external_sources ~noindep buildarch hostarch h in
+          let srclist =
+            StdLoaders.deb_load_source 
+              ~dropalternatives 
+              ~profiles 
+              ~filter:filter_external_sources 
+              ~noindep buildarch hostarch h 
+          in
           let pkglist = Deb.input_raw t in
           (pkglist,srclist)
         |_ -> fatal "An impossible situation occurred ?!#"
@@ -171,7 +169,11 @@ let main () =
 
   let failure = OptParse.Opt.get Options.failure in
   let success = OptParse.Opt.get Options.success in
-  let explain = OptParse.Opt.get Options.explain in
+  let explain =
+    if success || failure then
+      OptParse.Opt.get Options.explain
+    else false
+  in
   let minimal = OptParse.Opt.get Options.minimal in
   let summary = OptParse.Opt.get Options.summary in
 
@@ -179,7 +181,7 @@ let main () =
     if OptParse.Opt.is_set Options.checkonly then begin
       List.flatten (
         List.map (fun ((n,a),c) ->
-          let (name,filter) = Debian.Debutil.debvpkg to_cudf (("src:"^n,a),c) in
+          let (name,filter) = Pef.Pefcudf.pefvpkg to_cudf (("src:"^n,a),c) in
           Cudf.lookup_packages ~filter universe name
         ) (OptParse.Opt.get Options.checkonly)
       )
@@ -189,32 +191,50 @@ let main () =
   Diagnostic.pp_out_version fmt;
 
   if OptParse.Opt.is_set Options.deb_native_arch then
-    Format.fprintf fmt "native-architecture: %s@." (OptParse.Opt.get Options.deb_native_arch);
+    Format.fprintf fmt "native-architecture: %s@."
+      (OptParse.Opt.get Options.deb_native_arch);
 
   if OptParse.Opt.is_set Options.deb_foreign_archs then
-    Format.fprintf fmt "foreign-architecture: %s@." (String.concat "," (OptParse.Opt.get Options.deb_foreign_archs));
+    Format.fprintf fmt "foreign-architecture: %s@."
+      (String.concat "," (OptParse.Opt.get Options.deb_foreign_archs));
 
   if OptParse.Opt.is_set Options.deb_host_arch then
-    Format.fprintf fmt "host-architecture: %s@." (OptParse.Opt.get Options.deb_host_arch);
+    Format.fprintf fmt "host-architecture: %s@."
+      (OptParse.Opt.get Options.deb_host_arch);
 
   let results = Diagnostic.default_result universe_size in
 
   if failure || success then Format.fprintf fmt "@[<v 1>report:@,";
   let callback d = 
     if summary then Diagnostic.collect results d ;
+    if failure || success then
       Diagnostic.fprintf ~pp ~failure ~success ~explain ~minimal fmt d
   in
 
   Util.Timer.start timer;
-  let nbp = Depsolver.listcheck ~callback universe checklist in
+  let subuniverse =
+    if checklist <> sl then
+      let l =
+        if not(OptParse.Opt.get Options.deb_ignore_essential) then
+          Cudf.fold_packages (fun acc pkg ->
+              match pkg.Cudf.keep with
+              |`Keep_package |`Keep_version  -> pkg::acc
+              |_ -> acc
+          ) checklist universe
+        else checklist
+      in
+      Cudf.load_universe (CudfAdd.cone universe l)
+    else universe
+  in
+  let nbp = Depsolver.listcheck ~callback ~explain subuniverse checklist in
   ignore(Util.Timer.stop timer ());
 
   if failure || success then Format.fprintf fmt "@]@.";
 
   let nb = universe_size in
   let nf = List.length sl in
-  Format.fprintf fmt "background-packages: %d@." nb;
-  Format.fprintf fmt "foreground-packages: %d@." (if nf = 0 then nb else nf);
+  Format.fprintf fmt "binary-packages: %d@." nb;
+  Format.fprintf fmt "source-packages: %d@." (if nf = 0 then nb else nf);
   Format.fprintf fmt "broken-packages: %d@." nbp;
 
   if summary then

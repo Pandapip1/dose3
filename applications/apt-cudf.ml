@@ -30,7 +30,6 @@ module Options = struct
 
   let dump = StdOpt.store_true ()
   let noop = StdOpt.store_true ()
-  let human = StdOpt.store_true ()
   let solver = StdOpt.str_option ()
   let criteria = StdOptions.criteria_option ()
   let criteria_plain = StdOpt.str_option ()
@@ -47,20 +46,23 @@ module Options = struct
   add options ~short_name:'c' ~long_name:"criteria" ~help:"optimization criteria in extended MISC syntax" criteria;
   add options ~long_name:"criteria-plain" ~help:"optimization criteria passed unmangled to the solver" criteria_plain;
   add options ~short_name:'e' ~long_name:"explain" ~help:"print installation summary" explain;
-  add options ~long_name:"human" ~help:"print human readable installation errors" human;
   add options ~long_name:"native-arch" ~help:"Native architecture" native_arch;
   add options ~long_name:"foreign-archs" ~help:"Foreign architectures" foreign_archs;
 
 end
 
+let doseexit () =
+  if OptParse.Opt.is_set Options.solver then (
+    Format.printf "Error: %s" (OptParse.Opt.get Options.solver);
+    if OptParse.Opt.is_set Options.criteria_plain then
+      Format.printf " \"%s\"" (OptParse.Opt.get Options.criteria_plain);
+    Format.printf "@."
+  )
+;;
+
 let fatal fmt =
   Printf.kprintf (fun s ->
-    if OptParse.Opt.is_set Options.solver then (
-      Format.printf "Error: %s" (OptParse.Opt.get Options.solver);
-      if OptParse.Opt.is_set Options.criteria_plain then
-        Format.printf " \"%s\"" (OptParse.Opt.get Options.criteria_plain);
-      Format.printf "@."
-    );
+    doseexit ();
     Format.printf "Message: %s@." s;
     exit 1
   ) fmt
@@ -466,23 +468,27 @@ let main () =
 
   (* do nothing. *)
   if OptParse.Opt.get Options.noop then begin
-    info "Noop & Exit."; exit(0)
+    info "Noop & Exit.";
+    exit 0
   end;
 
   let exec_pat = fst (parse_solver_spec (Filename.concat solver_dir solver)) in
 
   let solpre,soluniv = 
-    let from_cudf (p,v) = Debian.Debcudf.get_real_version tables (p,v) in
-    let pp = CudfAdd.pp from_cudf in
-    let explain = OptParse.Opt.get Options.human in
+    (*let pp = CudfAdd.pp from_cudf in*)
+    (*let from_cudf (p,v) = Debian.Debcudf.get_real_version tables (p,v) in*)
+    let explain = false in
     match Algo.Depsolver.check_request ~cmd:exec_pat ~criteria ~explain cudf with
     |Algo.Depsolver.Error s -> fatal "%s" s
-    |Algo.Depsolver.Unsat None ->
-      fatal "(UNSAT) No Solutions according to the given preferences"
+    |Algo.Depsolver.Unsat None -> begin
+      doseexit ();
+      Format.printf "Message: (UNSAT) No Solutions according to the given preferences@.";
+      exit 0
+    end
     |Algo.Depsolver.Unsat Some d -> begin
-      Format.printf "Error: (UNSAT) No Solutions according to the given preferences@.";
-      Format.printf "%a@." (Algo.Diagnostic.fprintf_human ~prefix:"Message: " ~pp) d;
-      exit 1
+      doseexit ();
+      Format.printf "Message: (UNSAT) No Solutions according to the given preferences@.";
+      exit 0
     end
     |Algo.Depsolver.Sat s -> s
   in

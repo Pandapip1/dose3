@@ -41,7 +41,11 @@ module Options = struct
   StdOptions.DistcheckOptions.add_options ~default options ;
 
   include StdOptions.InputOptions ;;
-  let default = List.remove StdOptions.InputOptions.default_options "inputtype" in
+  let default = 
+    List.fold_left (fun acc e ->
+      List.remove acc e
+    ) StdOptions.InputOptions.default_options ["inputtype";"compare"]
+  in
   StdOptions.InputOptions.add_options ~default options ;
   StdOptions.InputOptions.add_option options ~long_name:"src" ~help:"Associate Sources file" sources;
 
@@ -50,7 +54,11 @@ module Options = struct
   StdOptions.OutputOptions.add_option options ~long_name:"dump" ~help:"dump the cudf file" dump;
 
   include StdOptions.DistribOptions ;;
-  let default = List.remove StdOptions.DistribOptions.default_options "deb-host-arch" in
+  let default =
+    List.fold_left (fun acc e ->
+      List.remove acc e
+    ) StdOptions.DistribOptions.default_options ["deb-host-arch";"deb-drop-b-d-indep";"deb-profiles"]
+  in
   StdOptions.DistribOptions.add_debian_options ~default options ;
   StdOptions.DistribOptions.add_option options ~long_name:"deb-triplettable"
     ~help:"Path to an architecture triplet table like /usr/share/dpkg/triplettable" triplettable;
@@ -171,7 +179,7 @@ let main () =
       info "--checkonly specified, consider all packages as background packages";
       List.flatten (
         List.map (fun ((n,a),c) ->
-          let (name,filter) = Debian.Debutil.debvpkg to_cudf ((n,a),c) in
+          let (name,filter) = Pef.Pefcudf.pefvpkg to_cudf ((n,a),c) in
           Cudf.lookup_packages ~filter universe name
         ) (OptParse.Opt.get Options.checkonly)
       )
@@ -213,7 +221,6 @@ let main () =
             let id = (cudfpkg.Cudf.package,cudfpkg.Cudf.version) in
             let debpkg = Hashtbl.find cudftodeb_table id in
             debpkg#pp oc;
-            Printf.fprintf oc "\n"
           with Not_found -> assert false
         ) is
       else

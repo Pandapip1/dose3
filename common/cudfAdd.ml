@@ -120,27 +120,25 @@ let pp_package fmt pkg =
 let string_of_version = string_of pp_version
 let string_of_package = string_of pp_package
 
-type pp = Cudf.package -> string * string * (string * (string * bool)) list
+type pp = Cudf.package -> string * string option * string * (string * (string * bool)) list
 
 (** [default_pp] default package printer. If the version of the package is
   * a negative number, the version version if printed as "nan" *)
 let default_pp pkg =
   let v = if pkg.Cudf.version > 0 then string_of_version pkg else "nan" in
-  (pkg.Cudf.package,v,[])
+  (pkg.Cudf.package,None,v,[])
 
 let pp from_cudf ?(fields=[]) ?(decode=decode) pkg =
-    let (p,v) = from_cudf (pkg.Cudf.package,pkg.Cudf.version) in
-    let default_fields = ["architecture";"source";"sourcenumber";"essential"] in
-    let f b l =
-      List.filter_map (fun k ->
-        try Some(k,(decode(Cudf.lookup_package_property pkg k),b))
-        with Not_found -> None
-      ) l
-    in
-    let l = (f false fields)@(f true default_fields) in
-    (decode p,decode v,l)
-
-let max32int = if Int32.to_int(Int32.max_int) < 0 then max_int else Int32.to_int(Int32.max_int);;
+  let (p,a,v) = from_cudf (pkg.Cudf.package,pkg.Cudf.version) in
+  let default_fields = ["architecture";"source";"sourcenumber";"essential";"type"] in
+  let f b l acc =
+    List.fold_left (fun acc k ->
+      try (k,(decode(Cudf.lookup_package_property pkg k),b))::acc
+      with Not_found -> acc
+    ) acc l
+  in
+  let l = (f false fields (f true default_fields [])) in
+  (p,a,v,l)
 
 let pp_vpkg pp fmt vpkg =
   let string_of_relop = function
@@ -151,18 +149,18 @@ let pp_vpkg pp fmt vpkg =
     | `Leq -> "<="
     | `Lt -> "<"
   in
+  let dummy p v = {Cudf.default_package with Cudf.package = p ; version = v} in
   match vpkg with
   |(p,None) ->
-      let (p,_,_) = 
-        pp {Cudf.default_package with 
-          Cudf.package = p ; 
-          version = max32int} 
-      in
-      Format.fprintf fmt "%s" p
+      begin match pp (dummy p Util.max32int) with
+      |(p,None,_,_) -> Format.fprintf fmt "%s" p
+      |(p,Some a,_,_) -> Format.fprintf fmt "%s:%s" p a end
   |(p,Some(c,v)) ->
-      match pp {Cudf.default_package with Cudf.package = p ; version = v} with
-      |(p,("nan" | ""),_) -> Format.fprintf fmt "%s" p
-      |(p,v,_) -> Format.fprintf fmt "%s (%s %s)" p (string_of_relop c) v
+      match pp (dummy p v) with
+      |(p,None,("nan" | ""),_) -> Format.fprintf fmt "%s" p
+      |(p,None,v,_) -> Format.fprintf fmt "%s (%s %s)" p (string_of_relop c) v
+      |(p,Some a,("nan" | ""),_) -> Format.fprintf fmt "%s:%s" p a
+      |(p,Some a,v,_) -> Format.fprintf fmt "%s:%s (%s %s)" p a (string_of_relop c) v
 
 let pp_vpkglist pp fmt =
   let pp_list fmt ~pp_item ~sep l =
@@ -305,16 +303,19 @@ let compute_pool universe =
   in
   (d,c)
 
-let cudfop = function
-  |Some(("<<" | "<"),v) -> Some(`Lt,v)
-  |Some((">>" | ">"),v) -> Some(`Gt,v)
-  |Some("<=",v) -> Some(`Leq,v)
-  |Some(">=",v) -> Some(`Geq,v)
-  |Some("=",v) -> Some(`Eq,v)
-  |Some("!=",v) -> Some(`Neq,v)
-  |Some("ALL",v) -> None
+let cudf_op = function
+  |("<<" | "<") -> `Lt
+  |(">>" | ">") -> `Gt
+  |"<=" -> `Leq
+  |">=" -> `Geq
+  |"=" -> `Eq
+  |"!=" -> `Neq
+  |c -> fatal "Unknown operator: %s" c
+
+let cudf_constr = function
   |None -> None
-  |Some(c,v) -> fatal "%s %s" c v
+  |Some("ALL",_) -> None
+  |Some(c,v) -> Some(cudf_op c,v)
 
 let latest pkglist =
   let h = Hashtbl.create (List.length pkglist) in
@@ -327,3 +328,32 @@ let latest pkglist =
     with Not_found -> Hashtbl.add h p.Cudf.package p
   ) pkglist;
   Hashtbl.fold (fun _ v acc -> v::acc) h []
+
+let cone universe pkgs =
+  let conjunctive = false in
+  let l = ref [] in
+  let queue = Queue.create () in
+  let visited = Hashtbl.create (2 * (List.length pkgs)) in
+  List.iter (fun pkg -> Queue.add (Cudf.uid_by_package universe pkg) queue) pkgs;
+  while (Queue.length queue > 0) do
+    let id = Queue.take queue in
+    let pkg = Cudf.package_by_uid universe id in
+    if not(Hashtbl.mem visited id) then begin
+      l := pkg :: !l;
+      Hashtbl.add visited id ();
+      List.iter (fun vpkgs ->
+        match resolve_vpkgs_int universe vpkgs with
+        |[i] when not(Hashtbl.mem visited i) -> begin
+            Queue.add i queue;
+        end
+        |dsj when not conjunctive ->
+          List.iter (fun i ->
+            if not(Hashtbl.mem visited i) then begin
+              Queue.add i queue;
+            end
+          ) dsj
+        |_ -> ()
+      ) pkg.Cudf.depends
+    end
+  done;
+  !l

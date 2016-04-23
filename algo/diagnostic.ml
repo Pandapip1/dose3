@@ -150,44 +150,36 @@ let default_result n = {
   statistic = Hashtbl.create 17
 }
 
-let pp_out_version fmt = Format.fprintf fmt "output-version: 1.1@.";;
-
-(** given a list of dependencies, return a list of list containg all
- *  paths in the dependency tree starting from [root] *)
-let build_paths deps root =
-  let bind m f = List.flatten (List.map f m) in
-  let rec aux acc deps root =
-    match List.partition (fun (i,_,_) -> CudfAdd.equal i root) deps with
-    |([],_) when (List.length acc) = 1 -> [] 
-    |(rootlist,_) ->
-        bind rootlist (function
-          |(i,v,[]) -> [List.rev acc]
-          |(i,v,l) -> bind l (fun r -> aux ((i,v)::acc) deps r)
-        )
-  in
-  aux [] deps root
-;;
+let pp_out_version fmt = Format.fprintf fmt "output-version: 1.2@.";;
 
 let pp_package ?(source=false) ?(fields=false) pp fmt pkg =
-  let (p,v,fieldlist) = pp pkg in
+  let (p,a,v,fieldlist) = pp pkg in
   Format.fprintf fmt "package: %s@," p;
   Format.fprintf fmt "version: %s" v;
   List.iter (function
-    |(("source"|"sourcenumber"),(_,_)) -> ()
+    |(("source"|"sourcenumber"|"type"|"essential"),_) -> ()
     |(k,(v,true)) -> Format.fprintf fmt "@,%s: %s" k v
     |(k,(v,false)) when fields = true -> Format.fprintf fmt "@,%s: %s" k v
     |(k,(v,_)) -> ()
   ) fieldlist;
-  if source then begin 
+  try
+    if fst(List.assoc "essential" fieldlist) = "true" then
+      Format.fprintf fmt "@,essential: true"
+  with Not_found -> ();
+  try
+    if fst(List.assoc "type" fieldlist) = "src" then
+      Format.fprintf fmt "@,type: src"
+  with Not_found -> ();
+  if source then
     try
       let source = fst(List.assoc "source" fieldlist) in
       let sourceversion = 
         try "(= "^(fst(List.assoc "sourcenumber" fieldlist))^")" 
         with Not_found -> ""
-      in
-      Format.fprintf fmt "@,source: %s %s" source sourceversion
+      in begin
+        Format.fprintf fmt "@,source: %s %s" source sourceversion;
+      end;
     with Not_found -> ()
-  end
 ;;
 
 let pp_dependency pp ?(label="depends") fmt (i,vpkgs) =
@@ -212,23 +204,6 @@ let rec pp_collection pp fmt = function
   |[] -> ()
 ;;
 
-let create_pathlist root deps =
-  let dl = List.map (function Dependency x -> x |_ -> assert false) deps in
-  build_paths (List.unique dl) root
-;;
-
-let pp_dependencies pp fmt pathlist =
-  let rec aux fmt = function
-    |[path] -> Format.fprintf fmt "@[<v 1>-@,@[<v 1>depchain:@,%a@]@]" (pp_list (pp_dependency pp)) path
-    |path::pathlist ->
-        (Format.fprintf fmt "@[<v 1>-@,@[<v 1>depchain:@,%a@]@]@," (pp_list (pp_dependency pp)) path;
-        aux fmt pathlist)
-    |[] -> ()
-  in
-  aux fmt pathlist
-;;
-
-#ifdef HASOCAMLGRAPH
 (** Build a SyntacticDependencyGraph from the solver output. *)
 let build_explanation_graph ?(addmissing=false) root l =
   let open Defaultgraphs.SyntacticDependencyGraph in
@@ -240,6 +215,10 @@ let build_explanation_graph ?(addmissing=false) root l =
     )
   in
   let gr = G.create () in
+  (* we add the root, there might be a problem on related to packages
+     not related to the root, but failing to install because of a 
+     global constraint (like conflitting essential packages) *)
+  G.add_vertex gr (add_node root);
   let c = ref 0 in
   (* remove duplicate dependencies/reasons. XXX with long
      list of packages Hashtbl.hash could give wrong results *)
@@ -477,9 +456,9 @@ let print_error ?(condense=false) ?(minimal=false) pp root fmt l =
       pp_package ~source pp fmt (List.hd pkgl) 
     else begin
       let fl = List.map pp pkgl in
-      let (n,_,_) = List.hd fl in
+      let (n,_,_,_) = List.hd fl in
       Format.fprintf fmt "package: %s@," n;
-      Format.fprintf fmt "versions: %s" (String.concat "," (List.map (fun (_,v,_) -> v) fl))
+      Format.fprintf fmt "versions: %s" (String.concat "," (List.map (fun (_,_,v,_) -> v) fl))
     end
   in
   let pp_dependency_list pp ?(label="depends") fmt (i,vpkgs) =
@@ -544,8 +523,8 @@ let print_error ?(condense=false) ?(minimal=false) pp root fmt l =
     Format.fprintf fmt "unsat-conflict: %a@]@," (CudfAdd.pp_vpkglist pp) [vpkg];
     Format.fprintf fmt "@[<v 1>pkg2:@,%a@]" (pp_package_list ~source:true pp) j;
     if not minimal then begin
-      let (pl1,_) = try DJ.shortest_path gr vroot vi with Not_found -> assert false in
-      let (pl2,_) = try DJ.shortest_path gr vroot vj with Not_found -> assert false in
+      let pl1 = try fst(DJ.shortest_path gr vroot vi) with Not_found -> [] in
+      let pl2 = try fst(DJ.shortest_path gr vroot vj) with Not_found -> [] in
       if pl1 <> [] then
         Format.fprintf fmt "@,@[<v 1>depchain1:@,%a@]" (pp_dependencies pp) pl1;
       if pl2 <> [] then
@@ -584,47 +563,6 @@ let print_error ?(condense=false) ?(minimal=false) pp root fmt l =
   pp_list pp_reason_missing fmt !missing
 ;;
 
-#else
- 
-(* only two failures reasons. Dependency describe the dependency chain to a failure witness *)
-let print_error ?(condense=false) ?(minimal=false) pp root fmt l =
-  let (deps,res) = List.partition (function Dependency _ -> true |_ -> false) l in
-  let pp_reason fmt = function
-    |Conflict (i,j,vpkg) ->
-        Format.fprintf fmt "@[<v 1>conflict:@,";
-        Format.fprintf fmt "@[<v 1>pkg1:@,%a@," (pp_package ~source:true pp) i;
-        Format.fprintf fmt "unsat-conflict: %a@]@," (CudfAdd.pp_vpkglist pp) [vpkg];
-        Format.fprintf fmt "@[<v 1>pkg2:@,%a@]" (pp_package ~source:true pp) j;
-        if deps <> [] && not minimal then begin
-          let pl1 = create_pathlist root (Dependency(i,[],[])::deps) in
-          let pl2 = create_pathlist root (Dependency(j,[],[])::deps) in
-          if pl1 <> [[]] then
-            Format.fprintf fmt "@,@[<v 1>depchain1:@,%a@]" (pp_dependencies pp) pl1;
-          if pl2 <> [[]] then
-            Format.fprintf fmt "@,@[<v 1>depchain2:@,%a@]" (pp_dependencies pp) pl2;
-          Format.fprintf fmt "@]"
-        end else
-          Format.fprintf fmt "@,@]"
-    |Missing (i,vpkgs) ->
-        Format.fprintf fmt "@[<v 1>missing:@,";
-        Format.fprintf fmt "@[<v 1>pkg:@,%a@]" 
-          (pp_dependency ~label:"unsat-dependency" pp) (i,vpkgs);
-        if not minimal then begin
-          let pl = create_pathlist root (Dependency(i,vpkgs,[])::deps) in
-          if pl <> [[]] then begin
-            Format.fprintf fmt "@,@[<v 1>depchains:@,%a@]" (pp_dependencies pp) pl;
-            Format.fprintf fmt "@]"
-          end else
-            Format.fprintf fmt "@]"
-        end else
-          Format.fprintf fmt "@]"
-    |_ -> assert false 
-  in
-  pp_list pp_reason fmt res
-;;
-
-#endif
-
 (* XXX unplug your imperative brain and rewrite this as a tail recoursive
  * function ! *)
 let minimize roots l =
@@ -662,57 +600,6 @@ let get_installationset ?(minimal=false) = function
 let is_solution = function
   |{result = Success _ } -> true
   |{result = Failure _ } -> false
-;;
-
-let print_error_human ?(prefix="") pp root fmt l =
-  let (deps,res) = List.partition (function Dependency _ -> true |_ -> false) l in
-  let pp_package pkg =
-    let (p,v,_) = pp pkg in
-    Format.sprintf "(%s %s)" p v
-  in
-  let pp_dependencies fmt pathlist =
-    List.iter (fun path ->
-      List.iter (fun (i,vpkgs) ->
-        if i.Cudf.package <> "dose-dummy-request" then
-          Format.fprintf fmt "%s%s@." prefix (pp_package i)
-      ) path
-    ) pathlist
-  in
-  let pp_reason fmt = function
-    |Conflict (i,j,vpkg) -> begin
-      Format.printf "%sThere is a conflict " prefix;
-      Format.printf "between package %s and package %s@." (pp_package i) (pp_package j);
-      if deps <> [] then begin
-          let pl1 = create_pathlist root (Dependency(i,[],[])::deps) in
-          let pl2 = create_pathlist root (Dependency(j,[],[])::deps) in
-          if pl1 <> [[]] then pp_dependencies fmt pl1;
-          if pl2 <> [[]] then pp_dependencies fmt pl2;
-        end
-    end
-    |Missing (i,vpkgs) -> begin
-      Format.printf "%sThe dependency %a of package %s cannot be satisfied@." prefix (CudfAdd.pp_vpkglist pp) vpkgs (pp_package i);
-      let pl = create_pathlist root (Dependency(i,vpkgs,[])::deps) in
-      if pl <> [[]] then pp_dependencies fmt pl
-    end
-    |_ -> assert false 
-  in
-  if root.Cudf.package = "dose-dummy-request" then
-    Format.printf "%sThe request cannot be satisfied@," prefix
-  else
-    Format.printf "%sThe request for package %s cannot be satisfied@," prefix (pp_package root);
-  List.iter (pp_reason fmt) res
-;;
-
-let fprintf_human ?(pp=CudfAdd.default_pp) ?(prefix="") fmt = function
-  |{result = Failure f ; request = [r] } -> 
-         print_error_human ~prefix pp r fmt (f ());
-  |{result = Failure f ; request = rl } -> 
-      let n = List.length rl in
-      List.iteri (fun i r ->
-        print_error_human ~prefix pp r fmt (f ());
-        if i <> (n-1) then Format.fprintf fmt "@."
-      ) rl;
-  |_ -> ()
 ;;
 
 let fprintf ?(pp=CudfAdd.default_pp) ?(failure=false) ?(success=false) ?(explain=false) 
@@ -838,8 +725,8 @@ let pp_summary ?(pp=CudfAdd.default_pp) ?(explain=false) () fmt result =
       let l1 = Util.list_unique !v in
       begin match k with
         |Conflict(i,j,_) ->
-            let (pi,vi,_) = pp i in
-            let (pj,vj,_) = pp j in
+            let (pi,_,vi,_) = pp i in
+            let (pj,_,vj,_) = pp j in
             result.unique_conflict <- result.unique_conflict + 1;
             if pi = pj then
               result.unique_selfconflict <- result.unique_selfconflict + 1;
