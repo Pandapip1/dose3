@@ -14,7 +14,7 @@ Build-Depends: debhelper (>= 9), dh-ocaml (>= 0.9~), dh-autoreconf,
  libocamlgraph-ocaml-dev (>= 1.8.6),
  libcudf-ocaml-dev (>= 0.7),
  libzip-ocaml-dev, libbz2-ocaml-dev, librpm-dev (>= 4.12),
- perl, hevea, texlive-latex-base, texlive-latex-extra
+ perl, graphviz, hevea, texlive-latex-base, texlive-latex-extra
 Standards-Version: 3.9.8
 Homepage: http://www.mancoosi.org/software/
 Vcs-Browser: https://anonscm.debian.org/cgit/pkg-ocaml-maint/packages/dose3.git
