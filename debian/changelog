@@ -17,7 +17,7 @@ dose3 (4.3-1) experimental; urgency=medium
     patch the copyright header of scripts/pack.ml accordingly with a new patch
     called 0001-fix-licence-header.patch
 
- -- Ralf Treinen <treinen@debian.org>  Sat, 23 Apr 2016 17:28:08 +0200
+ -- Johannes Schauer <josch@debian.org>  Fri, 13 May 2016 19:08:41 +0200
 
 dose3 (4.2-2) unstable; urgency=medium
 
