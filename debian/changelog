@@ -13,6 +13,9 @@ dose3 (4.3-1) experimental; urgency=medium
     upgrades or downgrades but only a single install request. See the patch
     description as well as the closed bug for details (closes: #823906)
   * Refreshed patch binaries-prefix-edos
+  * Clarify copyright situation of scripts/pack.ml in debian/copyright and
+    patch the copyright header of scripts/pack.ml accordingly with a new patch
+    called 0001-fix-licence-header.patch
 
  -- Ralf Treinen <treinen@debian.org>  Sat, 23 Apr 2016 17:28:08 +0200
 
