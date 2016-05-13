@@ -8,6 +8,10 @@ dose3 (4.3-1) experimental; urgency=medium
   [ Johannes Schauer ]
   * Drop patch disable_dot because #809049 has been fixed. Restore build
     dependency on graphviz.
+  * Add patch 0001-applications-apt-cudf.ml-Do-not-generate-removal-req from
+    upstream git master to let apt-cudf not create a removal request for
+    upgrades or downgrades but only a single install request. See the patch
+    description as well as the closed bug for details (closes: #823906)
 
  -- Ralf Treinen <treinen@debian.org>  Sat, 23 Apr 2016 17:28:08 +0200
 
