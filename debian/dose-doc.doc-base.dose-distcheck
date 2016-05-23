@@ -6,5 +6,5 @@ Abstract: This document describes how to use dose-debcheck to check
 Section: Debian
 
 Format: HTML
-Index: /usr/share/doc/dose-distcheck/debcheck-primer.html
-Files: /usr/share/doc/dose-distcheck/debcheck-primer.html
+Index: /usr/share/doc/dose-doc/debcheck-primer.html
+Files: /usr/share/doc/dose-doc/debcheck-primer.html

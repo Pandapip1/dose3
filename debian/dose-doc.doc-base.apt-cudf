@@ -6,5 +6,5 @@ Abstract: This document describes how to connect apt-get with external solvers
 Section: Debian
 
 Format: HTML
-Index: /usr/share/doc/apt-cudf/apt-external-solvers.html
-Files: /usr/share/doc/apt-cudf/apt-external-solvers.html
+Index: /usr/share/doc/dose-doc/apt-external-solvers.html
+Files: /usr/share/doc/dose-doc/apt-external-solvers.html
