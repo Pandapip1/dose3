@@ -38,9 +38,7 @@ override_dh_auto_build:
 		debian/update-cudf-solvers > debian/update-cudf-solvers.8
 
 override_dh_auto_clean:
-	! [[ -f Makefile.config ]] || make distclean
-	rm -f debian/update-cudf-solvers.8
-	rm -f _tags
+	! [ -f Makefile.config ] || make distclean
 
 override_dh_auto_test:
 	# do nothing
