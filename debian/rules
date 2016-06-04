@@ -1,16 +1,39 @@
 #!/usr/bin/make -f
 
 RELEASE = $(shell dpkg-parsechangelog | grep ^Version: | cut -f 2 -d' ')
+BUILDDIR= debian/tmp
+
 %:
 	dh $@ --with ocaml --with autoreconf
 
-override_dh_auto_configure:
+override_dh_auto_clean:
+	! [ -f Makefile.config ] || make distclean
+
+configure-stamp:
 	dh_auto_configure -- --with-ocamlgraph --with-zip \
 			--with-bz2 --with-rpm4 \
 			--bindir=/usr/bin --libdir=/usr/lib
+	touch configure-stamp
+
+override_dh_auto_build:
+	# do nothing
+
+build-arch: build-stamp-arch
+
+build-stamp-arch: configure-stamp
+	$(MAKE)
+	pod2man --section 8 -release "apt-cudf $(RELEASE)" \
+		debian/update-cudf-solvers > debian/update-cudf-solvers.8
+	touch build-stamp-arch
+
+build-indep:
+	$(MAKE) doc
 
 override_dh_auto_install:
-	dh_auto_install
+	# do nothing
+
+override_dh_install-arch:
+	$(MAKE) install DESTDIR=$(CURDIR)/$(BUILDDIR)
 	cd debian/tmp/usr/bin \
 		&& mv distcheck dose-distcheck \
 		&& mv deb-buildcheck dose-builddebcheck \
@@ -18,9 +41,8 @@ override_dh_auto_install:
 		&& mv challenged dose-challenged \
 		&& mv ceve dose-ceve \
 		&& mv deb-coinstall dose-deb-coinstall
-
-override_dh_installman:
-	dh_installman
+	dh_install -a
+	dh_installman -a
 	cd debian/dose-distcheck/usr/share/man/man1 \
 		&& mv distcheck.1 dose-distcheck.1
 	cd debian/dose-extra/usr/share/man/man1 \
@@ -30,15 +52,10 @@ override_dh_installman:
 		&& mv debcoinstall.1 dose-deb-coinstall.1
 	cd debian/dose-builddebcheck/usr/share/man/man1 \
 		&& mv deb-buildcheck.1 dose-builddebcheck.1
+	dh_installdocs -a
 
-override_dh_auto_build:
-	dh_auto_build
-	$(MAKE) doc
-	pod2man --section 8 -release "apt-cudf $(RELEASE)" \
-		debian/update-cudf-solvers > debian/update-cudf-solvers.8
-
-override_dh_auto_clean:
-	! [ -f Makefile.config ] || make distclean
+override_dh_install-indep:
+	dh_installdocs -i
 
 override_dh_auto_test:
 	# do nothing
