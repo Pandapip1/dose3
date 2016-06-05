@@ -1,10 +1,11 @@
 dose3 (4.3-2) UNRELEASED; urgency=medium
 
-  * New binary package dose-doc
+  * New binary package dose-doc. Split debian/rules targets into -arch
+    and -indep; split off Build-Depends-Indep from Build-Depends.
   * change doc-base section of the apt-cudf primer to System/Package Management
   * d/rules: simplify override for dh_auto_clean, create file debian/clean
 
- -- Ralf Treinen <treinen@debian.org>  Thu, 02 Jun 2016 21:45:24 +0200
+ -- Ralf Treinen <treinen@debian.org>  Sun, 05 Jun 2016 21:44:23 +0200
 
 dose3 (4.3-1) experimental; urgency=medium
 
