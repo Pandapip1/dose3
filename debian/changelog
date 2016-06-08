@@ -1,3 +1,10 @@
+dose3 (4.3-3) experimental; urgency=medium
+
+  * dose-doc: breaks older versions of apt-cudf, libdose3-ocaml-dev,
+    dose-distcheck (closes: #826690).
+
+ -- Ralf Treinen <treinen@debian.org>  Wed, 08 Jun 2016 04:49:39 +0200
+
 dose3 (4.3-2) experimental; urgency=medium
 
   * New binary package dose-doc. Split debian/rules targets into -arch
