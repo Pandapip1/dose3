@@ -46,9 +46,10 @@ module Options = struct
 
   include StdOptions.DistribOptions ;;
   let default =
-    List.fold_left (fun acc e ->
-      List.remove acc e
-    ) StdOptions.DistribOptions.default_options ["deb-host-arch";"deb-drop-b-d-indep";"deb-profiles"]
+    List.fold_left
+      List.remove
+      StdOptions.DistribOptions.default_options
+      ["deb-host-arch";"deb-drop-b-d-indep";"deb-profiles"]
   in
   StdOptions.DistribOptions.add_debian_options ~default options ;
   StdOptions.DistribOptions.add_opam_options ~default options ;;
@@ -87,10 +88,15 @@ let main () =
   let options = Options.set_options input_type in
   let (fg,bg) = Options.parse_cmdline (input_type,implicit) posargs in
 
-  let (preamble,pkgll,_,from_cudf,to_cudf,_) = StdLoaders.load_list ~options [fg;bg] in
-  let (fg_pkglist, bg_pkglist) = match pkgll with [fg;bg] -> (fg,bg) | _ -> assert false in
-  let fg_pkglist = 
-    if OptParse.Opt.get Options.latest then CudfAdd.latest fg_pkglist
+  let (preamble,pkgll,_,from_cudf,to_cudf,_,global_constraints) =
+    StdLoaders.load_list ~options [fg;bg]
+  in
+  let (fg_pkglist, bg_pkglist) =
+    match pkgll with [fg;bg] -> (fg,bg) | _ -> assert false
+  in
+  let fg_pkglist =
+    if OptParse.Opt.is_set Options.latest then
+      CudfAdd.latest ~n:(OptParse.Opt.get Options.latest) fg_pkglist
     else fg_pkglist
   in
   let fn = List.length fg_pkglist in
@@ -158,15 +164,16 @@ let main () =
   info "Solving..." ;
   let failure = OptParse.Opt.get Options.failure in
   let success = OptParse.Opt.get Options.success in
-  let explain =
-    if success || failure then
-      OptParse.Opt.get Options.explain 
-    else false
-  in
   let explain_summary = OptParse.Opt.get Options.explain in
   let minimal = OptParse.Opt.get Options.minimal in
   let condense = OptParse.Opt.get Options.condense in
   let summary = OptParse.Opt.get Options.summary in
+  let explain =
+    if summary then true else
+    if success || failure then
+      OptParse.Opt.get Options.explain 
+    else false
+  in
   let fmt =
     if OptParse.Opt.is_set Options.outfile then
       let f =
@@ -230,23 +237,23 @@ let main () =
       then Depsolver.univcheck
       else Depsolver.univcheck_lowmem
     in
-    let global_constraints = not(OptParse.Opt.get Options.deb_ignore_essential) in
     let nbp =
       if (OptParse.Opt.is_set Options.checkonly) && (List.length checklist) = 0 then 0
       else if OptParse.Opt.is_set Options.checkonly || not(bg_pkglist = []) then 
+        (*
         let subuniverse =
           let l =
-            if global_constraints then
-              Cudf.fold_packages (fun acc pkg ->
-                  match pkg.Cudf.keep with
-                  |`Keep_package |`Keep_version  -> pkg::acc
-                  |_ -> acc
-              ) checklist universe
-            else checklist
+            Cudf.fold_packages (fun acc pkg ->
+                match pkg.Cudf.keep with
+                |`Keep_package |`Keep_version | `Keep_feature 
+                  when pkg.Cudf.installed -> pkg::acc
+                |_ -> acc
+            ) checklist universe
           in
           Cudf.load_universe (CudfAdd.cone universe l)
         in
-        Depsolver.listcheck ~global_constraints ~callback ~explain subuniverse checklist
+        *)
+        Depsolver.listcheck ~global_constraints ~callback ~explain universe checklist
       else
         univcheck ~global_constraints ~callback ~explain universe 
     in

@@ -1,11 +1,27 @@
+(**************************************************************************)
+(*  This file is part of a library developed with the support of the      *)
+(*  Mancoosi Project. http://www.mancoosi.org                             *)
+(*                                                                        *)
+(*  Main author(s):  Pietro Abate                                         *) 
+(*                                                                        *)
+(*  This library is free software: you can redistribute it and/or modify  *)
+(*  it under the terms of the GNU Lesser General Public License as        *)
+(*  published by the Free Software Foundation, either version 3 of the    *)
+(*  License, or (at your option) any later version.  A special linking    *)
+(*  exception to the GNU Lesser General Public License applies to this    *)
+(*  library, see the COPYING file for more information.                   *)
+(**************************************************************************)
+
 (** Library of additional functions for the CUDF format. *)
 
 (** {2 Basic comparison operations for packages} *)
 
-(** Equality test: two CUDF packages are equal if their names and versions are equal. *)
+(** Equality test: two CUDF packages are equal if their names and versions
+    are equal. *)
 val equal : Cudf.package -> Cudf.package -> bool
 
-(** Compare function: compares two CUDF packages using standard CUDF comparison operator (i.e. comparing by their name and version). *)
+(** Compare function: compares two CUDF packages using standard CUDF 
+    comparison operator (i.e. comparing by their name and version). *)
 val compare : Cudf.package -> Cudf.package -> int
 
 (** {2 Specialized data structures for CUDF packages} *)
@@ -13,8 +29,9 @@ val compare : Cudf.package -> Cudf.package -> int
 (** A hash function for CUDF packages, using only their name and version. *)
 val hash : Cudf.package -> int
 
-(** Sort function: sorts a CUDF packages list using the standard CUDF comparison operator in ascending order *)
-val sort : Cudf.package list -> Cudf.package list
+(** Sort function: sorts a CUDF packages list using the 
+    standard CUDF comparison operator in ascending order. *)
+val sort : ?asc: bool -> Cudf.package list -> Cudf.package list
 
 (** {2 Data structures} *)
 
@@ -92,9 +109,9 @@ val decode : string -> string
 
 (** {2 Additional functions on the CUDF data types. } *)
 
-(** Returns a list of packages containing for each package only the
-    latest version *)
-val latest: Cudf.package list -> Cudf.package list
+(** Returns a list of packages containing for each package [n]
+    most recent version (default the latest version) *)
+val latest: ?n : int -> Cudf.package list -> Cudf.package list
 
 (** Set of strings *)
 module StringSet : (Set.S with type elt = ExtLib.String.t)
@@ -118,12 +135,12 @@ val realversionmap : Cudf.package list ->
   (Cudf_types.pkgname * string, Cudf.package) ExtLib.Hashtbl.t
 
 (** Return the unique cudf id of a package in a universe *)
-val vartoint : Cudf.universe -> Cudf.package -> int
+val pkgtoint : Cudf.universe -> Cudf.package -> int
 
 (** Given a universe and a cudf id returns the corresponding package.
     Raise Not_found if the id does not correspond to a package.
 *)
-val inttovar : Cudf.universe -> int -> Cudf.package
+val inttopkg : Cudf.universe -> int -> Cudf.package
 
 (*
 (** convert pef operators to cudf *)

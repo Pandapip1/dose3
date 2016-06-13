@@ -150,11 +150,38 @@ Type: distcheck
 Printer: text
 ExitCode: 1
 
+Name: failure_distcheck_summary
+Group: distcheck
+Expected: tests/applications/dose-tests/distcheck_test_failure_summary
+Input: deb://tests/DebianPackages/sid.packages.bz2
+Cmd: ./distcheck.native --summary
+Type: distcheck
+Printer: text
+ExitCode: 1
+
+Name: failure_distcheck_lowmem
+Group: distcheck
+Expected: tests/applications/dose-tests/distcheck_test_failure
+Input: deb://tests/DebianPackages/sid.packages.bz2
+Cmd: ./distcheck.@OCAMLEXT@ -f -e --lowmem
+Type: distcheck
+Printer: text
+ExitCode: 1
+
 Name: success_distcheck
 Group: distcheck
 Expected: tests/applications/dose-tests/distcheck_test_success
 Input: deb://tests/DebianPackages/lenny.packages.bz2
 Cmd: ./distcheck.@OCAMLEXT@ -s 
+Type: distcheck
+Printer: text
+ExitCode: 0
+
+Name: success_distcheck_lowmem
+Group: distcheck
+Expected: tests/applications/dose-tests/distcheck_test_success
+Input: deb://tests/DebianPackages/lenny.packages.bz2
+Cmd: ./distcheck.@OCAMLEXT@ -s --lowmem
 Type: distcheck
 Printer: text
 ExitCode: 0
@@ -299,7 +326,7 @@ Name: deb_buildcheck
 Group: buildcheck
 Expected: tests/applications/dose-tests/deb-buildcheck-output
 Input: tests/DebianPackages/Sid-amd64-Packages-050812.bz2 tests/DebianPackages/Sid-Sources-050812.bz2
-Cmd: ./deb-buildcheck.@OCAMLEXT@ --failures --explain --latest --deb-native-arch=amd64
+Cmd: ./deb-buildcheck.@OCAMLEXT@ --failures --explain --latest 1 --deb-native-arch=amd64
 Type: buildcheck
 Printer: text
 ExitCode: 1
@@ -309,7 +336,7 @@ Name: deb_buildcheck_cross
 Group: buildcheck
 Expected: tests/applications/dose-tests/apt-get-build-dep-armel-results
 Input: tests/DebianPackages/crossbuild-essential-armel tests/DebianPackages/Sid-amd64-Packages-050812.bz2 tests/DebianPackages/Sid-armel-Packages-050812.bz2 tests/DebianPackages/Sid-Sources-050812.bz2
-Cmd: ./deb-buildcheck.@OCAMLEXT@ --failures --successes --latest --deb-native-arch=amd64 --deb-foreign-archs=armel --deb-host-arch=armel
+Cmd: ./deb-buildcheck.@OCAMLEXT@ --failures --successes --latest 1 --deb-native-arch=amd64 --deb-foreign-archs=armel --deb-host-arch=armel
 Type: buildcheck
 Printer: text
 Ignore: yes

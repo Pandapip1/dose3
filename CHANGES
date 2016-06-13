@@ -1,4 +1,34 @@
 
+dose3 (5.0) UNRELEASED; urgency=low
+ * finally implement keep_package/version/feature properly. The globalid 
+   index that was used to optionally encode the global constraints is 
+   now disappeared. This simplify the interface of the solver.
+ * massive refactoring. Change of API . All functions in Depsolver*
+   accept a new paramenter "global_constraints" that is a vpkgformula
+   enconding all packages that must be co-installed by by default with
+   each request. This is used to properly encode debian essential packages
+   without abusing 'Keep_package as before.
+ * Depsolver_int.{solve,init_solver_unit,init_solver_cache} have a new optional
+   argument 'explain'. When false, reduce the memory footprint.
+ * Depsolver.{check_request,check_request_using} accept a new parameter dummy
+   that can be used to pass arbitrary contraints as a cudf.package that is going
+   to be coinstalled as part of the request and filtered out in the result.
+ * improvements to the documentation and test units
+ * add --compare to ceve when used with pef://
+ * improvements to distcheck --lowmem
+ * StdOptions.lastest now returns an integer to consider only the last n versions
+   of each package
+ * API change : CudfAdd.latest 
+ * API change : CudfAdd.inttovar -> CudfAdd.inttopkg
+ * API change : add parameter to check_request and check_request_using 
+ * apt-cudf : package up or downgrades are expressed in a single 
+   "Install" request and that these do not show up as a "Remove" request anymore.
+ * StdOptions.DistribOptions.add_options are now different for each input ( ex.
+   StdOptions.DistribOptions.add_debian_options )uu
+ * Debian.Printer.pp_* functions are now methods of the Debian.package class
+
+ -- Pietro Abate <pietro.abate@inria.fr>  Thur, 06 Jun 2016 13:13:06 +0200
+
 dose3 (4.3) UNRELEASED; urgency=low
  * Fix exitcode problem with apt-cudf
  * Add new comparison functions to parse npm like versions
@@ -11,6 +41,10 @@ dose3 (4.3) UNRELEASED; urgency=low
  * add --deb-drop-b-d-indep and --deb-profiles to ceve
  * API Change. Debian.Debutil.debvpkg is replaced by Pef.Pefcudf.pefvpkg
  * API Change. Depsolver_int.solve has a addition argument "explain"
+ * add new option to ditcheck and ceve --compare to specify a comparison
+   function to be used with the pef format.
+
+ -- Pietro Abate <pietro.abate@inria.fr>  Thur, 21 Apr 2016 13:13:06 +0200
 
 dose3 (4.2) UNRELEASED; urgency=low
 

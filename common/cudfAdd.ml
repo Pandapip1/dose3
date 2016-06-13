@@ -24,7 +24,9 @@ include Util.Logging(struct let label = label end) ;;
 let equal = Cudf.(=%)
 let compare = Cudf.(<%)
 
-let sort = List.sort ~cmp:compare
+let sort ?(asc=false) l =
+  let cmp = if asc then (fun a b -> compare b a) else compare in
+  List.sort ~cmp l
 let hash p = Hashtbl.hash (p.Cudf.package,p.Cudf.version)
 
 module Cudf_hashtbl =
@@ -221,7 +223,7 @@ let realversionmap pkglist =
   ) pkglist ;
   h
 
-let vartoint universe p =
+let pkgtoint universe p =
   try Cudf.uid_by_package universe p
   with Not_found-> begin
     warning 
@@ -230,7 +232,7 @@ let vartoint universe p =
     raise Not_found
   end
 
-let inttovar = Cudf.package_by_uid
+let inttopkg = Cudf.package_by_uid
 
 let normalize_set (l : int list) = 
   List.rev (List.fold_left (fun results x ->
@@ -317,20 +319,17 @@ let cudf_constr = function
   |Some("ALL",_) -> None
   |Some(c,v) -> Some(cudf_op c,v)
 
-let latest pkglist =
+let latest ?(n=1) pkglist =
   let h = Hashtbl.create (List.length pkglist) in
   List.iter (fun p ->
-    try
-      let q = Hashtbl.find h p.Cudf.package in
-      if (compare p q) > 0 then
-        Hashtbl.replace h p.Cudf.package p
-      else ()
-    with Not_found -> Hashtbl.add h p.Cudf.package p
+    add_to_package_list h p.Cudf.package p
   ) pkglist;
-  Hashtbl.fold (fun _ v acc -> v::acc) h []
+  Hashtbl.fold (fun _ { contents = l } acc ->
+    if List.length l <= n then l@acc
+    else (fst(List.split_nth n (sort ~asc:true l)))@acc
+  ) h []
 
 let cone universe pkgs =
-  let conjunctive = false in
   let l = ref [] in
   let queue = Queue.create () in
   let visited = Hashtbl.create (2 * (List.length pkgs)) in
@@ -343,16 +342,11 @@ let cone universe pkgs =
       Hashtbl.add visited id ();
       List.iter (fun vpkgs ->
         match resolve_vpkgs_int universe vpkgs with
-        |[i] when not(Hashtbl.mem visited i) -> begin
-            Queue.add i queue;
-        end
-        |dsj when not conjunctive ->
+        |[i] when not(Hashtbl.mem visited i) -> Queue.add i queue;
+        |dsj ->
           List.iter (fun i ->
-            if not(Hashtbl.mem visited i) then begin
-              Queue.add i queue;
-            end
+            if not(Hashtbl.mem visited i) then Queue.add i queue;
           ) dsj
-        |_ -> ()
       ) pkg.Cudf.depends
     end
   done;

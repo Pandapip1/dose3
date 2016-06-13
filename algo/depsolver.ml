@@ -20,25 +20,36 @@ include Util.Logging(struct let label = label end) ;;
 
 type solver = Depsolver_int.solver
 
-let load universe = Depsolver_int.init_solver_univ universe
+let load ?(global_constraints=[]) universe =
+  let global_constraints =
+    List.map (fun (vpkg,l) ->
+      (vpkg,List.map (CudfAdd.pkgtoint universe) l)
+    ) global_constraints
+  in
+  Depsolver_int.init_solver_univ ~global_constraints universe
 
 (** [univcheck ?callback universe] check all packages in the
     universe for installability 
 
     @return the number of packages that cannot be installed
 *)
-let univcheck ?(global_constraints=true) ?callback ?(explain=true) universe =
+let univcheck ?(global_constraints=[]) ?callback ?(explain=true) universe =
   let aux ?callback univ =
     let timer = Util.Timer.create "Algo.Depsolver.univcheck" in
     Util.Timer.start timer;
-    let solver = Depsolver_int.init_solver_univ ~explain univ in
+    let global_constraints =
+      List.map (fun (vpkg,l) ->
+        (vpkg,List.map (CudfAdd.pkgtoint universe) l)
+      ) global_constraints
+    in
+    let solver = Depsolver_int.init_solver_univ ~global_constraints ~explain univ in
     let failed = ref 0 in
     (* This is size + 1 because we encode the global constraint of the
      * universe as a package that must be tested like any other *)
     let size = (Cudf.universe_size univ) + 1 in
     let tested = Array.make size false in
     Util.Progress.set_total Depsolver_int.progressbar_univcheck size ;
-    let check = Depsolver_int.pkgcheck global_constraints callback explain solver tested in
+    let check = Depsolver_int.pkgcheck callback explain solver tested in
     (* we do not test the last package that encodes the global constraints
      * on the universe as it is tested all the time with all other packages. *)
     for id = 0 to size - 2 do if not(check id) then incr failed done;
@@ -48,8 +59,8 @@ let univcheck ?(global_constraints=true) ?callback ?(explain=true) universe =
   match callback with
   |None -> aux universe
   |Some f ->
-      let callback_int (res,req) = f (Diagnostic.diagnosis map universe res req) in
-      aux ~callback:callback_int universe
+    let callback_int (res,req) = f (Diagnostic.diagnosis map universe res req) in
+    aux ~callback:callback_int universe
 ;;
 
 (** [listcheck ?callback universe pkglist] check if a subset of packages 
@@ -58,23 +69,28 @@ let univcheck ?(global_constraints=true) ?callback ?(explain=true) universe =
     @param pkglist list of packages to be checked
     @return the number of packages that cannot be installed
 *)
-let listcheck ?(global_constraints=true) ?callback ?(explain=true) universe pkglist =
+let listcheck ?(global_constraints=[]) ?callback ?(explain=true) universe pkglist =
   let aux ?callback univ idlist =
-    let solver = Depsolver_int.init_solver_univ ~explain univ in
+    let global_constraints =
+      List.map (fun (vpkg,l) ->
+        (vpkg,List.map (CudfAdd.pkgtoint universe) l)
+      ) global_constraints
+    in
+    let solver = Depsolver_int.init_solver_univ ~global_constraints ~explain univ in
     let timer = Util.Timer.create "Algo.Depsolver.listcheck" in
     Util.Timer.start timer;
     let failed = ref 0 in
     let size = (Cudf.universe_size univ) + 1 in
     let tested = Array.make size false in
     Util.Progress.set_total Depsolver_int.progressbar_univcheck size ;
-    let check = Depsolver_int.pkgcheck global_constraints callback explain solver tested in
+    let check = Depsolver_int.pkgcheck callback explain solver tested in
     List.iter (function
-      |id when id = size -> ()
+      |id when id = solver.Depsolver_int.globalid -> ()
       |id -> if not(check id) then incr failed
     ) idlist ;
     Util.Timer.stop timer !failed
   in
-  let idlist = List.map (CudfAdd.vartoint universe) pkglist in
+  let idlist = List.map (CudfAdd.pkgtoint universe) pkglist in
   let map = new Common.Util.identity in
   match callback with
   |None -> aux universe idlist
@@ -83,59 +99,100 @@ let listcheck ?(global_constraints=true) ?callback ?(explain=true) universe pkgl
       aux ~callback:callback_int universe idlist
 ;;
 
-let univcheck_lowmem ?(global_constraints=true) ?callback ?(explain=true) universe =
-  let keeplist =
-    Cudf.fold_packages (fun acc pkg ->
-        match pkg.Cudf.keep with
-        |`Keep_package |`Keep_version  -> pkg::acc
-        |_ -> acc
-    ) [] universe
-  in
+let univcheck_lowmem ?(global_constraints=[]) ?callback ?(explain=true) universe =
+  let pkglist = Cudf.get_packages universe in
+  let keeplist = List.flatten (List.map snd global_constraints) in
   (* Split the universe in 10 subuniverses of size 1/10 *)
-  let chunkssize = ((Cudf.universe_size universe) / 10) + 1 in
+  let chunkssize = ((Cudf.universe_size universe) / 20) + 1 in
   (* The set of packages that must be present in each universe *)
-  let keepset = CudfAdd.to_set (CudfAdd.cone universe keeplist) in
-  let (_,_,partition) =
-    Enum.fold (fun pkg (acc,tested,e) ->
-      let c = CudfAdd.cone universe [pkg] in
-      let s = CudfAdd.Cudf_set.union (CudfAdd.to_set c) acc in
-      if Cudf_set.cardinal s >= chunkssize then begin
-        let totest = Cudf_set.diff s tested in
-        Enum.push e (s,totest);
-        (keepset,Cudf_set.union tested totest,e)
-      end else (s,tested,e)
-    ) (keepset,Cudf_set.empty,Enum.empty ()) (List.enum (Cudf.get_packages universe))
+  let keepset = CudfAdd.to_set (CudfAdd.cone universe keeplist) in 
+  debug "univcheck lowmem make paritions chunksize=%d" chunkssize;
+  let partitions keepset l =
+    let rec aux (univ,tested) = function
+      |[] -> (univ,[])
+      |pkg::rest ->
+        if not(Cudf_set.mem pkg tested || Cudf_set.mem pkg univ) then begin
+          let pkgcone = CudfAdd.to_set(CudfAdd.cone universe [pkg]) in
+          let newuniv = Cudf_set.union pkgcone univ in
+          (*debug "Old Universe %d" (Cudf_set.cardinal univ);*)
+          (*debug "Cone %d" (Cudf_set.cardinal pkgcone);*)
+          (*debug "Cone+Keep %d" (Cudf_set.cardinal newuniv);*)
+          if Cudf_set.cardinal newuniv >= chunkssize then begin
+            (newuniv,rest)
+          end else aux (newuniv,tested) rest
+        end else aux (univ,tested) rest
+    in
+    let rec make lr count =
+	Enum.make
+	  ~next:(fun () ->
+	    match !lr with
+	    | (_,[]) -> raise Enum.No_more_elements
+	    | (tested,t) ->
+              decr count;
+              let (newuniv,rest) = aux (keepset,tested) t in
+              let totest = Cudf_set.diff newuniv tested in
+              let tested = Cudf_set.union tested totest in
+              (*debug "New Universe %d" (Cudf_set.cardinal newuniv);*)
+              (*debug "Tested %d" (Cudf_set.cardinal tested);*)
+              (*debug "ToTest %d" (Cudf_set.cardinal totest);*)
+              lr := (tested,rest);
+              (newuniv,totest)
+	  )
+	  ~count:(fun () ->
+	    if !count < 0 then count := List.length (snd !lr);
+	    !count
+	  )
+	  ~clone:(fun () ->
+	    make (ref !lr) (ref !count)
+	  )
+    in
+    make (ref (CudfAdd.Cudf_set.empty,l)) (ref (-1))
   in
   Enum.fold (fun (su,stt) acc ->
-    let u = Cudf.load_universe (CudfAdd.Cudf_set.elements su) in
+    (*debug "univcheck lowmem run : %d" (CudfAdd.Cudf_set.cardinal su);*)
+    (*debug "univcheck lowmem totest : %d" (CudfAdd.Cudf_set.cardinal stt);*)
+    let l = CudfAdd.Cudf_set.elements su in
+    let u = Cudf.load_universe l in
     let pkglist = CudfAdd.Cudf_set.elements stt in
-    debug "Univcheck run : %d" (Cudf.universe_size u);
     let b = listcheck ~global_constraints ?callback ~explain u pkglist in
     b+acc
-  ) 0 partition
+  ) 0 (partitions keepset pkglist)
 ;;
 
-let edos_install_cache global_constraints univ cudfpool pkglist =
-  let idlist = List.map (CudfAdd.vartoint univ) pkglist in
-  let globalid = Cudf.universe_size univ in
-  let closure = Depsolver_int.dependency_closure_cache cudfpool (globalid::idlist) in
+let edos_install_cache univ cudfpool pkglist =
+  let idlist = List.map (CudfAdd.pkgtoint univ) pkglist in
+  let closure = Depsolver_int.dependency_closure_cache cudfpool idlist in
   let solver = Depsolver_int.init_solver_closure cudfpool closure in
-  let req = if global_constraints then (Some globalid,idlist) else (None,idlist) in
-  let res = Depsolver_int.solve solver ~explain:true req in
-  Diagnostic.diagnosis solver.Depsolver_int.map univ res req
+  let res = Depsolver_int.solve solver ~explain:true idlist in
+  Diagnostic.diagnosis solver.Depsolver_int.map univ res idlist
 ;;
 
-let edos_install ?(global_constraints=false) univ pkg =
-  let cudfpool = Depsolver_int.init_pool_univ ~global_constraints univ in
-  edos_install_cache global_constraints univ cudfpool [pkg]
+let edos_install ?(global_constraints=[]) universe pkg =
+  let global_constraints =
+    List.map (fun (vpkg,l) ->
+      (vpkg,List.map (CudfAdd.pkgtoint universe) l)
+    ) global_constraints
+  in
+  let cudfpool = Depsolver_int.init_pool_univ ~global_constraints universe in
+  edos_install_cache universe cudfpool [pkg]
 
-let edos_coinstall ?(global_constraints=false) univ pkglist =
-  let cudfpool = Depsolver_int.init_pool_univ ~global_constraints univ in
-  edos_install_cache global_constraints univ cudfpool pkglist
+let edos_coinstall ?(global_constraints=[]) universe pkglist =
+  let global_constraints =
+    List.map (fun (vpkg,l) ->
+      (vpkg,List.map (CudfAdd.pkgtoint universe) l)
+    ) global_constraints
+  in
+  let cudfpool = Depsolver_int.init_pool_univ ~global_constraints universe in
+  edos_install_cache universe cudfpool pkglist
 ;;
 
-let edos_coinstall_prod ?(global_constraints=false) univ ll =
-  let cudfpool = Depsolver_int.init_pool_univ ~global_constraints univ in
+let edos_coinstall_prod ?(global_constraints=[]) universe ll =
+  let global_constraints =
+    List.map (fun (vpkg,l) ->
+      (vpkg,List.map (CudfAdd.pkgtoint universe) l)
+    ) global_constraints
+  in
+  let cudfpool = Depsolver_int.init_pool_univ ~global_constraints universe in
   let return a = [a] in
   let bind m f = List.flatten (List.map f m) in
   let rec permutation = function
@@ -145,7 +202,7 @@ let edos_coinstall_prod ?(global_constraints=false) univ ll =
           List.map (fun h1 -> h1 :: t1) h
         )
   in
-  List.map (edos_install_cache global_constraints univ cudfpool) (permutation ll)
+  List.map (edos_install_cache universe cudfpool) (permutation ll)
 ;;
 
 let is_consistent univ =
@@ -185,7 +242,7 @@ let is_consistent univ =
       }
   |(true|false),_ -> fatal "Bug in Cudf_checker.is_consistent"
 
-let trim ?(global_constraints=true) universe =
+let trim ?(global_constraints=[])  universe =
   let trimmed_pkgs = ref [] in
   let callback d =
     if Diagnostic.is_solution d then
@@ -197,7 +254,7 @@ let trim ?(global_constraints=true) universe =
   Cudf.load_universe !trimmed_pkgs
 ;;
 
-let trimlist ?(global_constraints=true) universe pkglist =
+let trimlist ?(global_constraints=[])  universe pkglist =
   let trimmed_pkgs = ref [] in
   let callback d =
     if Diagnostic.is_solution d then
@@ -209,7 +266,7 @@ let trimlist ?(global_constraints=true) universe pkglist =
   !trimmed_pkgs
 ;;
 
-let find_broken ?(global_constraints=true) universe =
+let find_broken ?(global_constraints=[])  universe =
   let broken_pkgs = ref [] in
   let callback d =
     if not (Diagnostic.is_solution d) then
@@ -230,21 +287,21 @@ let callback_aux acc d =
   |_ -> ()
 ;;
 
-let find_installable ?(global_constraints=true) universe =
+let find_installable ?(global_constraints=[]) universe =
   let acc = ref [] in
   let callback = callback_aux acc in
   ignore (univcheck ~global_constraints ~callback universe);
   !acc
 ;;
 
-let find_listinstallable ?(global_constraints=true) universe pkglist =
+let find_listinstallable ?(global_constraints=[]) universe pkglist =
   let acc = ref [] in
   let callback = callback_aux acc in
   ignore (listcheck ~global_constraints ~callback universe pkglist);
   !acc
 ;;
 
-let find_listbroken ?(global_constraints=true) universe pkglist =
+let find_listbroken ?(global_constraints=[]) universe pkglist =
   let broken_pkgs = ref [] in
   let callback d =
     if not (Diagnostic.is_solution d) then
@@ -256,37 +313,65 @@ let find_listbroken ?(global_constraints=true) universe pkglist =
   !broken_pkgs
 ;;
 
-let dependency_closure ?maxdepth ?conjunctive ?(global_constraints=false) univ pkglist =
-  Depsolver_int.dependency_closure ?maxdepth ?conjunctive ~global_constraints univ pkglist
+(** [dependency_closure index l] return the union of the dependency closure of
+    all packages in [l] .
+
+    @param maxdepth the maximum cone depth (infinite by default)
+    @param conjunctive consider only conjunctive dependencies (false by default)
+    @param universe the package universe
+    @param pkglist a subset of [universe]
+*)
+let dependency_closure ?(global_constraints=[]) ?maxdepth ?conjunctive universe pkglist =
+  let global_constraints =
+    List.map (fun (vpkg,l) ->
+      (vpkg, List.map (CudfAdd.pkgtoint universe) l)
+      ) global_constraints
+  in
+  let idlist =
+    let l = List.map (CudfAdd.pkgtoint universe) pkglist in
+    (List.flatten (List.map snd global_constraints)) @ l
+  in
+  let pool = Depsolver_int.init_pool_univ ~global_constraints universe in
+  let l = Depsolver_int.dependency_closure_cache ?maxdepth ?conjunctive pool idlist in
+  let size = Cudf.universe_size universe in
+  List.filter_map (fun p ->
+    if p <> size then
+      Some (CudfAdd.inttopkg universe p)
+    else None
+  ) l
 
 let reverse_dependencies univ =
   let rev = Depsolver_int.reverse_dependencies univ in
   let h = Cudf_hashtbl.create (Array.length rev) in
   Array.iteri (fun i l ->
     Cudf_hashtbl.add h 
-      (CudfAdd.inttovar univ i) 
-      (List.map (CudfAdd.inttovar univ) l)
+      (CudfAdd.inttopkg univ i) 
+      (List.map (CudfAdd.inttopkg univ) l)
   ) rev ;
   h
 
 let reverse_dependency_closure ?maxdepth univ pkglist =
-  let idlist = List.map (CudfAdd.vartoint univ) pkglist in
+  let idlist = List.map (CudfAdd.pkgtoint univ) pkglist in
   let reverse = Depsolver_int.reverse_dependencies univ in
   let closure = Depsolver_int.reverse_dependency_closure ?maxdepth reverse idlist in
-  List.map (CudfAdd.inttovar univ) closure
+  List.map (CudfAdd.inttopkg univ) closure
 
 type enc = Cnf | Dimacs
 
-let output_clauses ?(global_constraints=true) ?(enc=Cnf) univ =
-  let solver = Depsolver_int.init_solver_univ ~global_constraints ~buffer:true univ in
+let output_clauses ?(global_constraints=[]) ?(enc=Cnf) universe =
+  let global_constraints =
+    List.map (fun (vpkg,l) ->
+      (vpkg,List.map (CudfAdd.pkgtoint universe) l)
+    ) global_constraints
+  in
+  let solver = Depsolver_int.init_solver_univ ~global_constraints ~buffer:true universe in
   let clauses = Depsolver_int.S.dump solver.Depsolver_int.constraints in
-  let size = Cudf.universe_size univ in
+  let size = Cudf.universe_size universe in
   let buff = Buffer.create size in
-  let globalid = size in
   let to_cnf dump =
     let str (v, p) =
-      if (abs v) != globalid then
-        let pkg = (CudfAdd.inttovar univ) (abs v) in
+      if (abs v) != size then (* the last index *)
+        let pkg = (CudfAdd.inttopkg universe) (abs v) in
         let pol = if p then "" else "!" in
         Printf.sprintf "%s%s-%d" pol pkg.Cudf.package pkg.Cudf.version
       else ""
@@ -298,11 +383,11 @@ let output_clauses ?(global_constraints=true) ?(enc=Cnf) univ =
   in
   let to_dimacs dump =
     let str (v, p) =
-      if v != globalid then
+      if v != size then
         if p then Printf.sprintf "%d" v else Printf.sprintf "-%d" v 
       else ""
     in
-    let varnum = Cudf.universe_size univ in
+    let varnum = size in
     let closenum = (List.length clauses) in
     Printf.bprintf buff "p cnf %d %d\n" varnum closenum;
     List.iter (fun l ->
@@ -320,6 +405,12 @@ type solver_result =
   |Unsat of Diagnostic.diagnosis option
   |Error of string
 
+let dummy_request =
+  { Cudf.default_package with
+    Cudf.package = "dose-dummy-request";
+    version = 1;
+  }
+
 (* add a version constraint to ensure name is upgraded *)
 let upgrade_constr universe name = 
   match Cudf.get_installed universe name with
@@ -329,61 +420,58 @@ let upgrade_constr universe name =
       let p = List.hd(List.sort ~cmp:Cudf.(>%) pl) 
       in (name,Some(`Geq,p.Cudf.version))
 
-let check_request_using ?call_solver ?callback ?criteria ?(explain=false) (pre,universe,request) =
+let check_request_using
+  ?call_solver ?criteria ?(dummy=dummy_request) ?(explain=false) (pre,universe,request) =
   let intSolver ?(explain=false) universe request =
     let deps = 
-      let k =
-        Cudf.fold_packages (fun acc pkg ->
-          if pkg.Cudf.installed then
-            match pkg.Cudf.keep with
-            |`Keep_package -> (pkg.Cudf.package,None)::acc
-            |`Keep_version -> (pkg.Cudf.package,Some(`Eq,pkg.Cudf.version))::acc
-            |_ -> acc
-          else acc
-        ) [] universe
-      in
       let il = request.Cudf.install in
       (* we preserve the user defined constraints, while adding the upgrade constraint *)
-      let ulc = List.filter (function (_,Some _) -> true | _ -> false) request.Cudf.upgrade in
-      let ulnc = List.map (fun (name,_) -> upgrade_constr universe name) request.Cudf.upgrade in
+      let ulc =
+        List.filter (function (_,Some _) -> true | _ -> false) request.Cudf.upgrade 
+      in
+      let ulnc =
+        List.map (fun (name,_) ->
+          upgrade_constr universe name
+        ) request.Cudf.upgrade
+      in
       let l = il @ ulc @ ulnc in
-      debug "request consistency (keep %d) (install %d) (upgrade %d) (remove %d) (# %d)"
-      (List.length k) (List.length request.Cudf.install) 
-      (List.length request.Cudf.upgrade)
-      (List.length request.Cudf.remove)
-      (Cudf.universe_size universe);
-      List.fold_left (fun acc j -> [j]::acc) (List.map (fun j -> [j]) l) k
+      debug "request consistency (install %d) (upgrade %d) (remove %d) (# %d)"
+        (List.length request.Cudf.install) 
+        (List.length request.Cudf.upgrade)
+        (List.length request.Cudf.remove)
+        (Cudf.universe_size universe);
+        (List.map (fun j -> [j]) l)
     in
-    let dummy = {
-      Cudf.default_package with
-      Cudf.package = "dose-dummy-request";
-      version = 1;
-      depends = deps;
-      conflicts = request.Cudf.remove}
+    let dummy =
+      { dummy with
+        Cudf.depends = deps@dummy.Cudf.depends;
+        conflicts = request.Cudf.remove@dummy.Cudf.conflicts
+      }
     in
     (* XXX it should be possible to add a package to a cudf document ! *)
     let pkglist = Cudf.get_packages universe in
     let universe = Cudf.load_universe (dummy::pkglist) in
-    edos_install universe dummy
+    (dummy,edos_install universe dummy)
   in
   match call_solver with
   | None ->
-    let d = intSolver universe request in
+    let (dummy,d) = intSolver universe request in
     if Diagnostic.is_solution d then
-      let is = Diagnostic.get_installationset d in
+      let is = List.remove (Diagnostic.get_installationset d) dummy in
       Sat (Some pre,Cudf.load_universe is)
     else
       if explain then Unsat (Some d) else Unsat None
   | Some call_solver ->
     try Sat(call_solver (pre,universe,request)) with
     |CudfSolver.Unsat when not explain -> Unsat None
-    |CudfSolver.Unsat when explain -> Unsat (Some (intSolver ~explain universe request))
+    |CudfSolver.Unsat when explain ->
+        Unsat (Some (snd(intSolver ~explain universe request)))
     |CudfSolver.Error s -> Error s
 ;;
 
 (** check if a cudf request is satisfiable. we do not care about
- * universe consistency . We try to install a dummy package *)
-let check_request ?cmd ?callback ?criteria ?explain cudf =
+    universe consistency . We try to install a dummy package *)
+let check_request ?cmd ?criteria ?dummy ?explain cudf =
   let call_solver =
     match cmd with
     | Some cmd ->
@@ -391,7 +479,7 @@ let check_request ?cmd ?callback ?criteria ?explain cudf =
         Some (CudfSolver.execsolver cmd criteria)
     | None -> None
   in
-  check_request_using ?call_solver ?callback ?explain cudf
+  check_request_using ?call_solver ?dummy ?explain cudf
 ;;
 
 type depclean_result =
@@ -402,14 +490,19 @@ type depclean_result =
 
 (** Depclean. Detect useless dependencies and/or conflicts 
     to missing or broken packages *)
-let depclean ?(global_constraints=true) ?(callback=(fun _ -> ())) univ pkglist =
-  let cudfpool = Depsolver_int.init_pool_univ ~global_constraints univ in
+let depclean ?(global_constraints=[]) ?(callback=(fun _ -> ())) universe pkglist =
+  let global_constraints =
+    List.map (fun (vpkg,l) ->
+      (vpkg,List.map (CudfAdd.pkgtoint universe) l)
+    ) global_constraints
+  in
+  let cudfpool = Depsolver_int.init_pool_univ ~global_constraints universe in
   let is_broken =
-    let cache = Hashtbl.create (Cudf.universe_size univ) in
+    let cache = Hashtbl.create (Cudf.universe_size universe) in
     fun pkg -> 
       try Hashtbl.find cache pkg with 
       |Not_found ->
-        let r = edos_install_cache global_constraints univ cudfpool [pkg] in
+        let r = edos_install_cache universe cudfpool [pkg] in
         let res = not(Diagnostic.is_solution r) in
         Hashtbl.add cache pkg res;
         res
@@ -464,15 +557,15 @@ let depclean ?(global_constraints=true) ?(callback=(fun _ -> ())) univ pkglist =
           ) depends
         in
         let _ = pool.(pkgid) <- (dll,pkgconf) in
-        let res = edos_install_cache global_constraints univ cudfpool [pkg] in
+        let res = edos_install_cache univ cudfpool [pkg] in
         let _ = pool.(pkgid) <- (pkgdeps,pkgconf) in
         if not(Diagnostic.is_solution res) then (vpkglist,vpkg,l)::acc else acc
     ) [] l
   in
   List.filter_map (fun pkg ->
     if not(is_broken pkg) then begin
-      let resdep = test_depends univ cudfpool pkg (enum_deps univ pkg) in
-      let resconf = test_conflict (enum_conf univ pkg) in
+      let resdep = test_depends universe cudfpool pkg (enum_deps universe pkg) in
+      let resconf = test_conflict (enum_conf universe pkg) in
       match resdep,resconf with
       |[],[] -> None
       |_,_ -> (callback(pkg,resdep,resconf) ; Some(pkg,resdep,resconf))
