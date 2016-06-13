@@ -1,8 +1,10 @@
 Author: Ralf Treinen <treinen@debian.org>
 Description: all binaries have prefix dose-
 
---- a/doc/manpages/distcheck.pod
-+++ b/doc/manpages/distcheck.pod
+Index: dose3/doc/manpages/distcheck.pod
+===================================================================
+--- dose3.orig/doc/manpages/distcheck.pod	2016-06-13 08:15:17.411869264 +0200
++++ dose3/doc/manpages/distcheck.pod	2016-06-13 08:15:17.383869114 +0200
 @@ -1,25 +1,25 @@
  =head1 NAME
  
@@ -35,7 +37,7 @@ Description: all binaries have prefix dose-
  repository, whether packages of the repository can be installed relative to the
  repository according to the inter-package relationsships expressed in the
  package control stanzas.  The exact set of relevant control fields and their
-@@ -39,17 +39,17 @@ all packages are in the foreground.
+@@ -39,17 +39,17 @@
  =head1 Input Specification
  
  Currently supported input types are debian, rpm, and eclipse. The
@@ -56,7 +58,7 @@ Description: all binaries have prefix dose-
  .bz2) as positional arguments. Input read on standard input cannot be in
  compressed form.
  
-@@ -62,7 +62,7 @@ compressed form.
+@@ -62,7 +62,7 @@
  The input file has to contain stanzas in the format
  of L<deb-control(5)>, separated by one blank line. For instance, the Packages
  files as found on a Debian mirror server, or in the directory I</var/lib/apt/lists/>
@@ -65,7 +67,7 @@ Description: all binaries have prefix dose-
  packages is analyzed according to their B<Depends>, B<Conflicts>, and B<Provides>
  fields with their meaning as of Debian policy version 3.9.0. B<Pre-depends> are
  treated like B<Depends>, and B<Breaks> are treated like B<Conflicts>.
-@@ -80,8 +80,8 @@ with the same name but different version
+@@ -80,8 +80,8 @@
  =head2 Rpm
  
  The input file can be either a I<synthesis> file or a I<hdlist> file.  By
@@ -76,7 +78,7 @@ Description: all binaries have prefix dose-
  
  =cut
  
-@@ -373,13 +373,13 @@ found in the directory B</var/lib/apt/li
+@@ -373,13 +373,13 @@
  Check which packages in contrib are not installable when dependencies may
  be satisfied from main:
   
@@ -92,9 +94,11 @@ Description: all binaries have prefix dose-
  project. 
  
  =cut
---- a/doc/manpages/deb-buildcheck.pod
-+++ b/doc/manpages/deb-buildcheck.pod
-@@ -258,7 +258,7 @@ Compute the list of source packages for
+Index: dose3/doc/manpages/deb-buildcheck.pod
+===================================================================
+--- dose3.orig/doc/manpages/deb-buildcheck.pod	2016-06-13 08:15:17.411869264 +0200
++++ dose3/doc/manpages/deb-buildcheck.pod	2016-06-13 08:15:17.383869114 +0200
+@@ -258,7 +258,7 @@
  possible to install a mix build environment on amd64 plus armel, assuming that
  the binary packages described in file Packages are available: 
  
@@ -103,7 +107,7 @@ Description: all binaries have prefix dose-
   --deb-foreign-archs=armel,linux-any --deb-host-arch=armel \
   DebianPackages/Sid-amd64-armel-Packages-050812.bz2 
   DebianPackages/Sid-Sources-single-version-050812.bz2
-@@ -276,7 +276,7 @@ edos-distcheck.
+@@ -276,7 +276,7 @@
  =head1 SEE ALSO
  
  L<B<deb-control>(5)>, 
@@ -112,8 +116,10 @@ Description: all binaries have prefix dose-
  
  <http://www.edos-project.org> is the home page of the EDOS project. 
  <http://www.mancoosi.org> is the home page of the Mancoosi project. 
---- a/doc/manpages/outdated.pod
-+++ b/doc/manpages/outdated.pod
+Index: dose3/doc/manpages/outdated.pod
+===================================================================
+--- dose3.orig/doc/manpages/outdated.pod	2016-06-13 08:15:17.411869264 +0200
++++ dose3/doc/manpages/outdated.pod	2016-06-13 08:15:17.387869136 +0200
 @@ -1,16 +1,16 @@
  =head1 NAME
  
@@ -134,7 +140,7 @@ Description: all binaries have prefix dose-
  are not installable with respect to that repository by the their inter-package
  relationships (dependencies, conflicts, ...), and that furthermore cannot
  become installable (in the current version) how matter how the rest of the
-@@ -28,7 +28,7 @@ from the input files.
+@@ -28,7 +28,7 @@
  
  =head1 Output Specification
  
@@ -143,7 +149,7 @@ Description: all binaries have prefix dose-
  
  =head1 OPTIONS
  
-@@ -83,7 +83,7 @@ errors).
+@@ -83,7 +83,7 @@
  
  =head1 EXAMPLE
  
@@ -152,7 +158,7 @@ Description: all binaries have prefix dose-
  
  =cut
  
-@@ -95,8 +95,8 @@ Pietro Abate and Ralf Treinen
+@@ -95,8 +95,8 @@
  
  =head1 SEE ALSO
  
@@ -163,8 +169,10 @@ Description: all binaries have prefix dose-
  
  <http://www.mancoosi.org> is the home page of the Mancoosi project. 
   
---- a/doc/manpages/challenged.pod
-+++ b/doc/manpages/challenged.pod
+Index: dose3/doc/manpages/challenged.pod
+===================================================================
+--- dose3.orig/doc/manpages/challenged.pod	2016-06-13 08:15:17.411869264 +0200
++++ dose3/doc/manpages/challenged.pod	2016-06-13 08:15:17.387869136 +0200
 @@ -1,19 +1,19 @@
  =head1 NAME
  
@@ -188,7 +196,7 @@ Description: all binaries have prefix dose-
  packages that, if upgraded to a specific version, would break a large number of
  other packages in the repository. This tool would be particularly useful during
  the upgrade of a specific component to evaluate its impact on the software
-@@ -23,13 +23,13 @@ archive.
+@@ -23,13 +23,13 @@
  
  =head1 Input Specification
  
@@ -204,7 +212,7 @@ Description: all binaries have prefix dose-
  
  =cut
  
-@@ -74,7 +74,7 @@ Display this list of options.
+@@ -74,7 +74,7 @@
  
  =head1 EXAMPLE
  
@@ -213,7 +221,7 @@ Description: all binaries have prefix dose-
  
  =cut
  
-@@ -88,8 +88,8 @@ Pietro Abate and Roberto Di Cosmo
+@@ -88,8 +88,8 @@
  
  =head1 SEE ALSO
  
@@ -224,8 +232,10 @@ Description: all binaries have prefix dose-
  
  <http://www.mancoosi.org> is the home page of the Mancoosi project.
  
---- a/doc/manpages/debcoinstall.pod
-+++ b/doc/manpages/debcoinstall.pod
+Index: dose3/doc/manpages/debcoinstall.pod
+===================================================================
+--- dose3.orig/doc/manpages/debcoinstall.pod	2016-06-13 08:15:17.411869264 +0200
++++ dose3/doc/manpages/debcoinstall.pod	2016-06-13 08:15:17.387869136 +0200
 @@ -1,19 +1,19 @@
  =head1 NAME
  
@@ -249,7 +259,7 @@ Description: all binaries have prefix dose-
  can be installed together given a set of background Debian binary packages. If
  a valid coinstallation set exists, than it is printed on standard output; else
  the application exists with exit code 1 and prints nothing. 
-@@ -130,13 +130,13 @@ essential:
+@@ -135,13 +135,13 @@
   /var/lib/apt/lists/ftp.fr.debian.org_debian_dists_sid_main_binary-amd64_Packages \
   > essential
  
@@ -265,8 +275,10 @@ Description: all binaries have prefix dose-
   --src /var/lib/apt/lists/ftp.fr.debian.org_debian_dists_sid_main_source_Sources \
   --bg /var/lib/apt/lists/ftp.fr.debian.org_debian_dists_sid_main_binary-amd64_Packages \
   --fg essential > essential_coinstall_src
---- a/doc/manpages/ceve.pod
-+++ b/doc/manpages/ceve.pod
+Index: dose3/doc/manpages/ceve.pod
+===================================================================
+--- dose3.orig/doc/manpages/ceve.pod	2016-06-13 08:15:17.411869264 +0200
++++ dose3/doc/manpages/ceve.pod	2016-06-13 08:15:17.387869136 +0200
 @@ -1,18 +1,18 @@
  =head1 NAME
  
@@ -289,7 +301,7 @@ Description: all binaries have prefix dose-
  extracts package metadata from them, performs some manipulations, and outputs
  the package metadata in one of several formats. 
  
-@@ -264,7 +264,7 @@ universe.
+@@ -265,7 +265,7 @@
  
  =head2 DEBIAN SPECIFIC OPTIONS
  
