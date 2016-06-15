@@ -1,4 +1,4 @@
-dose3 (5.0~rc1-1) experimental; urgency=medium
+dose3 (5.0~rc2-1) experimental; urgency=medium
 
   * new upstream release:
     - refreshed patch binaries-prefix-edos
@@ -6,7 +6,7 @@ dose3 (5.0~rc1-1) experimental; urgency=medium
       0001-applications-apt-cudf.ml-Do-not-generate-removal-req.patch
       0001-fix-licence-header.patch
 
- -- Ralf Treinen <treinen@debian.org>  Mon, 13 Jun 2016 08:22:56 +0200
+ -- Ralf Treinen <treinen@debian.org>  Wed, 15 Jun 2016 20:15:16 +0200
 
 dose3 (4.3-3) experimental; urgency=medium
 
