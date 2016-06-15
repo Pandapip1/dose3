@@ -19,6 +19,8 @@ let label =  __label ;;
 include Util.Logging(struct let label = label end) ;;
 
 type solver = Depsolver_int.solver
+let timer_solver = Util.Timer.create "Algo.Depsolver.solver" 
+let timer_init = Util.Timer.create "Algo.Depsolver.init" 
 
 let load ?(global_constraints=[]) universe =
   let global_constraints =
@@ -35,14 +37,15 @@ let load ?(global_constraints=[]) universe =
 *)
 let univcheck ?(global_constraints=[]) ?callback ?(explain=true) universe =
   let aux ?callback univ =
-    let timer = Util.Timer.create "Algo.Depsolver.univcheck" in
-    Util.Timer.start timer;
     let global_constraints =
       List.map (fun (vpkg,l) ->
         (vpkg,List.map (CudfAdd.pkgtoint universe) l)
       ) global_constraints
     in
+    Util.Timer.start timer_init;
     let solver = Depsolver_int.init_solver_univ ~global_constraints ~explain univ in
+    Util.Timer.stop timer_init ();
+    Util.Timer.start timer_solver;
     let failed = ref 0 in
     (* This is size + 1 because we encode the global constraint of the
      * universe as a package that must be tested like any other *)
@@ -53,7 +56,7 @@ let univcheck ?(global_constraints=[]) ?callback ?(explain=true) universe =
     (* we do not test the last package that encodes the global constraints
      * on the universe as it is tested all the time with all other packages. *)
     for id = 0 to size - 2 do if not(check id) then incr failed done;
-    Util.Timer.stop timer !failed
+    Util.Timer.stop timer_solver !failed
   in
   let map = new Common.Util.identity in
   match callback with
@@ -76,19 +79,26 @@ let listcheck ?(global_constraints=[]) ?callback ?(explain=true) universe pkglis
         (vpkg,List.map (CudfAdd.pkgtoint universe) l)
       ) global_constraints
     in
+    Util.Timer.start timer_init;
     let solver = Depsolver_int.init_solver_univ ~global_constraints ~explain univ in
-    let timer = Util.Timer.create "Algo.Depsolver.listcheck" in
-    Util.Timer.start timer;
+    Util.Timer.stop timer_init ();
+    Util.Timer.start timer_solver;
     let failed = ref 0 in
     let size = (Cudf.universe_size univ) + 1 in
     let tested = Array.make size false in
     Util.Progress.set_total Depsolver_int.progressbar_univcheck size ;
     let check = Depsolver_int.pkgcheck callback explain solver tested in
-    List.iter (function
-      |id when id = solver.Depsolver_int.globalid -> ()
-      |id -> if not(check id) then incr failed
-    ) idlist ;
-    Util.Timer.stop timer !failed
+    begin match (fst solver.Depsolver_int.globalid) with
+    |(false,false) ->
+        List.iter (fun id -> if not(check id) then incr failed) idlist
+    |_ -> 
+        let gid = snd solver.Depsolver_int.globalid in
+        List.iter (function
+          |id when id = gid -> ()
+          |id ->if not(check id) then incr failed
+        ) idlist 
+    end;
+    Util.Timer.stop timer_solver !failed
   in
   let idlist = List.map (CudfAdd.pkgtoint universe) pkglist in
   let map = new Common.Util.identity in
@@ -162,8 +172,8 @@ let univcheck_lowmem ?(global_constraints=[]) ?callback ?(explain=true) universe
 let edos_install_cache univ cudfpool pkglist =
   let idlist = List.map (CudfAdd.pkgtoint univ) pkglist in
   let closure = Depsolver_int.dependency_closure_cache cudfpool idlist in
-  let solver = Depsolver_int.init_solver_closure cudfpool closure in
-  let res = Depsolver_int.solve solver ~explain:true idlist in
+  let solver = Depsolver_int.init_solver_closure ~global_constraints:[] cudfpool closure in
+  let res = Depsolver_int.solve solver  ~explain:true idlist in
   Diagnostic.diagnosis solver.Depsolver_int.map univ res idlist
 ;;
 
@@ -545,7 +555,7 @@ let depclean ?(global_constraints=[]) ?(callback=(fun _ -> ())) universe pkglist
   (* if a package p depends on a package that make p uninstallable, then it 
      can be removed. If p depends on a missing package, the dependency can
      be equally removed *)
-  let test_depends univ (`CudfPool pool) pkg l =
+  let test_depends univ (`CudfPool (_,pool)) pkg l =
     List.fold_left (fun acc -> function
       |(vpkglist,vpkg,_,[]) -> (vpkglist,vpkg,[])::acc
       |(vpkglist,vpkg,depends,l) ->
