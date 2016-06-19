@@ -5,8 +5,10 @@ dose3 (5.0~rc2-1) experimental; urgency=medium
     - dropped patches integrated by upstream:
       0001-applications-apt-cudf.ml-Do-not-generate-removal-req.patch
       0001-fix-licence-header.patch
+  * specify minimum version 1.1.2 for build-dependency "cppo", following
+    upstream instructions.
 
- -- Ralf Treinen <treinen@debian.org>  Wed, 15 Jun 2016 20:15:16 +0200
+ -- Ralf Treinen <treinen@debian.org>  Sun, 19 Jun 2016 20:50:45 +0200
 
 dose3 (4.3-3) experimental; urgency=medium
 

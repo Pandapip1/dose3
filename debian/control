@@ -8,7 +8,7 @@ Uploaders: Stefano Zacchiroli <zack@debian.org>,
 Build-Depends: debhelper (>= 9), dh-ocaml (>= 0.9~), dh-autoreconf,
 # use the following line only when autoconf stuff has been patched:
 # automake, autoconf,
- ocaml-nox (>= 3.11.2), cppo,
+ ocaml-nox (>= 3.11.2), cppo (>= 1.1.2),
  libre-ocaml-dev,
  libextlib-ocaml-dev (>= 1.7.0),
  libocamlgraph-ocaml-dev (>= 1.8.6),
