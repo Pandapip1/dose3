@@ -1,3 +1,9 @@
+dose3 (5.0-1) unstable; urgency=medium
+
+  * new upstream release
+
+ -- Ralf Treinen <treinen@debian.org>  Wed, 22 Jun 2016 20:07:10 +0200
+
 dose3 (5.0~rc2-1) experimental; urgency=medium
 
   * new upstream release:
