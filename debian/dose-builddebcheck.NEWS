@@ -1,3 +1,11 @@
+dose-distcheck (5.0-2) unstable; urgency=medium
+
+  * The --latest option of dose-builddebcheck now takes an integer
+    argument. If you used "--latest" before, please replace it by
+    "--latest 1".
+
+ -- Ralf Treinen <treinen@debian.org>  Tue, 05 Jul 2016 16:43:59 +0200
+
 dose-distcheck (4.2-1) experimental; urgency=medium
 
   * The output version of the yaml output has been bumped to 1.1
