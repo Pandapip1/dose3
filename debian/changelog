@@ -1,3 +1,9 @@
+dose3 (5.0-3) unstable; urgency=medium
+
+  * d/rules: make build-indep depend on configure-stamp
+
+ -- Ralf Treinen <treinen@debian.org>  Fri, 15 Jul 2016 22:55:36 +0200
+
 dose3 (5.0-2) unstable; urgency=medium
 
   * patch distcheck-fg-bg: fix calculation of the list of packages to check

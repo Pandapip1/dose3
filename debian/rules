@@ -26,7 +26,7 @@ build-stamp-arch: configure-stamp
 		debian/update-cudf-solvers > debian/update-cudf-solvers.8
 	touch build-stamp-arch
 
-build-indep:
+build-indep: configure-stamp
 	$(MAKE) doc
 
 override_dh_auto_install:
