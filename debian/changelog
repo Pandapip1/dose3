@@ -1,6 +1,8 @@
 dose3 (5.0.1-1) UNRELEASED; urgency=medium
 
   * new upstream release
+  * remove patches distcheck-fg-bg and getrealname as they have been
+    incorporated upstream
 
  -- Johannes Schauer <josch@debian.org>  Thu, 08 Sep 2016 22:50:19 +0200
 
