@@ -1,4 +1,4 @@
-dose3 (5.0.1-1) UNRELEASED; urgency=medium
+dose3 (5.0.1-1) unstable; urgency=medium
 
   * new upstream release
   * remove patches distcheck-fg-bg and getrealname as they have been
@@ -9,7 +9,7 @@ dose3 (5.0.1-1) UNRELEASED; urgency=medium
     upstream git to fix missing Essential:yes packages when invoking external
     solvers
 
- -- Johannes Schauer <josch@debian.org>  Thu, 08 Sep 2016 22:50:19 +0200
+ -- Johannes Schauer <josch@debian.org>  Thu, 08 Sep 2016 23:05:40 +0200
 
 dose3 (5.0-3) unstable; urgency=medium
 
