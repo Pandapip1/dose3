@@ -64,7 +64,7 @@ Description: OCaml libraries for package dependencies (runtime files)
 Package: dose-distcheck
 Section: devel
 Architecture: any
-Depends: ${ocaml:Depends}, ${misc:Depends}, ${shlibs:Depends}
+Depends: ${ocaml:Depends}, ${misc:Depends}, ${shlibs:Depends}, xz-utils
 Breaks: dose3-distcheck (<< 2.9.13)
 Replaces: dose3-distcheck (<< 2.9.13)
 Description: Checks whether dependencies of packages can be satisfied
@@ -78,7 +78,7 @@ Description: Checks whether dependencies of packages can be satisfied
 Package: dose-builddebcheck
 Section: devel
 Architecture: any
-Depends: ${ocaml:Depends}, ${misc:Depends}, ${shlibs:Depends}
+Depends: ${ocaml:Depends}, ${misc:Depends}, ${shlibs:Depends}, xz-utils
 Breaks: dose3-builddebcheck (<< 2.9.13)
 Replaces: dose3-builddebcheck (<< 2.9.13)
 Description: Checks whether build-dependencies can be satisfied
@@ -93,7 +93,7 @@ Architecture: any
 Provides: ceve
 Breaks: ceve (<< 2.9.10)
 Replaces: ceve (<< 2.9.10)
-Depends: ${ocaml:Depends}, ${misc:Depends}, ${shlibs:Depends}
+Depends: ${ocaml:Depends}, ${misc:Depends}, ${shlibs:Depends}, xz-utils
 Description: Extra QA tools from the Dose3-library
  This package contains extra tools for analyzing meta-data of software 
  packages:

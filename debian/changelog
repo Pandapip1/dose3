@@ -1,5 +1,6 @@
-dose3 (5.0.1-2) UNRELEASED; urgency=medium
+dose3 (5.0.1-2) unstable; urgency=medium
 
+  [ Johannes Schauer ]
   * Backport more commits from upstream to fix remaining bugs considering
     - the handling of Essential:yes packages:
         0003-applications-distcheck.ml-Consider-essential-package.patch
@@ -10,7 +11,11 @@ dose3 (5.0.1-2) UNRELEASED; urgency=medium
         0005-algo-depsolver.ml-reset-progress-bar-after-univcheck.patch
         0006-algo-depsolver.ml-set-correct-value-for-Util.Progres.patch
 
- -- Johannes Schauer <josch@debian.org>  Sun, 16 Oct 2016 12:26:59 +0200
+  [ Ralf Treinen ]
+  * Patch input-xz-files: accept input from xz-compressed files.
+    Add dependency on xz-utils.
+
+ -- Ralf Treinen <treinen@debian.org>  Sun, 16 Oct 2016 19:36:29 +0200
 
 dose3 (5.0.1-1) unstable; urgency=medium
 
