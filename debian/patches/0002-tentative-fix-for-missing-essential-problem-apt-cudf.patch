@@ -1,7 +1,7 @@
 From 64098ce1a7dfec991ccc61f1033f8daf547d1e76 Mon Sep 17 00:00:00 2001
 From: Pietro Abate <pietro.abate@pps.univ-paris-diderot.fr>
 Date: Tue, 6 Sep 2016 18:17:23 +0200
-Subject: [PATCH 2/2] tentative fix for missing essential problem apt-cudf
+Subject: [PATCH 2/8] tentative fix for missing essential problem apt-cudf
 
 ---
  algo/depsolver.ml        | 57 +++++++++++++++++++++++++++++++++---------------

@@ -1,0 +1,26 @@
+From d2c470c78472e4dc157ca5f5014541a6a21f0af1 Mon Sep 17 00:00:00 2001
+From: Johannes 'josch' Schauer <josch@mister-muffin.de>
+Date: Wed, 7 Sep 2016 09:04:50 +0200
+Subject: [PATCH 3/8] applications/distcheck.ml: Consider essential packages
+ when using --coinst
+
+---
+ applications/distcheck.ml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/applications/distcheck.ml b/applications/distcheck.ml
+index cd5829b..388f4e3 100644
+--- a/applications/distcheck.ml
++++ b/applications/distcheck.ml
+@@ -221,7 +221,7 @@ let main () =
+   Util.Timer.start timer;
+ 
+   if (OptParse.Opt.is_set Options.coinst) && (List.length coinstlist) > 0 then begin
+-    let rl = Depsolver.edos_coinstall_prod universe coinstlist in
++    let rl = Depsolver.edos_coinstall_prod ~global_constraints universe coinstlist in
+     let nbt = List.length (List.filter (fun r -> not (Diagnostic.is_solution r)) rl) in
+     let number_checks = List.length rl in 
+     ignore(Util.Timer.stop timer ());
+-- 
+2.9.3
+

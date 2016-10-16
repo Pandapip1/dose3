@@ -1,3 +1,17 @@
+dose3 (5.0.1-2) UNRELEASED; urgency=medium
+
+  * Backport more commits from upstream to fix remaining bugs considering
+    - the handling of Essential:yes packages:
+        0003-applications-distcheck.ml-Consider-essential-package.patch
+        0007-applications-deb-buildcheck.ml-fix-regression-that-l.patch
+        0008-Catch-expection-in-diagnostic.ml.patch
+    - library bugs that affect packages using libdose3-dev:
+        0004-doseparse-stdUtils.ml-It-s-d.byte-and-not-p.byte-for.patch
+        0005-algo-depsolver.ml-reset-progress-bar-after-univcheck.patch
+        0006-algo-depsolver.ml-set-correct-value-for-Util.Progres.patch
+
+ -- Johannes Schauer <josch@debian.org>  Sun, 16 Oct 2016 12:26:59 +0200
+
 dose3 (5.0.1-1) unstable; urgency=medium
 
   * new upstream release

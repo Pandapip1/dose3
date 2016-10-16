@@ -1,3 +1,9 @@
 binaries-prefix-edos
 0001-check_request_using-can-return-discording-result-bet.patch
 0002-tentative-fix-for-missing-essential-problem-apt-cudf.patch
+0003-applications-distcheck.ml-Consider-essential-package.patch
+0004-doseparse-stdUtils.ml-It-s-d.byte-and-not-p.byte-for.patch
+0005-algo-depsolver.ml-reset-progress-bar-after-univcheck.patch
+0006-algo-depsolver.ml-set-correct-value-for-Util.Progres.patch
+0007-applications-deb-buildcheck.ml-fix-regression-that-l.patch
+0008-Catch-expection-in-diagnostic.ml.patch

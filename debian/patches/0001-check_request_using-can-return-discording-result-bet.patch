@@ -1,7 +1,7 @@
 From 4f355af62b6fed07d077f1f52b9762af092b79b9 Mon Sep 17 00:00:00 2001
 From: Pietro Abate <pietro.abate@pps.univ-paris-diderot.fr>
 Date: Tue, 6 Sep 2016 14:09:50 +0200
-Subject: [PATCH 1/2] check_request_using can return discording result between
+Subject: [PATCH 1/8] check_request_using can return discording result between
  internal and external solver
 
 ---
