@@ -1,3 +1,10 @@
+dose3 (5.0.1-5) UNRELEASED; urgency=medium
+
+  * New patch ocaml-4.02.3+gcc-6.2.0 as provided by Josch: fix FTBFS. This
+    patch should probably be removed when we transition to ocaml 4.03.
+
+ -- Ralf Treinen <treinen@debian.org>  Wed, 26 Oct 2016 20:23:47 +0200
+
 dose3 (5.0.1-4) unstable; urgency=medium
 
   * Revert the change introduced by 5.0.1-3, since it makes the

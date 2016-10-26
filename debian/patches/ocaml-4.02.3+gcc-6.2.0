@@ -1,0 +1,16 @@
+Author: Johannes Schauer <josch@debian.org>
+Description: fix FTBFS with ocaml 4.02.3-7 and gcc 6.2.0-7
+
+Index: dose3/Makefile
+===================================================================
+--- dose3.orig/Makefile	2016-10-26 08:17:24.227969682 +0200
++++ dose3/Makefile	2016-10-26 20:20:57.527325311 +0200
+@@ -8,7 +8,7 @@
+ DIST_TARBALL = $(DIST_DIR).tar.gz
+ 
+ #VERBOSE := -classic-display
+-OBFLAGS := $(VERBOSE) -j 10 -no-links -cflags -warn-error,FPSXY
++OBFLAGS := $(VERBOSE) -j 10 -no-links -cflags -warn-error,FPSXY -lflags -runtime-variant,_pic
+ APPFLAGS := $(VERBOSE) -j 10
+ #OBFLAGS := $(OBFLAGS) -tag debug
+ #OBFLAGS := $(OBFLAGS) -tag profile
