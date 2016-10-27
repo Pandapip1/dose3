@@ -14,3 +14,12 @@ Description: fix FTBFS with ocaml 4.02.3-7 and gcc 6.2.0-7
  #OBFLAGS := $(OBFLAGS) -tag debug
  #OBFLAGS := $(OBFLAGS) -tag profile
  #OBFLAGS := $(OBFLAGS) -classic-display
+@@ -274,7 +274,7 @@ credits:
+ 	@git log --pretty=format:'%aN        %aE' | LC_ALL=C sort -u | awk -F'\t' '{printf("\t%s <%s>\n",$$1,$$2)}';
+ 
+ doc: all
+-	$(OCAMLBUILD) -package unix scripts/pack.$(OCAMLEXT)
++	$(OCAMLBUILD) -package unix scripts/pack.$(OCAMLEXT) -lflags -runtime-variant,_pic
+ 	scripts/doc.sh $(OCAMLEXT)
+ 	dot -Grotate=0 -Tsvg -o dose3.docdir/index.svg dose3.docdir/index.dot
+ 	(cd doc && $(MAKE) all)
