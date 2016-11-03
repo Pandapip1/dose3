@@ -1,25 +1,47 @@
 Author: Johannes Schauer <josch@debian.org>
 Description: fix FTBFS with ocaml 4.02.3-7 and gcc 6.2.0-7
 
---- a/Makefile
-+++ b/Makefile
-@@ -8,8 +8,8 @@ DIST_DIR = $(NAME)-$(VERSION)
+Index: dose3/Makefile
+===================================================================
+--- dose3.orig/Makefile	2016-11-03 13:18:32.215962368 +0100
++++ dose3/Makefile	2016-11-03 13:22:07.251879961 +0100
+@@ -8,8 +8,8 @@
  DIST_TARBALL = $(DIST_DIR).tar.gz
  
  #VERBOSE := -classic-display
 -OBFLAGS := $(VERBOSE) -j 10 -no-links -cflags -warn-error,FPSXY
 -APPFLAGS := $(VERBOSE) -j 10
-+OBFLAGS := $(VERBOSE) -j 10 -no-links -cflags -warn-error,FPSXY -lflags -runtime-variant,_pic
-+APPFLAGS := $(VERBOSE) -j 10 -lflags -runtime-variant,_pic
++OBFLAGS := $(VERBOSE) -j 10 -no-links -cflags -warn-error,FPSXY $(PICOPTS)
++APPFLAGS := $(VERBOSE) -j 10 $(PICOPTS)
  #OBFLAGS := $(OBFLAGS) -tag debug
  #OBFLAGS := $(OBFLAGS) -tag profile
  #OBFLAGS := $(OBFLAGS) -classic-display
-@@ -274,7 +274,7 @@ credits:
+@@ -274,7 +274,7 @@
  	@git log --pretty=format:'%aN        %aE' | LC_ALL=C sort -u | awk -F'\t' '{printf("\t%s <%s>\n",$$1,$$2)}';
  
  doc: all
 -	$(OCAMLBUILD) -package unix scripts/pack.$(OCAMLEXT)
-+	$(OCAMLBUILD) -package unix scripts/pack.$(OCAMLEXT) -lflags -runtime-variant,_pic
++	$(OCAMLBUILD) -package unix scripts/pack.$(OCAMLEXT) $(PICOPTS)
  	scripts/doc.sh $(OCAMLEXT)
  	dot -Grotate=0 -Tsvg -o dose3.docdir/index.svg dose3.docdir/index.dot
  	(cd doc && $(MAKE) all)
+Index: dose3/Makefile.config.in
+===================================================================
+--- dose3.orig/Makefile.config.in	2016-11-03 13:17:13.419992557 +0100
++++ dose3/Makefile.config.in	2016-11-03 13:20:57.299906755 +0100
+@@ -64,6 +64,7 @@
+ 
+ ifeq ("@OCAMLEXT@","native")
+   OCAMLBUILD=@OCAMLBUILD@
++  PICOPTS=-lflags -runtime-variant,_pic
+   ifeq ("@OCAML_SYSTEM@","mingw")
+     INSTALLOPTS=-s --strip-program=i686-w64-mingw32-strip
+   else
+@@ -79,6 +80,7 @@
+   endif
+ else
+   OCAMLBUILD=@OCAMLBUILD@ -byte-plugin
++  PICOPTS=
+   INSTALLOPTS=
+ endif
+ 

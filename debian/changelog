@@ -1,3 +1,9 @@
+dose3 (5.0.1-7) unstable; urgency=medium
+
+  * use pic options only on native architectures.
+
+ -- Ralf Treinen <treinen@debian.org>  Thu, 03 Nov 2016 13:23:49 +0100
+
 dose3 (5.0.1-6) unstable; urgency=medium
 
   * New patch ocaml-4.02.3+gcc-6.2.0 as provided by Josch: fix FTBFS. This
