@@ -1,3 +1,11 @@
+dose3 (5.0.1-8) unstable; urgency=medium
+
+  * Patches taken from upstream (thanks, Josch!)
+    - architecture-tuples: replace architecture triples by tuples.
+      (closes: #843409)
+
+ -- Ralf Treinen <treinen@debian.org>  Tue, 17 Jan 2017 21:34:51 +0100
+
 dose3 (5.0.1-7) unstable; urgency=medium
 
   * use pic options only on native architectures.

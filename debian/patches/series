@@ -9,3 +9,4 @@ binaries-prefix-edos
 0008-Catch-expection-in-diagnostic.ml.patch
 input-xz-files
 ocaml-4.02.3+gcc-6.2.0
+architecture-tuples
