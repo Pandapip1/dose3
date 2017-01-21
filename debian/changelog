@@ -1,3 +1,9 @@
+dose3 (5.0.1-9) UNRELEASED; urgency=medium
+
+  * dose-doc: set Multi-Arch=foreign
+
+ -- Ralf Treinen <treinen@debian.org>  Sat, 21 Jan 2017 11:47:14 +0100
+
 dose3 (5.0.1-8) unstable; urgency=medium
 
   * Patches taken from upstream (thanks, Josch!)

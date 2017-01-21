@@ -142,6 +142,7 @@ Replaces: libdose3-ocaml-dev (<< 4.3-2),
 Breaks: libdose3-ocaml-dev (<< 4.3-2),
 	  apt-cudf (<< 4.3-2),
 	  dose-distcheck (<< 4.3-2)
+Multi-Arch: foreign    
 Description: Documentation for dose tools and libraries.
  The dose suite provides libraries for handling package meta-data, and various
  tools for analyzing package relationships in a large package repository.
