@@ -5,8 +5,9 @@ dose3 (5.0.1-9) UNRELEASED; urgency=medium
     as a real package, are co-installable (closes: #867104).
   * dose-doc: set Multi-Arch=foreign
   * add build-dependency on ocamlbuild
+  * standards-version 4.0.0 (no change)
 
- -- Ralf Treinen <treinen@debian.org>  Mon, 17 Jul 2017 22:12:00 +0200
+ -- Ralf Treinen <treinen@debian.org>  Mon, 17 Jul 2017 22:13:38 +0200
 
 dose3 (5.0.1-8) unstable; urgency=medium
 
