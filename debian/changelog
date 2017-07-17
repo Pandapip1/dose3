@@ -1,8 +1,11 @@
 dose3 (5.0.1-9) UNRELEASED; urgency=medium
 
   * dose-doc: set Multi-Arch=foreign
+  * patch virtual_provides: packages that provide the same virtual package
+    in different versions, or that provide the same versioned virtual package
+    as a real package, are co-installable (closes: #867104).
 
- -- Ralf Treinen <treinen@debian.org>  Sat, 21 Jan 2017 11:47:14 +0100
+ -- Ralf Treinen <treinen@debian.org>  Mon, 17 Jul 2017 22:07:31 +0200
 
 dose3 (5.0.1-8) unstable; urgency=medium
 
