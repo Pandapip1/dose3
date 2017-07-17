@@ -9,6 +9,8 @@ Build-Depends: debhelper (>= 9), dh-ocaml (>= 0.9~), dh-autoreconf,
 # use the following line only when autoconf stuff has been patched:
 # automake, autoconf,
  ocaml-nox (>= 3.11.2), cppo (>= 1.1.2),
+# drop ocamlbuild when backporting to ocaml << 4.02.3-10 
+ ocamlbuild,
  libre-ocaml-dev,
  libextlib-ocaml-dev (>= 1.7.0),
  libocamlgraph-ocaml-dev (>= 1.8.6),
