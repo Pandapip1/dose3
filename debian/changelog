@@ -3,6 +3,7 @@ dose3 (5.0.1-9) UNRELEASED; urgency=medium
   * patch virtual_provides: packages that provide the same virtual package
     in different versions, or that provide the same versioned virtual package
     as a real package, are co-installable (closes: #867104).
+  * add a test-case for bug  #867104
   * dose-doc: set Multi-Arch=foreign
   * add build-dependency on ocamlbuild
   * standards-version 4.0.0 (no change)
