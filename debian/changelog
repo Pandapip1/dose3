@@ -1,14 +1,14 @@
-dose3 (5.0.1-9) UNRELEASED; urgency=medium
+dose3 (5.0.1-9) unstable; urgency=medium
 
   * patch virtual_provides: packages that provide the same virtual package
     in different versions, or that provide the same versioned virtual package
-    as a real package, are co-installable (closes: #867104).
+    as a real package, are co-installable (closes: #867104, #864906).
   * add a test-case for bug  #867104
   * dose-doc: set Multi-Arch=foreign
   * add build-dependency on ocamlbuild
   * standards-version 4.0.0 (no change)
 
- -- Ralf Treinen <treinen@debian.org>  Mon, 17 Jul 2017 22:13:38 +0200
+ -- Ralf Treinen <treinen@debian.org>  Wed, 19 Jul 2017 10:19:10 +0200
 
 dose3 (5.0.1-8) unstable; urgency=medium
 
