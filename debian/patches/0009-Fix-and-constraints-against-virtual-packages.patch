@@ -1,0 +1,165 @@
+>From 2b89c68f0711880ce06037d3aa2680215f9a0ab1 Mon Sep 17 00:00:00 2001
+From: James Clarke <jrtc27@jrtc27.com>
+Date: Thu, 19 Apr 2018 14:59:49 +0100
+Subject: [PATCH] Fix >> and >= constraints against virtual packages
+
+Previously, MAX_INT32-1 was used as the version number for an
+unversioned provide (and also generated alongside a versioned provide),
+which incorrectly satisfies any >> or >= constraint. Instead,
+use --virtual--versioned- as a separate prefix for versioned
+provides and constraints, whilst keeping --virtual- for unversioned
+provides. This fixes the remaining broken versioned provides test cases.
+---
+ deb/debcudf.ml | 53 +++++++++++++++++++++-----------------------------
+ deb/tests.ml   | 26 ++++++++++++-------------
+ 2 files changed, 35 insertions(+), 44 deletions(-)
+
+Index: dose3/deb/debcudf.ml
+===================================================================
+--- dose3.orig/deb/debcudf.ml	2018-04-19 22:06:11.602039151 +0200
++++ dose3/deb/debcudf.ml	2018-04-19 22:06:11.602039151 +0200
+@@ -224,12 +224,16 @@
+   end
+ 
+ let get_real_name name = 
+-  (* Remove --virtual- and architecture encoding *)
++  (* Remove --virtual(--versioned)- and architecture encoding *)
+   let dn = (CudfAdd.decode name) in
+   let no_virtual =
+     if ExtString.String.starts_with dn "--vir"
+-    then ExtString.String.slice ~first:10 dn
+-    else dn
++    then begin
++      let maybe_versioned = ExtString.String.slice ~first:10 dn in
++      if ExtString.String.starts_with maybe_versioned "-ver"
++      then ExtString.String.slice ~first:11 maybe_versioned
++      else maybe_versioned
++    end else dn
+   in
+   try
+     let (n,a) = ExtString.String.split no_virtual ":" in
+@@ -260,35 +264,21 @@
+   List.flatten (
+     List.map (fun ((name,_) as vpkgname,constr) ->
+       let encname = add_arch_info ?native_arch ?package_arch vpkgname in
+-      match constr with
+-      |None ->
++      let (virt_prefix, constr) =
++        match constr with
++        |None ->
+           (* Versioned virtual packages will satisfiy non versioned dependencies *)
+-          if (OcamlHashtbl.mem tables.virtual_table name) then
+-            [(encname, None);("--virtual-"^encname,Some(`Eq,Util.max32int - 1))]
+-          else
+-            [(encname, None)]
+-      |Some(op,v) ->
++          ("--virtual-", None)
++        |Some(op,v) ->
+           (* Non-versioned virtual packages will not satisfy versioned dependencies. *)
+           let op = Pef.Pefcudf.pefcudf_op op in
+-          try
+-            match SSet.elements !(OcamlHashtbl.find tables.virtual_table name) with
+-            |[] -> assert false
+-            |l ->
+-                let dl = 
+-                  List.filter_map (function
+-                    |(_,None) -> Some ("--virtual-"^encname,Some(`Eq,Util.max32int))
+-                    |(_,Some _) ->
+-                        let constr = Some(op,get_cudf_version tables (name,v)) in
+-                        Some ("--virtual-"^encname,constr)
+-                  ) l
+-                in
+-                if Util.StringHashtbl.mem tables.unit_table name then
+-                  let constr = Some(op,get_cudf_version tables (name,v)) in
+-                  (encname,constr)::dl
+-                else dl
+-          with Not_found -> 
+-              let constr = Some(op,get_cudf_version tables (name,v)) in
+-              [(encname,constr)]
++          let constr = Some(op,get_cudf_version tables (name,v)) in
++          ("--virtual--versioned-",constr)
++      in
++      if (OcamlHashtbl.mem tables.virtual_table name) then
++        [(encname, constr);(virt_prefix^encname,constr)]
++      else
++        [(encname, constr)]
+     ) l
+   )
+ 
+@@ -308,12 +298,13 @@
+   List.flatten (
+     List.map (fun ((name,_) as vpkgname,constr) ->
+         let encname = add_arch_info ?native_arch ?package_arch vpkgname in
+-        let vencname = "--virtual-"^encname in 
++        let vencname = "--virtual-"^encname in
++        let vvencname = "--virtual--versioned-"^encname in
+         match constr with
+         |None -> [(vencname,Some(`Eq,Util.max32int - 1))]
+         |Some("=",v) ->
+           let constr = Some(`Eq,get_cudf_version tables (name,v)) in
+-          [(vencname,constr);(vencname,Some(`Eq,Util.max32int - 1))]
++          [(vvencname,constr);(vencname,Some(`Eq,Util.max32int - 1))]
+       |_ -> fatal "This should never happen : a provide can be either = or unversioned"
+     ) l
+   )
+Index: dose3/deb/tests.ml
+===================================================================
+--- dose3.orig/deb/tests.ml	2018-04-19 22:06:11.602039151 +0200
++++ dose3/deb/tests.ml	2018-04-19 22:06:11.602039151 +0200
+@@ -922,17 +922,17 @@
+       unversioned   |        (<= 10)       | unsat | unsat
+       unversioned   |        (>= 20)       | unsat | unsat
+ --------------------+----------------------+-------+-------
+-        (= 10)      |      unversioned     | sat   | unsat  ***
++        (= 10)      |      unversioned     | sat   | sat
+         (= 10)      |        (= 20)        | unsat | unsat
+         (= 10)      |        (<= 10)       | sat   | sat
+         (= 10)      |        (>= 20)       | unsat | unsat
+ --------------------+----------------------+-------+-------
+-        (= 20)      |      unversioned     | sat   | unsat  ***
++        (= 20)      |      unversioned     | sat   | sat
+         (= 20)      |        (= 20)        | sat   | sat
+         (= 20)      |        (<= 10)       | unsat | unsat
+         (= 20)      |        (>= 20)       | sat   | sat
+ --------------------+----------------------+-------+-------
+-    (= 10) (= 20)   |      unversioned     | sat   | unsat  ***
++    (= 10) (= 20)   |      unversioned     | sat   | sat
+     (= 10) (= 20)   |        (= 20)        | sat   | sat
+     (= 10) (= 20)   |        (<= 10)       | sat   | sat
+     (= 10) (= 20)   |        (>= 20)       | sat   | sat
+@@ -940,25 +940,25 @@
+ 
+  pkgA provides pkgB | pkgC conflicts with pkgB | dpkg  | dose3
+ --------------------+--------------------------+-------+-------
+-      unversioned   |        unversioned       | unsat |  sat   ***
++      unversioned   |        unversioned       | unsat |  unsat
+       unversioned   |          (= 20)          | sat   |  sat
+       unversioned   |          (<= 10)         | sat   |  sat
+       unversioned   |          (>= 20)         | sat   |  sat
+ --------------------+--------------------------+-------+-------
+-        (= 10)      |        unversioned       | unsat |  sat   ***
++        (= 10)      |        unversioned       | unsat |  unsat
+         (= 10)      |          (= 20)          | sat   |  sat
+-        (= 10)      |          (<= 10)         | unsat |  sat   ***
++        (= 10)      |          (<= 10)         | unsat |  unsat
+         (= 10)      |          (>= 20)         | sat   |  sat
+ --------------------+--------------------------+-------+-------
+-        (= 20)      |        unversioned       | unsat |  sat   ***
+-        (= 20)      |          (= 20)          | unsat |  sat   ***
++        (= 20)      |        unversioned       | unsat |  unsat
++        (= 20)      |          (= 20)          | unsat |  unsat
+         (= 20)      |          (<= 10)         | sat   |  sat
+-        (= 20)      |          (>= 20)         | unsat |  sat   ***
++        (= 20)      |          (>= 20)         | unsat |  unsat
+ --------------------+--------------------------+-------+-------
+-    (= 10) (= 20)   |        unversioned       | unsat |  sat   ***
+-    (= 10) (= 20)   |          (= 20)          | unsat |  sat   ***
+-    (= 10) (= 20)   |          (<= 10)         | unsat |  sat   ***
+-    (= 10) (= 20)   |          (>= 20)         | unsat |  sat   ***
++    (= 10) (= 20)   |        unversioned       | unsat |  unsat
++    (= 10) (= 20)   |          (= 20)          | unsat |  unsat
++    (= 10) (= 20)   |          (<= 10)         | unsat |  unsat
++    (= 10) (= 20)   |          (>= 20)         | unsat |  unsat
+ *)
+ 
+ let test_versioned_provides =

@@ -2,11 +2,11 @@ Author: Johannes 'josch' Schauer <josch@mister-muffin.de>
 Description: Add support for --deb-drop-b-d-arch
 Debian-bug: #850943
 
-diff --git a/applications/deb-buildcheck.ml b/applications/deb-buildcheck.ml
-index f465419..9fed16c 100644
---- a/applications/deb-buildcheck.ml
-+++ b/applications/deb-buildcheck.ml
-@@ -97,6 +97,7 @@ let main () =
+Index: dose3/applications/deb-buildcheck.ml
+===================================================================
+--- dose3.orig/applications/deb-buildcheck.ml	2018-04-19 22:05:47.557899440 +0200
++++ dose3/applications/deb-buildcheck.ml	2018-04-19 22:05:47.557899440 +0200
+@@ -97,6 +97,7 @@
    (* hostarch can be None *)
    let hostarch = match options.Debian.Debcudf.host with None -> "" | Some s -> s in
    let noindep = options.Debian.Debcudf.drop_bd_indep in
@@ -14,7 +14,7 @@ index f465419..9fed16c 100644
    let dropalternatives = OptParse.Opt.get Options.dropalternatives in
    let profiles = options.Debian.Debcudf.profiles in
  
-@@ -132,7 +133,7 @@ let main () =
+@@ -132,7 +133,7 @@
                ~dropalternatives 
                ~profiles 
                ~filter:filter_external_sources 
@@ -23,11 +23,11 @@ index f465419..9fed16c 100644
            in
            let pkglist = Deb.input_raw t in
            (pkglist,srclist)
-diff --git a/applications/deb-coinstall.ml b/applications/deb-coinstall.ml
-index 4130bff..e04398d 100644
---- a/applications/deb-coinstall.ml
-+++ b/applications/deb-coinstall.ml
-@@ -57,7 +57,7 @@ module Options = struct
+Index: dose3/applications/deb-coinstall.ml
+===================================================================
+--- dose3.orig/applications/deb-coinstall.ml	2018-04-19 22:05:47.557899440 +0200
++++ dose3/applications/deb-coinstall.ml	2018-04-19 22:05:47.557899440 +0200
+@@ -57,7 +57,7 @@
    let default =
      List.fold_left (fun acc e ->
        List.remove acc e
@@ -36,7 +36,7 @@ index 4130bff..e04398d 100644
    in
    StdOptions.DistribOptions.add_debian_options ~default options ;
    StdOptions.DistribOptions.add_option options ~long_name:"deb-tupletable"
-@@ -121,7 +121,7 @@ let main () =
+@@ -121,7 +121,7 @@
      in
      let srclist = 
        if not(Option.is_none sources) then
@@ -45,11 +45,11 @@ index 4130bff..e04398d 100644
        else []
      in
      let tables = Debian.Debcudf.init_tables ~options (srclist@pkglist) in
-diff --git a/applications/distcheck.ml b/applications/distcheck.ml
-index 0152199..8164572 100644
---- a/applications/distcheck.ml
-+++ b/applications/distcheck.ml
-@@ -48,7 +48,7 @@ module Options = struct
+Index: dose3/applications/distcheck.ml
+===================================================================
+--- dose3.orig/applications/distcheck.ml	2018-04-19 22:05:47.557899440 +0200
++++ dose3/applications/distcheck.ml	2018-04-19 22:05:47.557899440 +0200
+@@ -49,7 +49,7 @@
      List.fold_left
        List.remove
        StdOptions.DistribOptions.default_options
@@ -58,11 +58,11 @@ index 0152199..8164572 100644
    in
    StdOptions.DistribOptions.add_debian_options ~default options ;
    StdOptions.DistribOptions.add_opam_options ~default options ;;
-diff --git a/deb/debcudf.ml b/deb/debcudf.ml
-index 8c83f0d..44f72e8 100644
---- a/deb/debcudf.ml
-+++ b/deb/debcudf.ml
-@@ -65,6 +65,7 @@ type options = {
+Index: dose3/deb/debcudf.ml
+===================================================================
+--- dose3.orig/deb/debcudf.ml	2018-04-19 22:05:47.557899440 +0200
++++ dose3/deb/debcudf.ml	2018-04-19 22:05:47.557899440 +0200
+@@ -65,6 +65,7 @@
    ignore_essential : bool;
    builds_from : bool;
    drop_bd_indep : bool;
@@ -70,7 +70,7 @@ index 8c83f0d..44f72e8 100644
    profiles : string list; (* list of active build profiles *)
  }
  
-@@ -76,6 +77,7 @@ let default_options = {
+@@ -76,6 +77,7 @@
    ignore_essential = false;
    builds_from = false;
    drop_bd_indep = false;
@@ -78,11 +78,11 @@ index 8c83f0d..44f72e8 100644
    profiles = [];
  }
  
-diff --git a/deb/debcudf.mli b/deb/debcudf.mli
-index 76c9eb6..be90947 100644
---- a/deb/debcudf.mli
-+++ b/deb/debcudf.mli
-@@ -24,6 +24,7 @@ type options = {
+Index: dose3/deb/debcudf.mli
+===================================================================
+--- dose3.orig/deb/debcudf.mli	2018-04-19 22:05:47.557899440 +0200
++++ dose3/deb/debcudf.mli	2018-04-19 22:05:47.557899440 +0200
+@@ -24,6 +24,7 @@
    ignore_essential : bool ;
    builds_from : bool ;    (** whether to add the builds-from relationship from binary to source packages *)
    drop_bd_indep : bool ;  (** whether or not to ignore the Build-Depends-Indep field *)
@@ -90,11 +90,11 @@ index 76c9eb6..be90947 100644
    profiles : string list ; (** list of active build profiles *)
  }
  
-diff --git a/deb/sources.ml b/deb/sources.ml
-index c14bfb5..ddf0d2f 100644
---- a/deb/sources.ml
-+++ b/deb/sources.ml
-@@ -169,7 +169,7 @@ let select hostarch profiles (v,al,pl) =
+Index: dose3/deb/sources.ml
+===================================================================
+--- dose3.orig/deb/sources.ml	2018-04-19 22:05:47.557899440 +0200
++++ dose3/deb/sources.ml	2018-04-19 22:05:47.557899440 +0200
+@@ -169,7 +169,7 @@
  (* XXX src2pkg could be skip using the same trick we use in opam, 
   * where dependencies are giltered at parsing time *)
  (* the package name is encodes as src:<package-name> *)
@@ -103,7 +103,7 @@ index c14bfb5..ddf0d2f 100644
    let conflicts l = List.filter_map (select hostarch profiles) l in
    (* imitate sbuild behaviour and drop all alternatives except those that have
     * the same name as the first. Search for RESOLVE_ALTERNATIVES in
-@@ -189,6 +189,8 @@ let src2pkg ?(dropalternatives=false) ?(profiles=[]) ?(noindep=false) ?(src="src
+@@ -189,6 +189,8 @@
    let extras_profiles  = match profiles with [] -> [] | _ -> [("profiles", String.join " " profiles)] in
    let depends_indep   = if noindep then [] else srcpkg#build_depends_indep in
    let conflicts_indep = if noindep then [] else srcpkg#build_conflicts_indep in
@@ -112,7 +112,7 @@ index c14bfb5..ddf0d2f 100644
    (* when crossbuilding (host != build), implicitly depend on build-essential
     * and crossbuild-essential-$hostarch. When compiling natively, implicitly
     * depend on build-essential *)
-@@ -200,8 +202,8 @@ let src2pkg ?(dropalternatives=false) ?(profiles=[]) ?(noindep=false) ?(src="src
+@@ -200,8 +202,8 @@
    new Packages.package ~name:("",Some(src ^ sep ^ srcpkg#name)) ~version:("",Some(srcpkg#version))
    ~architecture:("",Some(String.concat "," srcpkg#architecture))
    ~source:("",Some (srcpkg#name, Some srcpkg#version)) 
@@ -123,7 +123,7 @@ index c14bfb5..ddf0d2f 100644
    ~extras:([],Some(extras_profiles @ [("Type",src)])) []
  ;;
  
-@@ -209,8 +211,8 @@ let src2pkg ?(dropalternatives=false) ?(profiles=[]) ?(noindep=false) ?(src="src
+@@ -209,8 +211,8 @@
   * decide whether to select or drop that dependency *)
  (** transform a list of sources packages into dummy binary packages.
    * This function preserve the order *)
@@ -134,11 +134,11 @@ index c14bfb5..ddf0d2f 100644
  ;;
  
  (** Check if a package is of "Type" source as encoded by the function sources2packages *)
-diff --git a/doc/manpages/ceve.pod b/doc/manpages/ceve.pod
-index db9b011..e180139 100644
---- a/doc/manpages/ceve.pod
-+++ b/doc/manpages/ceve.pod
-@@ -304,6 +304,10 @@ Comma separated list of activated build profiles.
+Index: dose3/doc/manpages/ceve.pod
+===================================================================
+--- dose3.orig/doc/manpages/ceve.pod	2018-04-19 22:05:47.557899440 +0200
++++ dose3/doc/manpages/ceve.pod	2018-04-19 22:05:47.557899440 +0200
+@@ -304,6 +304,10 @@
  
  Drop Build-Depends-Indep dependencies from Debian source packages.
  
@@ -149,11 +149,11 @@ index db9b011..e180139 100644
  =back
  
  =head1 EXAMPLES
-diff --git a/doc/manpages/deb-buildcheck.pod b/doc/manpages/deb-buildcheck.pod
-index 155ba71..c41b560 100644
---- a/doc/manpages/deb-buildcheck.pod
-+++ b/doc/manpages/deb-buildcheck.pod
-@@ -216,6 +216,10 @@ Convert Arch:all packages to Multi-Arch: foreign
+Index: dose3/doc/manpages/deb-buildcheck.pod
+===================================================================
+--- dose3.orig/doc/manpages/deb-buildcheck.pod	2018-04-19 22:05:47.557899440 +0200
++++ dose3/doc/manpages/deb-buildcheck.pod	2018-04-19 22:05:47.557899440 +0200
+@@ -216,6 +216,10 @@
  
  Drop Build-Indep dependencies
  
@@ -164,11 +164,11 @@ index 155ba71..c41b560 100644
  =item B<--deb-include-extra-source>
  
  Include packages with Extra-Source-Only:yes (dropped by default)
-diff --git a/doseparse/stdLoaders.ml b/doseparse/stdLoaders.ml
-index 94be9c0..afa9c5c 100644
---- a/doseparse/stdLoaders.ml
-+++ b/doseparse/stdLoaders.ml
-@@ -49,6 +49,7 @@ let read_deb ?filter ?(extras=[]) fname =
+Index: dose3/doseparse/stdLoaders.ml
+===================================================================
+--- dose3.orig/doseparse/stdLoaders.ml	2018-04-19 22:05:47.557899440 +0200
++++ dose3/doseparse/stdLoaders.ml	2018-04-19 22:05:47.557899440 +0200
+@@ -49,6 +49,7 @@
  let deb_load_list options ?(status=[]) ?(raw=false) dll =
    Util.Timer.start deb_load_list_timer;
    let noindep = options.Debian.Debcudf.drop_bd_indep in
@@ -176,7 +176,7 @@ index 94be9c0..afa9c5c 100644
    let profiles = options.Debian.Debcudf.profiles in
    let pkgll = List.map (List.map (function
        | Deb p -> p
-@@ -57,7 +58,7 @@ let deb_load_list options ?(status=[]) ?(raw=false) dll =
+@@ -57,7 +58,7 @@
              fatal "--deb-native-arch was not specified while treating Debian Sources File";
          let buildarch = Option.get options.Debian.Debcudf.native in
          let hostarch = Option.get options.Debian.Debcudf.host in
@@ -185,7 +185,7 @@ index 94be9c0..afa9c5c 100644
        | _ -> fatal "cannot handle input"
      )) dll 
    in
-@@ -444,10 +445,10 @@ let supported_formats () =
+@@ -444,10 +445,10 @@
  ;;
  
  (** return a list of Debian packages from a debian source file *)
@@ -198,11 +198,11 @@ index 94be9c0..afa9c5c 100644
    Util.Timer.stop deb_load_source_timer r
  ;;
  
-diff --git a/doseparse/stdOptions.ml b/doseparse/stdOptions.ml
-index c13620f..46af73d 100644
---- a/doseparse/stdOptions.ml
-+++ b/doseparse/stdOptions.ml
-@@ -320,6 +320,7 @@ module DistribOptions = struct
+Index: dose3/doseparse/stdOptions.ml
+===================================================================
+--- dose3.orig/doseparse/stdOptions.ml	2018-04-19 22:05:47.557899440 +0200
++++ dose3/doseparse/stdOptions.ml	2018-04-19 22:05:47.557899440 +0200
+@@ -320,6 +320,7 @@
    let deb_ignore_essential = StdOpt.store_true ()
    let deb_builds_from = StdOpt.store_true ()
    let deb_drop_bd_indep = StdOpt.store_true ()
@@ -210,7 +210,7 @@ index c13620f..46af73d 100644
    let deb_profiles = str_list_option ()
  
    let opam_switch = StdOpt.str_option ~default:"system" ()
-@@ -333,6 +334,7 @@ module DistribOptions = struct
+@@ -333,6 +334,7 @@
      "deb-ignore-essential";
      "deb-builds-from";
      "deb-drop-b-d-indep";
@@ -218,7 +218,7 @@ index c13620f..46af73d 100644
      "deb-profiles";
      "opam-switch";
      "opam-switches";
-@@ -386,6 +388,7 @@ module DistribOptions = struct
+@@ -380,6 +382,7 @@
        ignore_essential = Opt.get deb_ignore_essential;
        builds_from = Opt.get deb_builds_from;
        drop_bd_indep = Opt.get deb_drop_bd_indep;
@@ -226,7 +226,7 @@ index c13620f..46af73d 100644
        profiles = profiles;
      }
    ;;
-@@ -476,6 +479,9 @@ module DistribOptions = struct
+@@ -470,6 +473,9 @@
        if List.mem "deb-drop-b-d-indep" default then
          add options ~group ~long_name:"deb-drop-b-d-indep"
            ~help:"Drop the Build-Depends-Indep field from source packages (build no Architecture:all packages)" deb_drop_bd_indep;

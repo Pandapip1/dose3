@@ -3,8 +3,12 @@ dose3 (5.0.1-10) unstable; urgency=medium
   * Added a test case for dose-builddebcheck with versioned provides and
     a versioned build-dependency, taken from James Clarkes bug report
     #896084.
+  * Patch 0009-Fix-and-constraints-against-virtual-packages.patch: fix
+    cudf encoding of versioned and unversioned virtual packages. Thanks a
+    lot to James Clarke for the patch ! (closes: #896084)
+  * Refreshed patch deb-drop-b-d-arch
 
- -- Ralf Treinen <treinen@debian.org>  Thu, 19 Apr 2018 21:46:50 +0200
+ -- Ralf Treinen <treinen@debian.org>  Thu, 19 Apr 2018 22:02:26 +0200
 
 dose3 (5.0.1-9) unstable; urgency=medium
 
