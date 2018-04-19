@@ -1,7 +1,7 @@
 From 5810d1c89ac9fe9fb0b043ca0c0ea21ff0742ddb Mon Sep 17 00:00:00 2001
 From: Pietro Abate <pietro.abate@pps.univ-paris-diderot.fr>
 Date: Wed, 5 Oct 2016 10:59:47 +0200
-Subject: [PATCH 8/8] Catch expection in diagnostic.ml
+Subject: [PATCH 8/8] Catch exception in diagnostic.ml
 
 Ref [#20701] Not_found exception when dependencies of Essential:yes
 packages cannot be satisfied

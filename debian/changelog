@@ -1,4 +1,4 @@
-dose3 (5.0.1-10) unstable; urgency=medium
+dose3 (5.0.1-10) UNRELEASED; urgency=medium
 
   * Added a test case for dose-builddebcheck with versioned provides and
     a versioned build-dependency, taken from James Clarkes bug report
