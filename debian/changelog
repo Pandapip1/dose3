@@ -1,3 +1,11 @@
+dose3 (5.0.1-10) unstable; urgency=medium
+
+  * Added a test case for dose-builddebcheck with versioned provides and
+    a versioned build-dependency, taken from James Clarkes bug report
+    #896084.
+
+ -- Ralf Treinen <treinen@debian.org>  Thu, 19 Apr 2018 21:46:50 +0200
+
 dose3 (5.0.1-9) unstable; urgency=medium
 
   * patch virtual_provides: packages that provide the same virtual package
