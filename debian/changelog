@@ -9,8 +9,9 @@ dose3 (5.0.1-10) unstable; urgency=medium
   * Refreshed patch deb-drop-b-d-arch
   * Standards-Version 4.1.4:
     - Change Priority from extra to optional
+    - d/copyright: https in format url
 
- --
+ -- Ralf Treinen <treinen@debian.org>  Thu, 19 Apr 2018 22:18:07 +0200
 
 dose3 (5.0.1-9) unstable; urgency=medium
 
