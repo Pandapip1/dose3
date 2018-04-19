@@ -7,8 +7,10 @@ dose3 (5.0.1-10) unstable; urgency=medium
     cudf encoding of versioned and unversioned virtual packages. Thanks a
     lot to James Clarke for the patch ! (closes: #896084)
   * Refreshed patch deb-drop-b-d-arch
+  * Standards-Version 4.1.4:
+    - Change Priority from extra to optional
 
- -- Ralf Treinen <treinen@debian.org>  Thu, 19 Apr 2018 22:02:26 +0200
+ --
 
 dose3 (5.0.1-9) unstable; urgency=medium
 
