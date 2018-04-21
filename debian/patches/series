@@ -14,3 +14,4 @@ architectures-dpkg-1.18.15
 deb-drop-b-d-arch
 versioned_provides
 0009-Fix-and-constraints-against-virtual-packages.patch
+typo-plural
