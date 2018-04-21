@@ -1,18 +1,13 @@
->From 2b89c68f0711880ce06037d3aa2680215f9a0ab1 Mon Sep 17 00:00:00 2001
-From: James Clarke <jrtc27@jrtc27.com>
+Author: James Clarke <jrtc27@jrtc27.com>
 Date: Thu, 19 Apr 2018 14:59:49 +0100
-Subject: [PATCH] Fix >> and >= constraints against virtual packages
-
-Previously, MAX_INT32-1 was used as the version number for an
-unversioned provide (and also generated alongside a versioned provide),
-which incorrectly satisfies any >> or >= constraint. Instead,
-use --virtual--versioned- as a separate prefix for versioned
-provides and constraints, whilst keeping --virtual- for unversioned
-provides. This fixes the remaining broken versioned provides test cases.
----
- deb/debcudf.ml | 53 +++++++++++++++++++++-----------------------------
- deb/tests.ml   | 26 ++++++++++++-------------
- 2 files changed, 35 insertions(+), 44 deletions(-)
+Descripion: Fix >> and >= constraints against virtual packages.
+ Previously, MAX_INT32-1 was used as the version number for an
+ unversioned provide (and also generated alongside a versioned provide),
+ which incorrectly satisfies any >> or >= constraint. Instead,
+ use --virtual--versioned- as a separate prefix for versioned
+ provides and constraints, whilst keeping --virtual- for unversioned
+ provides. This fixes the remaining broken versioned provides test cases.
+Debian-Bug: #896084
 
 Index: dose3/deb/debcudf.ml
 ===================================================================
