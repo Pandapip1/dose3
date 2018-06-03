@@ -1,4 +1,3 @@
-From 7dbe81b5e150de747975fe8ae80ef014ae32c3ee Mon Sep 17 00:00:00 2001
 From: Johannes 'josch' Schauer <josch@mister-muffin.de>
 Date: Sat, 17 Sep 2016 16:11:27 +0200
 Subject: [PATCH 6/8] algo/depsolver.ml: set correct value for
@@ -30,6 +29,3 @@ index 91d143a..27f9367 100644
      let check = Depsolver_int.pkgcheck callback explain solver tested in
      begin match (fst solver.Depsolver_int.globalid) with
      |(false,false) ->
--- 
-2.9.3
-

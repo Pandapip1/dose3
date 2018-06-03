@@ -1,8 +1,7 @@
-From 1993406e4c2a1b3b00ee4493f70a12c33e85038d Mon Sep 17 00:00:00 2001
 From: Johannes 'josch' Schauer <josch@mister-muffin.de>
 Date: Sat, 17 Sep 2016 16:10:21 +0200
-Subject: [PATCH 5/8] algo/depsolver.ml: reset progress bar after univcheck and
- listcheck to allow realistic progress values when calling the functions
+Subject: [PATCH 5/8] algo/depsolver.ml: reset progress bar after univcheck
+ and listcheck to allow realistic progress values when calling the functions
  multiple times
 
 ---
@@ -29,6 +28,3 @@ index 52b3762..91d143a 100644
      Util.Timer.stop timer_solver !failed
    in
    let idlist = List.map (CudfAdd.pkgtoint universe) pkglist in
--- 
-2.9.3
-

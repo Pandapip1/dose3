@@ -1,12 +1,19 @@
-Author: Ralf Treinen <treinen@debian.org>
-Description: Fix some occurrences of "does not exists"
-Debian-Bug: #869846
+From: Ralf Treinen <treinen@debian.org>
+Date: Sun, 3 Jun 2018 10:47:27 +0200
+Subject: Fix some occurrences of "does not exists"
 
-Index: dose3/algo/diagnostic.ml
-===================================================================
---- dose3.orig/algo/diagnostic.ml	2018-04-21 16:59:30.990123686 +0200
-+++ dose3/algo/diagnostic.ml	2018-04-21 17:01:51.702839765 +0200
-@@ -262,8 +262,8 @@
+Debian-Bug: #869846
+---
+ algo/diagnostic.ml | 4 ++--
+ common/cudfAdd.mli | 2 +-
+ common/input.ml    | 2 +-
+ 3 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/algo/diagnostic.ml b/algo/diagnostic.ml
+index 6189f12..67eb236 100644
+--- a/algo/diagnostic.ml
++++ b/algo/diagnostic.ml
+@@ -262,8 +262,8 @@ let build_explanation_graph ?(addmissing=false) root l =
                ) [] vpkgs
              in
              (* we add this node if a package depends disjuctively on one
@@ -17,11 +24,11 @@ Index: dose3/algo/diagnostic.ml
                 the latter we add a missing node to the graph. *)
              if List.length missingvpkgs > 0 then begin
                let vp = G.V.create (PkgV.Missing missingvpkgs) in incr c;
-Index: dose3/common/cudfAdd.mli
-===================================================================
---- dose3.orig/common/cudfAdd.mli	2018-04-19 21:27:06.637292954 +0200
-+++ dose3/common/cudfAdd.mli	2018-04-21 17:02:23.574994759 +0200
-@@ -123,7 +123,7 @@
+diff --git a/common/cudfAdd.mli b/common/cudfAdd.mli
+index 7a00747..1695a63 100644
+--- a/common/cudfAdd.mli
++++ b/common/cudfAdd.mli
+@@ -123,7 +123,7 @@ val pkgnames : Cudf.universe -> StringSet.t
  val add_properties : Cudf.preamble -> Cudf_types.typedecl -> Cudf.preamble
  
  (** return the value of the requested property. 
@@ -30,11 +37,11 @@ Index: dose3/common/cudfAdd.mli
  val get_property : string -> Cudf.package -> string
  
  (** Returns true if the package is essential, that is the cudf package has
-Index: dose3/common/input.ml
-===================================================================
---- dose3.orig/common/input.ml	2018-04-21 16:59:31.006123776 +0200
-+++ dose3/common/input.ml	2018-04-21 17:02:45.287101116 +0200
-@@ -71,7 +71,7 @@
+diff --git a/common/input.ml b/common/input.ml
+index 49f8fc4..b671c2b 100644
+--- a/common/input.ml
++++ b/common/input.ml
+@@ -71,7 +71,7 @@ exception File_empty
  
  let open_file file =
    if not (Sys.file_exists file) then

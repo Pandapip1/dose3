@@ -1,19 +1,17 @@
-Author: James Clarke <jrtc27@jrtc27.com>
-Date: Thu, 19 Apr 2018 14:59:49 +0100
-Descripion: Fix >> and >= constraints against virtual packages.
- Previously, MAX_INT32-1 was used as the version number for an
- unversioned provide (and also generated alongside a versioned provide),
- which incorrectly satisfies any >> or >= constraint. Instead,
- use --virtual--versioned- as a separate prefix for versioned
- provides and constraints, whilst keeping --virtual- for unversioned
- provides. This fixes the remaining broken versioned provides test cases.
-Debian-Bug: #896084
+From: Debian OCaml Maintainers <debian-ocaml-maint@lists.debian.org>
+Date: Sun, 3 Jun 2018 10:47:27 +0200
+Subject: Fix-and-constraints-against-virtual-packages
 
-Index: dose3/deb/debcudf.ml
-===================================================================
---- dose3.orig/deb/debcudf.ml	2018-04-19 22:06:11.602039151 +0200
-+++ dose3/deb/debcudf.ml	2018-04-19 22:06:11.602039151 +0200
-@@ -224,12 +224,16 @@
+---
+ deb/debcudf.ml | 53 ++++++++++++++++++++++-------------------------------
+ deb/tests.ml   | 26 +++++++++++++-------------
+ 2 files changed, 35 insertions(+), 44 deletions(-)
+
+diff --git a/deb/debcudf.ml b/deb/debcudf.ml
+index c70ed67..534cb63 100644
+--- a/deb/debcudf.ml
++++ b/deb/debcudf.ml
+@@ -224,12 +224,16 @@ let get_cudf_version tables (package,version) =
    end
  
  let get_real_name name = 
@@ -33,7 +31,7 @@ Index: dose3/deb/debcudf.ml
    in
    try
      let (n,a) = ExtString.String.split no_virtual ":" in
-@@ -260,35 +264,21 @@
+@@ -260,35 +264,21 @@ let loadl ?native_arch ?package_arch tables l =
    List.flatten (
      List.map (fun ((name,_) as vpkgname,constr) ->
        let encname = add_arch_info ?native_arch ?package_arch vpkgname in
@@ -81,7 +79,7 @@ Index: dose3/deb/debcudf.ml
      ) l
    )
  
-@@ -308,12 +298,13 @@
+@@ -308,12 +298,13 @@ let loadlp ?native_arch ?package_arch tables l =
    List.flatten (
      List.map (fun ((name,_) as vpkgname,constr) ->
          let encname = add_arch_info ?native_arch ?package_arch vpkgname in
@@ -97,11 +95,11 @@ Index: dose3/deb/debcudf.ml
        |_ -> fatal "This should never happen : a provide can be either = or unversioned"
      ) l
    )
-Index: dose3/deb/tests.ml
-===================================================================
---- dose3.orig/deb/tests.ml	2018-04-19 22:06:11.602039151 +0200
-+++ dose3/deb/tests.ml	2018-04-19 22:06:11.602039151 +0200
-@@ -922,17 +922,17 @@
+diff --git a/deb/tests.ml b/deb/tests.ml
+index 786690f..12c48b1 100644
+--- a/deb/tests.ml
++++ b/deb/tests.ml
+@@ -922,17 +922,17 @@ let test_sources2packages =
        unversioned   |        (<= 10)       | unsat | unsat
        unversioned   |        (>= 20)       | unsat | unsat
  --------------------+----------------------+-------+-------
@@ -122,7 +120,7 @@ Index: dose3/deb/tests.ml
      (= 10) (= 20)   |        (= 20)        | sat   | sat
      (= 10) (= 20)   |        (<= 10)       | sat   | sat
      (= 10) (= 20)   |        (>= 20)       | sat   | sat
-@@ -940,25 +940,25 @@
+@@ -940,25 +940,25 @@ let test_sources2packages =
  
   pkgA provides pkgB | pkgC conflicts with pkgB | dpkg  | dose3
  --------------------+--------------------------+-------+-------

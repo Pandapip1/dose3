@@ -1,8 +1,13 @@
-Author: Ralf Treinen <treinen@debian.org>
-Description: packages that provide the same virtual package in different
-  versions, or that provide the same versioned virtual package as a real
-  package, are co-installable
+From: Ralf Treinen <treinen@debian.org>
+Date: Sun, 3 Jun 2018 10:47:27 +0200
+Subject: packages that provide the same virtual package in different
+
+ versions, or that provide the same versioned virtual package as a real
+ package, are co-installable
 Debian-bug: #867104
+---
+ deb/debcudf.ml | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
 
 diff --git a/deb/debcudf.ml b/deb/debcudf.ml
 index 44f72e8..c70ed67 100644

@@ -1,5 +1,11 @@
-Author: Ralf Treinen <treinen@debian.org>
-Description: Accept input from xz-compressed files
+From: Ralf Treinen <treinen@debian.org>
+Date: Sun, 3 Jun 2018 10:47:27 +0200
+Subject: Accept input from xz-compressed files
+
+---
+ common/input.ml            | 13 +++++++++++--
+ doc/manpages/distcheck.pod |  4 ++--
+ 2 files changed, 13 insertions(+), 4 deletions(-)
 
 diff --git a/common/input.ml b/common/input.ml
 index 9bd639b..49f8fc4 100644
@@ -33,7 +39,7 @@ index 9bd639b..49f8fc4 100644
                        | _ -> std_open_file)
                    | _ -> std_open_file)
 diff --git a/doc/manpages/distcheck.pod b/doc/manpages/distcheck.pod
-index 4361cf9..8985b62 100644
+index 54c160a..c212e2a 100644
 --- a/doc/manpages/distcheck.pod
 +++ b/doc/manpages/distcheck.pod
 @@ -231,13 +231,13 @@ B<opam>

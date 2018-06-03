@@ -1,6 +1,11 @@
-Author: Johannes 'josch' Schauer <josch@mister-muffin.de>
-Description: deb/architecture.ml: Update embedded cputable and tupletable
-   to dpkg 1.18.15
+From: Johannes 'josch' Schauer <josch@mister-muffin.de>
+Date: Sun, 3 Jun 2018 10:47:27 +0200
+Subject: deb/architecture.ml: Update embedded cputable and tupletable
+
+  to dpkg 1.18.15
+---
+ deb/architecture.ml | 36 +++++++++++++++++++++---------------
+ 1 file changed, 21 insertions(+), 15 deletions(-)
 
 diff --git a/deb/architecture.ml b/deb/architecture.ml
 index 0a3b823..ddd6adc 100644
