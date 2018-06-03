@@ -3,6 +3,7 @@ dose3 (5.0.1-11) UNRELEASED; urgency=medium
   * Team upload
   * Add a patch to build with ocaml-re 1.7.3 and constraint minimal
     required version for ocaml-re in d/control accordingly.
+  * Update Vcs-* fields
   * Refresh patches
 
  -- Mehdi Dogguy <mehdi@debian.org>  Sun, 03 Jun 2018 10:52:43 +0200
