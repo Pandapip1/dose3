@@ -11,7 +11,7 @@ Build-Depends: debhelper (>= 9), dh-ocaml (>= 0.9~), dh-autoreconf,
  ocaml-nox (>= 3.11.2), cppo (>= 1.1.2),
 # drop ocamlbuild when backporting to ocaml << 4.02.3-10 
  ocamlbuild,
- libre-ocaml-dev,
+ libre-ocaml-dev (>= 1.7.2~),
  libextlib-ocaml-dev (>= 1.7.0),
  libocamlgraph-ocaml-dev (>= 1.8.6),
  libcudf-ocaml-dev (>= 0.7),

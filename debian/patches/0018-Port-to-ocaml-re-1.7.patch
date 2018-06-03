@@ -1,0 +1,248 @@
+From: Mehdi Dogguy <mehdi@debian.org>
+Date: Sun, 3 Jun 2018 10:49:30 +0200
+Subject: Port to ocaml-re 1.7
+
+---
+ applications/apt-cudf.ml  | 2 +-
+ common/criteria.ml        | 2 +-
+ common/cudfAdd.ml         | 2 +-
+ common/cudfSolver.ml      | 2 +-
+ common/tests.ml           | 2 +-
+ deb/apt.ml                | 2 +-
+ deb/architecture.ml       | 2 +-
+ deb/edsp.ml               | 2 +-
+ deb/packages.ml           | 4 ++--
+ doc/manpages/apt-cudf.pod | 2 +-
+ npm/packages.ml           | 2 +-
+ opencsw/packages.ml       | 2 +-
+ pef/packages.ml           | 2 +-
+ rpm/packages.ml           | 2 +-
+ rpm/version.ml            | 2 +-
+ versioning/debian.ml      | 2 +-
+ versioning/semverNode.ml  | 2 +-
+ 17 files changed, 18 insertions(+), 18 deletions(-)
+
+diff --git a/applications/apt-cudf.ml b/applications/apt-cudf.ml
+index 5ab782f..3c66715 100644
+--- a/applications/apt-cudf.ml
++++ b/applications/apt-cudf.ml
+@@ -18,7 +18,7 @@ open Debian
+ open DoseparseNoRpm
+ open Criteria_types
+ 
+-module Pcre = Re_pcre
++module Pcre = Re.Pcre
+ 
+ include Util.Logging(struct let label = "apt-cudf backend" end) ;;
+ 
+diff --git a/common/criteria.ml b/common/criteria.ml
+index 6ea7a24..db31bd6 100644
+--- a/common/criteria.ml
++++ b/common/criteria.ml
+@@ -13,7 +13,7 @@
+ open ExtLib
+ open Criteria_types
+ 
+-module Pcre = Re_pcre
++module Pcre = Re.Pcre
+ 
+ #define __label __FILE__
+ let label =  __label ;;
+diff --git a/common/cudfAdd.ml b/common/cudfAdd.ml
+index eee2906..209b72f 100644
+--- a/common/cudfAdd.ml
++++ b/common/cudfAdd.ml
+@@ -10,7 +10,7 @@
+ (*  library, see the COPYING file for more information.                               *)
+ (**************************************************************************************)
+ 
+-module Pcre = Re_pcre
++module Pcre = Re.Pcre
+ (* Remember the original hashtable module from Ocaml standard library,
+     whose name will be overriden by opening Extlib. *)
+ module OCAMLHashtbl = Hashtbl
+diff --git a/common/cudfSolver.ml b/common/cudfSolver.ml
+index 212cd23..6fdb1b4 100644
+--- a/common/cudfSolver.ml
++++ b/common/cudfSolver.ml
+@@ -12,7 +12,7 @@
+ (*  library, see the COPYING file for more information.                   *)
+ (**************************************************************************)
+ 
+-module Pcre = Re_pcre
++module Pcre = Re.Pcre
+ 
+ open ExtLib
+ 
+diff --git a/common/tests.ml b/common/tests.ml
+index 00c2c7b..276d9c8 100644
+--- a/common/tests.ml
++++ b/common/tests.ml
+@@ -10,7 +10,7 @@
+ (*  library, see the COPYING file for more information.                               *)
+ (**************************************************************************************)
+ 
+-module Pcre = Re_pcre
++module Pcre = Re.Pcre
+ 
+ open OUnit
+ open Common
+diff --git a/deb/apt.ml b/deb/apt.ml
+index 2c67aa7..582b6d9 100644
+--- a/deb/apt.ml
++++ b/deb/apt.ml
+@@ -12,7 +12,7 @@
+ 
+ (** Apt command line parsing *)
+ 
+-module Pcre = Re_pcre
++module Pcre = Re.Pcre
+ open ExtLib
+ open Common
+ 
+diff --git a/deb/architecture.ml b/deb/architecture.ml
+index ddd6adc..6bc3d00 100644
+--- a/deb/architecture.ml
++++ b/deb/architecture.ml
+@@ -15,7 +15,7 @@
+ (*                                                                            *)
+ (******************************************************************************)
+ 
+-module Pcre = Re_pcre
++module Pcre = Re.Pcre
+ open ExtLib
+ open Common
+ 
+diff --git a/deb/edsp.ml b/deb/edsp.ml
+index 0c8d1a7..cd9feac 100644
+--- a/deb/edsp.ml
++++ b/deb/edsp.ml
+@@ -12,7 +12,7 @@
+ 
+ (** Representation of a apt-get <-> solvers protocol edsp > 0.4 *)
+ 
+-module Pcre = Re_pcre
++module Pcre = Re.Pcre
+ open ExtLib
+ open Common
+ 
+diff --git a/deb/packages.ml b/deb/packages.ml
+index ef30373..887a279 100644
+--- a/deb/packages.ml
++++ b/deb/packages.ml
+@@ -230,9 +230,9 @@ let merge status packages =
+   else 
+     packages
+ 
+-let installed_re = Re_pcre.regexp "[a-z]+[ \t]+[a-z]+[ \t]+installed"
++let installed_re = Re.Pcre.regexp "[a-z]+[ \t]+[a-z]+[ \t]+installed"
+ let is_installed pkg = 
+-  try Re_pcre.pmatch ~rex:installed_re (pkg#get_extra "Status")
++  try Re.Pcre.pmatch ~rex:installed_re (pkg#get_extra "Status")
+   with Not_found -> false
+ 
+ let is_on_hold pkg =
+diff --git a/doc/manpages/apt-cudf.pod b/doc/manpages/apt-cudf.pod
+index f3efac9..aadecfd 100644
+--- a/doc/manpages/apt-cudf.pod
++++ b/doc/manpages/apt-cudf.pod
+@@ -78,7 +78,7 @@ EDSP field value:
+ 	count(selector,field:=/plain/)
+ 
+ While the second one understands the regular expression syntax of the OCaml
+-Re_pcre module:
++Re.Pcre module:
+ 
+ 	count(selector,field:~/regex/)
+ 
+diff --git a/npm/packages.ml b/npm/packages.ml
+index b4628d9..0511950 100644
+--- a/npm/packages.ml
++++ b/npm/packages.ml
+@@ -18,7 +18,7 @@
+ open ExtLib
+ open Common
+ 
+-module Pcre = Re_pcre
++module Pcre = Re.Pcre
+ 
+ #define __label __FILE__
+ let label =  __label ;;
+diff --git a/opencsw/packages.ml b/opencsw/packages.ml
+index ea86208..9b853a0 100644
+--- a/opencsw/packages.ml
++++ b/opencsw/packages.ml
+@@ -12,7 +12,7 @@
+ (*  library, see the COPYING file for more information.                   *)
+ (**************************************************************************)
+ 
+-module Pcre = Re_pcre
++module Pcre = Re.Pcre
+ 
+ open ExtLib
+ open Common
+diff --git a/pef/packages.ml b/pef/packages.ml
+index 264c265..65921b9 100644
+--- a/pef/packages.ml
++++ b/pef/packages.ml
+@@ -12,7 +12,7 @@
+ 
+ (** Representation of a PEF stanza. *)
+ 
+-module Pcre = Re_pcre
++module Pcre = Re.Pcre
+ open ExtLib
+ open Common
+ 
+diff --git a/rpm/packages.ml b/rpm/packages.ml
+index 789eb56..3caabee 100644
+--- a/rpm/packages.ml
++++ b/rpm/packages.ml
+@@ -10,7 +10,7 @@
+ (*  library, see the COPYING file for more information.                               *)
+ (**************************************************************************************)
+ 
+-module Pcre = Re_pcre
++module Pcre = Re.Pcre
+ open ExtLib
+ open Common
+ 
+diff --git a/rpm/version.ml b/rpm/version.ml
+index f89e0dc..db370bc 100644
+--- a/rpm/version.ml
++++ b/rpm/version.ml
+@@ -12,7 +12,7 @@
+ 
+ (** compare epoch:version-release strings *)
+ (* external rpmEVRcmp : string -> string -> int = "rpm_EVRcmp" *)
+-module Str = Re_str
++module Str = Re.Str
+ open Common
+ 
+ #define __label __FILE__
+diff --git a/versioning/debian.ml b/versioning/debian.ml
+index 9ee5466..3e0d716 100644
+--- a/versioning/debian.ml
++++ b/versioning/debian.ml
+@@ -16,7 +16,7 @@
+ (******************************************************************************)
+ 
+ open Common
+-module Pcre = Re_pcre
++module Pcre = Re.Pcre
+ 
+ #define __label __FILE__
+ let label =  __label ;;
+diff --git a/versioning/semverNode.ml b/versioning/semverNode.ml
+index 2df203e..e12d75b 100644
+--- a/versioning/semverNode.ml
++++ b/versioning/semverNode.ml
+@@ -14,7 +14,7 @@
+  * and node's https://docs.npmjs.com/misc/semver.
+  * *)
+ 
+-module Pcre = Re_pcre
++module Pcre = Re.Pcre
+ 
+ open Common
+ 
