@@ -1,4 +1,4 @@
-dose3 (5.0.1-11) UNRELEASED; urgency=medium
+dose3 (5.0.1-11) unstable; urgency=medium
 
   * Team upload
   * Add a patch to build with ocaml-re 1.7.3 and constraint minimal
@@ -6,7 +6,7 @@ dose3 (5.0.1-11) UNRELEASED; urgency=medium
   * Update Vcs-* fields
   * Refresh patches
 
- -- Mehdi Dogguy <mehdi@debian.org>  Sun, 03 Jun 2018 10:52:43 +0200
+ -- Mehdi Dogguy <mehdi@debian.org>  Sun, 03 Jun 2018 11:14:38 +0200
 
 dose3 (5.0.1-10) unstable; urgency=medium
 
