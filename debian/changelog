@@ -1,9 +1,10 @@
 dose3 (5.0.1-12) unstable; urgency=medium
 
-  * Standards-Version 4.3.0
+  * Standards-Version 4.3.0 (no change)
   * Fix whitespace in debian/{changelog,control}
+  * libdose3-ocaml-dev: Recommends ocaml-findlib
 
- -- Ralf Treinen <treinen@debian.org>  Tue, 29 Jan 2019 05:23:36 +0100
+ -- Ralf Treinen <treinen@debian.org>  Tue, 29 Jan 2019 07:48:17 +0100
 
 dose3 (5.0.1-11) unstable; urgency=medium
 
