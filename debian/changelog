@@ -1,3 +1,9 @@
+dose3 (5.0.1-12) unstable; urgency=medium
+
+  * Standards-Version 4.3.0
+
+ -- Ralf Treinen <treinen@debian.org>  Tue, 29 Jan 2019 05:10:48 +0100
+
 dose3 (5.0.1-11) unstable; urgency=medium
 
   * Team upload

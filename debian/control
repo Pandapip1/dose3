@@ -19,7 +19,7 @@ Build-Depends: debhelper (>= 9), dh-ocaml (>= 0.9~), dh-autoreconf,
  perl 
 Build-Depends-Indep: graphviz,
  hevea, texlive-latex-base, texlive-latex-extra
-Standards-Version: 4.0.0
+Standards-Version: 4.3.0
 Homepage: http://www.mancoosi.org/software/
 Vcs-Browser: https://salsa.debian.org/ocaml-team/dose3
 Vcs-Git: https://salsa.debian.org/ocaml-team/dose3.git
