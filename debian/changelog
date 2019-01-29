@@ -1,8 +1,9 @@
 dose3 (5.0.1-12) unstable; urgency=medium
 
   * Standards-Version 4.3.0
+  * Fix whitespace in debian/{changelog,control}
 
- -- Ralf Treinen <treinen@debian.org>  Tue, 29 Jan 2019 05:10:48 +0100
+ -- Ralf Treinen <treinen@debian.org>  Tue, 29 Jan 2019 05:23:36 +0100
 
 dose3 (5.0.1-11) unstable; urgency=medium
 
@@ -216,7 +217,7 @@ dose3 (4.2-1) experimental; urgency=medium
    * drop build-dependency on graphviz, since generation of dot files is
      deliberately disabled (by patch disable_dot).
    * Standards-Version 3.9.7 (no change)
-   
+
  -- Ralf Treinen <treinen@debian.org>  Wed, 10 Feb 2016 08:50:18 +0100
 
 dose3 (4.1-4) unstable; urgency=medium
@@ -400,7 +401,7 @@ dose3 (3.3-1) experimental; urgency=medium
   * new upstream version
     - dropped patches that were integrated upstream: build-cmx, doc-target,
       installcudf-target, manpages-typos, multiarch-accept-value-no
-  * fix debian/watch (add uversionmangle) 
+  * fix debian/watch (add uversionmangle)
   * reorder d/copyright stanzas so that the d/update-cudf-solvers paragraph
     gets used
 
@@ -420,7 +421,7 @@ dose3 (3.3~beta1-3) unstable; urgency=medium
     (Closes: #772875)
 
   [ Johannes Schauer ]
-  * fix debian/watch (add uversionmangle) 
+  * fix debian/watch (add uversionmangle)
 
  -- Stefano Zacchiroli <zack@debian.org>  Fri, 12 Dec 2014 16:39:24 +0100
 
@@ -515,11 +516,11 @@ dose3 (3.2~rc2-1) experimental; urgency=medium
  -- Ralf Treinen <treinen@debian.org>  Sun, 04 May 2014 22:42:34 +0200
 
 dose3 (3.2~rc1-1) experimental; urgency=low
-  
+
   * New upstream release candidate. This release fixes a bug related to
     multiarch (closes: #727642)
   * Update build-dependency according to upstream's INSTALL instructions:
-    - libocamlgraph-ocaml-dev: >= 1.8.5 (closes: #745307)		
+    - libocamlgraph-ocaml-dev: >= 1.8.5 (closes: #745307)
     - replace libpcre-ocaml-dev by libre-ocaml-dev
     - bump libcudf to >= 0.7
     - drop automake, autoconf
@@ -559,7 +560,7 @@ dose3 (3.1.3-5) unstable; urgency=low
 
 dose3 (3.1.3-4) unstable; urgency=low
 
-  * migrate doc/manpages/ceve.pod to the stricter format of pod2man from 
+  * migrate doc/manpages/ceve.pod to the stricter format of pod2man from
     perl 5.18.1 (closes: #719866).
 
  -- Ralf Treinen <treinen@debian.org>  Fri, 16 Aug 2013 18:52:15 +0200
@@ -576,7 +577,7 @@ dose3 (3.1.3-2) experimental; urgency=low
     - new patch configure-dynlink, provided by Mehdi Dogguy
     - debian/control: add build-dependency on automake, autoconf
     - debian/rules: dh_auto_configure calls aclocal and autoconf
-  
+
  -- Ralf Treinen <treinen@debian.org>  Sun, 20 Jan 2013 17:34:42 +0100
 
 dose3 (3.1.3-1) experimental; urgency=low
@@ -589,7 +590,7 @@ dose3 (3.1.3-1) experimental; urgency=low
     - multiarch-conflicts (fixed by upstream)
     - apt-cudf-pinning (fixed by upstream)
     - builddebcheck-manpage (fixed by upstream)
-  * we dont't have to call aclocal and autoconf any more (since patch 
+  * we dont't have to call aclocal and autoconf any more (since patch
     version-3.0.2 has been dropped), drop them from debian/rules and from
     the build-dependencies.
   * refreshed patch binaries-prefix-edos for the new upstream version
@@ -769,11 +770,11 @@ dose3 (2.9.4-1) experimental; urgency=low
 
   * New upstream release. This release solves an issue with spuriously
     exported modules that blocked resolution of #627274.
-  * Install all of usr/lib/ocaml/dose3 in the -dev package (closes: #627274) 
+  * Install all of usr/lib/ocaml/dose3 in the -dev package (closes: #627274)
   * Remove patch ignore-experimental since this is fixed upstream now.
   * Bump version on build-dependency libcudf-ocaml-dev.
   * Add a binary package libdose3-ocaml for the runtime stub libraries.
-  * debian/rules: install _build/algo/algo.{a,o}. 
+  * debian/rules: install _build/algo/algo.{a,o}.
 
  -- Ralf Treinen <treinen@debian.org>  Thu, 02 Jun 2011 11:25:57 +0200
 
@@ -790,7 +791,7 @@ dose3 (2.9.3-1) experimental; urgency=low
 
   * Initial upload (closes:  #587521)
   * New upstream release. This release resolves the problems with the
-    copyright of some of the files. In particular, common/url.ml has 
+    copyright of some of the files. In particular, common/url.ml has
     been rewritten from scratch.
   * Standards-Version 3.9.2 (no change)
   * debian/control: remove redundant Section entry for libdose3-ocaml-dev.

@@ -9,14 +9,14 @@ Build-Depends: debhelper (>= 9), dh-ocaml (>= 0.9~), dh-autoreconf,
 # use the following line only when autoconf stuff has been patched:
 # automake, autoconf,
  ocaml-nox (>= 3.11.2), cppo (>= 1.1.2),
-# drop ocamlbuild when backporting to ocaml << 4.02.3-10 
+# drop ocamlbuild when backporting to ocaml << 4.02.3-10
  ocamlbuild,
  libre-ocaml-dev (>= 1.7.2~),
  libextlib-ocaml-dev (>= 1.7.0),
  libocamlgraph-ocaml-dev (>= 1.8.6),
  libcudf-ocaml-dev (>= 0.7),
  libzip-ocaml-dev, libbz2-ocaml-dev, librpm-dev (>= 4.12),
- perl 
+ perl
 Build-Depends-Indep: graphviz,
  hevea, texlive-latex-base, texlive-latex-extra
 Standards-Version: 4.3.0
@@ -34,7 +34,7 @@ Description: OCaml libraries for package dependencies (development files)
  .
  Though not tied to any particular distribution, Dose3 constitutes a
  pool of libraries which enable analyzing packages coming from various
- distributions. 
+ distributions.
  .
  Besides basic functionalities for querying and setting package
  properties, dose3 also implements algorithms for solving more complex
@@ -46,7 +46,7 @@ Description: OCaml libraries for package dependencies (development files)
 
 Package: libdose3-ocaml
 Architecture: any
-Depends: ${misc:Depends}, ${ocaml:Depends}, ${shlibs:Depends} 
+Depends: ${misc:Depends}, ${ocaml:Depends}, ${shlibs:Depends}
 Provides: ${ocaml:Provides}
 Description: OCaml libraries for package dependencies (runtime files)
  Dose3 is a framework consisting of several OCaml libraries for analysing
@@ -54,7 +54,7 @@ Description: OCaml libraries for package dependencies (runtime files)
  .
  Though not tied to any particular distribution, Dose3 constitutes a
  pool of libraries which enable analyzing packages coming from various
- distributions. 
+ distributions.
  .
  Besides basic functionalities for querying and setting package
  properties, dose3 also implements algorithms for solving more complex
@@ -97,7 +97,7 @@ Breaks: ceve (<< 2.9.10)
 Replaces: ceve (<< 2.9.10)
 Depends: ${ocaml:Depends}, ${misc:Depends}, ${shlibs:Depends}, xz-utils
 Description: Extra QA tools from the Dose3-library
- This package contains extra tools for analyzing meta-data of software 
+ This package contains extra tools for analyzing meta-data of software
  packages:
   - ceve, a general metadata parser supporting different input formats
     (Debian, rpm, and others) and different output formats.
@@ -144,10 +144,9 @@ Replaces: libdose3-ocaml-dev (<< 4.3-2),
 Breaks: libdose3-ocaml-dev (<< 4.3-2),
 	  apt-cudf (<< 4.3-2),
 	  dose-distcheck (<< 4.3-2)
-Multi-Arch: foreign    
+Multi-Arch: foreign
 Description: Documentation for dose tools and libraries.
  The dose suite provides libraries for handling package meta-data, and various
  tools for analyzing package relationships in a large package repository.
  This package contains the documentation of the dose API, and tutorials of
  various dose tools.
- 
