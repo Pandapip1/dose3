@@ -1,10 +1,16 @@
+dose3 (5.0.1-13) UNRELEASED; urgency=medium
+
+  * fix spelling error in the long description of dose-extra
+
+ -- Ralf Treinen <treinen@debian.org>  Fri, 26 Jul 2019 16:08:40 -0300
+
 dose3 (5.0.1-12) unstable; urgency=medium
 
   * Standards-Version 4.3.0 (no change)
   * Fix whitespace in debian/{changelog,control}
   * libdose3-ocaml-dev: Recommends ocaml-findlib
 
- -- Ralf Treinen <treinen@debian.org>  Tue, 29 Jan 2019 07:48:17 +0100
+ -- Ralf Treinen <treinen@debian.org>  Fri, 26 Jul 2019 16:07:51 -0300
 
 dose3 (5.0.1-11) unstable; urgency=medium
 

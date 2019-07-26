@@ -111,7 +111,7 @@ Description: Extra QA tools from the Dose3-library
   - dose-deb-coinstall, a Debian-specific tool for checking whether a set of
     packages can be installed all together.
  The tools dose-distcheck and dose-builddebcheck are packaged in their
- own resepective packages.
+ own respective packages.
 
 Package: apt-cudf
 Section: admin
