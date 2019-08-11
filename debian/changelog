@@ -1,8 +1,13 @@
-dose3 (5.0.1-13) UNRELEASED; urgency=medium
+dose3 (5.0.1-14) unstable; urgency=medium
 
+  [ Stéphane Glondu ]
+  * Team upload
+  * Compile with -safe-string (Closes: #934347)
+
+  [ Ralf Treinen ]
   * fix spelling error in the long description of dose-extra
 
- -- Ralf Treinen <treinen@debian.org>  Fri, 26 Jul 2019 16:08:40 -0300
+ -- Stéphane Glondu <glondu@debian.org>  Sun, 11 Aug 2019 17:07:27 +0200
 
 dose3 (5.0.1-12) unstable; urgency=medium
 
