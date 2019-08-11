@@ -15,7 +15,9 @@ Build-Depends: debhelper (>= 9), dh-ocaml (>= 0.9~), dh-autoreconf,
  libextlib-ocaml-dev (>= 1.7.0),
  libocamlgraph-ocaml-dev (>= 1.8.6),
  libcudf-ocaml-dev (>= 0.7),
- libzip-ocaml-dev, libbz2-ocaml-dev, librpm-dev (>= 4.12),
+ libzip-ocaml-dev,
+ libbz2-ocaml-dev (>= 0.6.0-10~),
+ librpm-dev (>= 4.12),
  perl
 Build-Depends-Indep: graphviz,
  hevea, texlive-latex-base, texlive-latex-extra
