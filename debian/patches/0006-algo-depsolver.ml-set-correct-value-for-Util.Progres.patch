@@ -2,6 +2,7 @@ From: Johannes 'josch' Schauer <josch@mister-muffin.de>
 Date: Sat, 17 Sep 2016 16:11:27 +0200
 Subject: [PATCH 6/8] algo/depsolver.ml: set correct value for
  Util.Progress.set_total in univcheck and listcheck
+Upstream-commit: 7dbe81b5e150de747975fe8ae80ef014ae32c3ee
 
 ---
  algo/depsolver.ml | 4 ++--

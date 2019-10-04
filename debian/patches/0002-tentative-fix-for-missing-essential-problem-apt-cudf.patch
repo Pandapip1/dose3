@@ -1,6 +1,7 @@
 From: Pietro Abate <pietro.abate@pps.univ-paris-diderot.fr>
 Date: Tue, 6 Sep 2016 18:17:23 +0200
 Subject: [PATCH 2/8] tentative fix for missing essential problem apt-cudf
+Upstream-commit: 35f52cf94a2f3056fd7d7ea3f97b017617e95e9f
 
 ---
  algo/depsolver.ml        | 57 +++++++++++++++++++++++++++++++++---------------

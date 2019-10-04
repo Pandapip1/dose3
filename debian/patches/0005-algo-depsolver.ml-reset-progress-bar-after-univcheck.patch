@@ -3,6 +3,7 @@ Date: Sat, 17 Sep 2016 16:10:21 +0200
 Subject: [PATCH 5/8] algo/depsolver.ml: reset progress bar after univcheck
  and listcheck to allow realistic progress values when calling the functions
  multiple times
+Upstream-commit: 1993406e4c2a1b3b00ee4493f70a12c33e85038d
 
 ---
  algo/depsolver.ml | 2 ++
