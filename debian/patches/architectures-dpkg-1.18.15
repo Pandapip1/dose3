@@ -1,6 +1,7 @@
 From: Johannes 'josch' Schauer <josch@mister-muffin.de>
 Date: Sun, 3 Jun 2018 10:47:27 +0200
 Subject: deb/architecture.ml: Update embedded cputable and tupletable
+Upstream-commit: f01e4350e48e1743570098a65a636d65c0a5216a
 
   to dpkg 1.18.15
 ---

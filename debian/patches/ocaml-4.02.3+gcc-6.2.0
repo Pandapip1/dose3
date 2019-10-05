@@ -1,6 +1,7 @@
 From: Johannes Schauer <josch@debian.org>
 Date: Sun, 3 Jun 2018 10:47:27 +0200
 Subject: fix FTBFS with ocaml 4.02.3-7 and gcc 6.2.0-7
+Upstream-commit: 597df6b607dad9a79306916ea6e848b1262a2a89
 
 ---
  Makefile           | 6 +++---
