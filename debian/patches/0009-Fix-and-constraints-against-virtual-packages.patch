@@ -1,6 +1,7 @@
 From: Debian OCaml Maintainers <debian-ocaml-maint@lists.debian.org>
 Date: Sun, 3 Jun 2018 10:47:27 +0200
 Subject: Fix-and-constraints-against-virtual-packages
+Upstream-commit: 9ea97a7673c070838254b3dbcfe4598877b2f1e6
 
 ---
  deb/debcudf.ml | 53 ++++++++++++++++++++++-------------------------------
