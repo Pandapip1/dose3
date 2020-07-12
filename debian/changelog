@@ -1,8 +1,10 @@
-dose3 (5.0.1-15) UNRELEASED; urgency=medium
+dose3 (5.0.1-15) unstable; urgency=medium
 
-  * 
+  * add debian/salsa-ci.yml
+  * debian/control: fix my name
+  * add patch to handle m-a:same conflicts with virtual packages (closes: #964026)
 
- -- Johannes 'josch' Schauer <josch@debian.org>  Sun, 12 Jul 2020 10:45:48 +0200
+ -- Johannes 'josch' Schauer <josch@debian.org>  Sun, 12 Jul 2020 11:02:29 +0200
 
 dose3 (5.0.1-14) unstable; urgency=medium
 
