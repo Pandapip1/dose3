@@ -4,7 +4,7 @@ Priority: optional
 Maintainer: Debian OCaml Maintainers <debian-ocaml-maint@lists.debian.org>
 Uploaders: Stefano Zacchiroli <zack@debian.org>,
  Ralf Treinen <treinen@debian.org>,
- Johannes Schauer <josch@debian.org>
+ Johannes 'josch' Schauer <josch@debian.org>
 Build-Depends: debhelper (>= 9), dh-ocaml (>= 0.9~), dh-autoreconf,
 # use the following line only when autoconf stuff has been patched:
 # automake, autoconf,
