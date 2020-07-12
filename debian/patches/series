@@ -17,3 +17,4 @@ versioned_provides
 typo-plural
 0018-Port-to-ocaml-re-1.7.patch
 0019-Compile-with-safe-string.patch
+0001-Handle-M-A-same-conflicts-with-virtual-packages.patch
