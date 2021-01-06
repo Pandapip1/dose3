@@ -1,3 +1,10 @@
+dose3 (5.0.1-16) unstable; urgency=medium
+
+  * Team upload
+  * Do not use -custom (Closes: #978024)
+
+ -- Stéphane Glondu <glondu@debian.org>  Wed, 06 Jan 2021 16:21:12 +0100
+
 dose3 (5.0.1-15) unstable; urgency=medium
 
   * add debian/salsa-ci.yml
