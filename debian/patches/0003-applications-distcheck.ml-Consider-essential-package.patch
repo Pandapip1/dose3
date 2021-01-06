@@ -2,8 +2,8 @@ From: Johannes 'josch' Schauer <josch@mister-muffin.de>
 Date: Wed, 7 Sep 2016 09:04:50 +0200
 Subject: [PATCH 3/8] applications/distcheck.ml: Consider essential packages
  when using --coinst
-Upstream-commit: d2c470c78472e4dc157ca5f5014541a6a21f0af1
 
+Upstream-commit: d2c470c78472e4dc157ca5f5014541a6a21f0af1
 ---
  applications/distcheck.ml | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)

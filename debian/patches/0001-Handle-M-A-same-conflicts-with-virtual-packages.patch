@@ -1,4 +1,3 @@
-From 226e7eb544bd02b128c19be5e79a9b236439159f Mon Sep 17 00:00:00 2001
 From: Jessica Clarke <jrtc27@debian.org>
 Date: Sat, 2 May 2020 15:54:53 +0200
 Subject: [PATCH] Handle M-A:same conflicts with virtual packages
@@ -20,13 +19,15 @@ virtual (we would otherwise get the desired foo:arch with an undesired
 sure to call add_arch_info manually here rather than loadl on the whole result
 in order to bypass the virtual_table check.
 ---
- deb/debcudf.ml |  85 +++++++++++++++++++------------
- deb/tests.ml   | 136 +++++++++++++++++++++++++++++++++++++++++++++++++
+ deb/debcudf.ml |  85 ++++++++++++++++++++++--------------
+ deb/tests.ml   | 136 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  2 files changed, 188 insertions(+), 33 deletions(-)
 
+diff --git a/deb/debcudf.ml b/deb/debcudf.ml
+index 534cb63..85b4af2 100644
 --- a/deb/debcudf.ml
 +++ b/deb/debcudf.ml
-@@ -484,47 +484,66 @@ let tocudf tables ?(options=default_opti
+@@ -484,47 +484,66 @@ let tocudf tables ?(options=default_options) ?(inst=false) pkg =
              sc :: masc 
        in
        let multiarchconflicts =
@@ -126,6 +127,8 @@ in order to bypass the virtual_table check.
              )
        in
        multiarchconflicts @ multiarchconstraints
+diff --git a/deb/tests.ml b/deb/tests.ml
+index 12c48b1..6ee9d06 100644
 --- a/deb/tests.ml
 +++ b/deb/tests.ml
 @@ -548,6 +548,141 @@ let test_conflicts =

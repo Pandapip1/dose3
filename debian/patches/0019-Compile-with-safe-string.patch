@@ -1,6 +1,7 @@
 From: Stephane Glondu <steph@glondu.net>
 Date: Sun, 11 Aug 2019 17:04:27 +0200
 Subject: Compile with -safe-string
+
 Upstream-commit: c7ff6a2e02d98f088e4c98af39bc9dd52ada28d1
 
 Bug-Debian: https://bugs.debian.org/934347

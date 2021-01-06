@@ -1,8 +1,8 @@
 From: Ralf Treinen <treinen@debian.org>
 Date: Sun, 3 Jun 2018 10:47:27 +0200
 Subject: Accept input from xz-compressed files
-Upstream-commit: 306c44b9ce4f2ce69ca8b211e3856368f7de1490
 
+Upstream-commit: 306c44b9ce4f2ce69ca8b211e3856368f7de1490
 ---
  common/input.ml            | 13 +++++++++++--
  doc/manpages/distcheck.pod |  4 ++--

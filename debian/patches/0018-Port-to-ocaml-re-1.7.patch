@@ -1,8 +1,8 @@
 From: Mehdi Dogguy <mehdi@debian.org>
 Date: Sun, 3 Jun 2018 10:49:30 +0200
 Subject: Port to ocaml-re 1.7
-Upstream-commit: 26098d3b232ec8ba78a23a02a225fa36e95d6356
 
+Upstream-commit: 26098d3b232ec8ba78a23a02a225fa36e95d6356
 ---
  applications/apt-cudf.ml  | 2 +-
  common/criteria.ml        | 2 +-

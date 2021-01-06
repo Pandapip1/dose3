@@ -2,8 +2,8 @@ From: Pietro Abate <pietro.abate@pps.univ-paris-diderot.fr>
 Date: Tue, 6 Sep 2016 14:09:50 +0200
 Subject: [PATCH 1/8] check_request_using can return discording result between
  internal and external solver
-Upstream-commit: 48b2944b764ef28fb2f13cd150b3657ced84237b
 
+Upstream-commit: 48b2944b764ef28fb2f13cd150b3657ced84237b
 ---
  algo/depsolver.ml | 15 ++++++++++-----
  1 file changed, 10 insertions(+), 5 deletions(-)

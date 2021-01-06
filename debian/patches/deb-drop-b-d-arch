@@ -1,9 +1,9 @@
 From: Johannes 'josch' Schauer <josch@mister-muffin.de>
 Date: Sun, 3 Jun 2018 10:47:27 +0200
 Subject: Add support for --deb-drop-b-d-arch
+
 Upstream-commit: 90e81c26c96359990ff423bc39f3a07de2c64169
 Debian-bug: #850943
-
 ---
  applications/deb-buildcheck.ml  |  3 ++-
  applications/deb-coinstall.ml   |  4 ++--

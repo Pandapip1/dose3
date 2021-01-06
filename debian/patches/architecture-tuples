@@ -1,6 +1,7 @@
 From: Johannes 'josch' Schauer <josch@mister-muffin.de>
 Date: Sun, 3 Jun 2018 10:47:27 +0200
 Subject: Replace dpkg triplettable support by the new dpkg tupletable format
+
 Upstream-commit: b32fd54f89987b05a1f720a2a6c71f3266dfb5ae
 
 Debian-bug: #843409

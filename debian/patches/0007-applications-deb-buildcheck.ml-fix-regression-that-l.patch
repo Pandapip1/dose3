@@ -2,6 +2,7 @@ From: Johannes 'josch' Schauer <josch@mister-muffin.de>
 Date: Wed, 7 Sep 2016 07:26:05 +0200
 Subject: [PATCH 7/8] applications/deb-buildcheck.ml: fix regression that lead
  to Essential:yes packages not being considered
+
 Upstream-commit: 5aa8e8ed97cc8a3d223b4e9af1f22b06528ef855
 
 Generating the sub-universe doesn't work anymore by using CudfAdd.cone

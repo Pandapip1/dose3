@@ -1,6 +1,7 @@
 From: Ralf Treinen <treinen@debian.org>
 Date: Sun, 3 Jun 2018 10:47:27 +0200
 Subject: Fix some occurrences of "does not exists"
+
 Upstream-commit: e2520a9cc844d7a4eeb6e2a24119d7dc26c5ccef,2c1b8df9064d645fac273e3ca96b5c0d92bf6e9f
 
 Debian-Bug: #869846
