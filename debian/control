@@ -5,7 +5,7 @@ Maintainer: Debian OCaml Maintainers <debian-ocaml-maint@lists.debian.org>
 Uploaders: Stefano Zacchiroli <zack@debian.org>,
  Ralf Treinen <treinen@debian.org>,
  Johannes 'josch' Schauer <josch@debian.org>
-Build-Depends: debhelper (>= 9), dh-ocaml (>= 0.9~), dh-autoreconf,
+Build-Depends: debhelper-compat (= 13), dh-ocaml (>= 0.9~), dh-autoreconf,
 # use the following line only when autoconf stuff has been patched:
 # automake, autoconf,
  ocaml-nox (>= 3.11.2), cppo (>= 1.1.2),
