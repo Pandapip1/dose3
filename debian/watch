@@ -1,3 +1,2 @@
-version=3
-opts=uversionmangle=s/-/~/ \
-https://gforge.inria.fr/frs/?group_id=4395 .*/dose3-(.*)\.tar\.gz
+version=4
+https://gitlab.com/irill/dose3/tags?sort=updated_desc .*/archive/[0-9.]+/dose3-([0-9.]+)\.tar\.gz
