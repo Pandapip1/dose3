@@ -5,19 +5,25 @@ Maintainer: Debian OCaml Maintainers <debian-ocaml-maint@lists.debian.org>
 Uploaders: Stefano Zacchiroli <zack@debian.org>,
  Ralf Treinen <treinen@debian.org>,
  Johannes 'josch' Schauer <josch@debian.org>
-Build-Depends: debhelper-compat (= 13), dh-ocaml (>= 0.9~), dh-autoreconf,
+Build-Depends: debhelper-compat (= 13), dh-ocaml (>= 0.9~),
 # use the following line only when autoconf stuff has been patched:
 # automake, autoconf,
- ocaml-nox (>= 3.11.2), cppo (>= 1.1.2),
-# drop ocamlbuild when backporting to ocaml << 4.02.3-10
- ocamlbuild,
+ ocaml-nox (>= 3.11.2),
  libre-ocaml-dev (>= 1.7.2~),
  libextlib-ocaml-dev (>= 1.7.0),
  libocamlgraph-ocaml-dev (>= 1.8.6),
  libcudf-ocaml-dev (>= 0.7),
  libzip-ocaml-dev,
  libbz2-ocaml-dev (>= 0.6.0-10~),
- librpm-dev (>= 4.12),
+ grep-dctrl,
+ libounit-ocaml-dev,
+ libparmap-ocaml-dev,
+ lmodern,
+ ocaml-dune,
+ ocaml-odoc,
+ pandoc,
+ python3-yaml,
+ libbase64-ocaml-dev,
  perl
 Build-Depends-Indep: graphviz,
  hevea, texlive-latex-base, texlive-latex-extra
