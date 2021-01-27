@@ -1,67 +1,22 @@
 #!/usr/bin/make -f
 
-RELEASE = $(shell dpkg-parsechangelog | grep ^Version: | cut -f 2 -d' ')
-BUILDDIR= debian/tmp
+DESTDIR=$(CURDIR)/debian/tmp
+include /usr/share/ocaml/ocamlvars.mk
 
 %:
-	dh $@ --with ocaml --with autoreconf
+	dh $@ --with ocaml
 
-override_dh_auto_clean:
-	! [ -f Makefile.config ] || make distclean
 
-configure-stamp:
-	dh_auto_configure -- --with-ocamlgraph --with-zip \
-			--with-bz2 --with-rpm4 \
-			--bindir=/usr/bin --libdir=/usr/lib
-	touch configure-stamp
-
-override_dh_auto_build:
-	# do nothing
-
-build-arch: build-stamp-arch
-
-build-stamp-arch: configure-stamp
-	$(MAKE)
+execute_after_dh_auto_build:
+	make doc
 	pod2man --section 8 -release "apt-cudf $(RELEASE)" \
 		debian/update-cudf-solvers > debian/update-cudf-solvers.8
-	touch build-stamp-arch
-
-build-indep: configure-stamp
-	$(MAKE) doc
 
 override_dh_auto_install:
-	# do nothing
+	dune install --destdir=$(DESTDIR) --prefix=/usr --libdir=..$(OCAML_STDLIB_DIR)
+	rm -f $(DESTDIR)/usr/doc/dose3/README.git
+	rm -f $(DESTDIR)/usr/doc/dose3/README.architecture
+	rm -f $(DESTDIR)/usr/doc/dose3/CHANGES
 
-override_dh_install-arch:
-	$(MAKE) install DESTDIR=$(CURDIR)/$(BUILDDIR)
-	cd debian/tmp/usr/bin \
-		&& mv distcheck dose-distcheck \
-		&& mv deb-buildcheck dose-builddebcheck \
-		&& mv outdated dose-outdated \
-		&& mv challenged dose-challenged \
-		&& mv ceve dose-ceve \
-		&& mv deb-coinstall dose-deb-coinstall
-	dh_install -a
-	dh_installman -a
-	dh_installdocs -a
-
-override_dh_install-indep:
-	dh_installdocs -i
-
-override_dh_installman:
-	dh_installman
-	if cd debian/dose-distcheck/usr/share/man/man1; \
-		then mv distcheck.1 dose-distcheck.1; \
-	fi
-	if cd debian/dose-extra/usr/share/man/man1; \
-		then mv outdated.1 dose-outdated.1; \
-			mv challenged.1 dose-challenged.1; \
-			mv ceve.1 dose-ceve.1; \
-			mv debcoinstall.1 dose-deb-coinstall.1; \
-	fi
-	if cd 	debian/dose-builddebcheck/usr/share/man/man1; \
-		then mv deb-buildcheck.1 dose-builddebcheck.1; \
-	fi
-
-override_dh_auto_test:
-	# do nothing
+# deactivating because "dwz: Error mmapping multi-file temporary files"
+override_dh_dwz:
