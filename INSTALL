@@ -7,7 +7,6 @@ On debian, dose3 **does not compile** on debian lenny.
 required libraries ( DEBIAN / RPM ) :
  - libextlib-ocaml-dev / ocaml-extlib-devel
  - libre-ocaml-dev / ??
- - cppo ( needed for conditional compilation )
  - libocamlgraph-ocaml-dev >= 1.8.6
 
 additional libraries (enable compilation with --with-<library>) :
@@ -20,8 +19,7 @@ additional libraries (enable compilation with --with-<library>) :
 
 To use rpm support, dose3 needs librpm > 4.6
 
-cppo >= 1.1.2
-extlib >= 1.7.0
+extlib >= 1.7.8
 
 opam users need the following packages to compile dose with the default
 options :
@@ -192,4 +190,8 @@ make testlib
 
 To run only the unit tests : make testlib
 
+To only run specific tests or groups of tests use unit and group parameters,
+respectively:
 
+make test group=distcheck
+make test unit=distcheck_coinst
