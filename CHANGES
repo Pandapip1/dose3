@@ -1,7 +1,29 @@
+dose3 (6.0.1) UNRELEASED; urgency=low
+  * fix CHANGES entry for 6.0
+  * ocamlgraph >=2.0
+  * removed use of cppo
+
+ -- Johannes Schauer Marin Rodrigues <josch@mister-muffin.de>  Sat, 23 Jan 2021 11:34:32 +0100
+
+dose3 (6.0) UNRELEASED; urgency=low
+ * new build system
+ * add gitlab-ci
+ * camlbz2 >=0.7.0
+ * rename opam submodule to opam2
+ * ship testcases
+ * replace dpkg triplettable support by new dpkg tupletable
+ * add --deb-drop-b-d-arch to buildcheck, distcheck and coinstall
+ * support for versioned provides
+ * support mccs in apt-cudf
+ * accept input from xz-compressed files
+ * port Python script from py2 to py3
+ * support M-A:same conflicts with virtual packages
+
+ -- Pietro Abate <pietro.abate@nomadic-labs.com>  Tue 19 Jan 2021 10:12:01 PM CET
 
 dose3 (5.0) UNRELEASED; urgency=low
- * finally implement keep_package/version/feature properly. The globalid 
-   index that was used to optionally encode the global constraints is 
+ * finally implement keep_package/version/feature properly. The globalid
+   index that was used to optionally encode the global constraints is
    now disappeared. This simplify the interface of the solver.
  * massive refactoring. Change of API . All functions in Depsolver*
    accept a new paramenter "global_constraints" that is a vpkgformula
@@ -18,10 +40,10 @@ dose3 (5.0) UNRELEASED; urgency=low
  * improvements to distcheck --lowmem
  * StdOptions.lastest now returns an integer to consider only the last n versions
    of each package
- * API change : CudfAdd.latest 
+ * API change : CudfAdd.latest
  * API change : CudfAdd.inttovar -> CudfAdd.inttopkg
- * API change : add parameter to check_request and check_request_using 
- * apt-cudf : package up or downgrades are expressed in a single 
+ * API change : add parameter to check_request and check_request_using
+ * apt-cudf : package up or downgrades are expressed in a single
    "Install" request and that these do not show up as a "Remove" request anymore.
  * StdOptions.DistribOptions.add_options are now different for each input ( ex.
    StdOptions.DistribOptions.add_debian_options )uu
@@ -51,7 +73,7 @@ dose3 (4.2) UNRELEASED; urgency=low
 
  * Fix META file and other compilation problems (notably on 32 bits architectures)
  * Add back the "Enhances" field in the debian printer
- * the new yaml format also drops the architecture suffix in the package and 
+ * the new yaml format also drops the architecture suffix in the package and
    unsat-dependency fields
  * Add new function Depsolver.is_consistent and Debian.Debcudf.get_real_name
  * Expose Diagnostic.request and Diagnostic.result
@@ -111,18 +133,18 @@ dose3 (4.0-rc1) UNRELEASED; urgency=low
   * Add option --dot to create explanation graphs in dot format
   * add 'out-version' field to yaml format
   * Debian Essential packages are now kept into account while
-    generating strong dependencies. You must pass 
+    generating strong dependencies. You must pass
     --deb-ignore-essential to restore the previous behaviour
   * Add --latest to challenged
-  * Add new format PEF : package export format 
+  * Add new format PEF : package export format
   * Drop eclipse format (superceded by PEF)
   * Drop cv format (superceded by PEF)
   * Ceve can read source packages
   * Add grep-able one line explanations (success/failure) to distcheck
   * Switch architecture and name around in cudf representation for debian packages
   * Add new function to detect unsused dependencies/conflicts
-  * API change : Diagnostic.request, Depsolver.request, StdLoaders.load_list, 
-    Debcudf.init_tables, 
+  * API change : Diagnostic.request, Depsolver.request, StdLoaders.load_list,
+    Debcudf.init_tables,
   * add debsrc input format to ceve
 
  -- Pietro Abate <pietro.abate@pps.univ-paris-diderot.fr>  Wed, 24 June 2015 13:13:06 +0200
@@ -145,7 +167,7 @@ dose3 (3.2.1) UNRELEASED; urgency=low
  -- Pietro Abate <pietro.abate@pps.jussieu.fr>  Wed, 14 May 2014 13:13:06 +0200
 
 dose3 (3.1.4) UNRELEASED; urgency=low
-  
+
   * Add new option to deb-buildcheck (--defaultedMAforeign)
   * Add Graphml printer to Defaultgraphs
   * Apt-cudf: Always print packages that were specified in the request
@@ -196,11 +218,11 @@ dose3 (2.9.16) UNRELEASED; urgency=low
   * Change the behaviour of the edos solver to honor "Keep package" annotations
   * Change the default behaviour of distcheck to always consider debian essential
     packages. The old behaviour can be restored using --deb-ignore-essential
-  * Add --minimal to distcheck to restrict the installation set of a package $p$ 
+  * Add --minimal to distcheck to restrict the installation set of a package $p$
     only to packages in the dependency cone of $p$. By default all packages marked
     as "Keep" are part of installation set.
   * Add Debian multi-arch translation to cudf.
-  * Add debian specific options to filter dependencies and packages based on the 
+  * Add debian specific options to filter dependencies and packages based on the
     allowed architectures (APT::Architecture , APT::Architectures::)
   * add opencsw format support.
   * Numerous bug fixes and performance improvements.

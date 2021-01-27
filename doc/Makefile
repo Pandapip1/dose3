@@ -1,18 +1,17 @@
-SUBDIRS = manpages debcheck.primer apt-external-solvers.primer
-SHELL=/bin/bash
+SUBDIRS=manpages debcheck.primer apt-external-solvers.primer
 
-all:
+all: pages
 	@for subdir in $(SUBDIRS); do \
-	  (cd $$subdir && $(MAKE)); \
+	  $(MAKE) -C $$subdir; \
 	done
 
 clean:
 	@for subdir in $(SUBDIRS); do \
-	  (cd $$subdir && $(MAKE) clean); \
+	  $(MAKE) -C $$subdir clean; \
 	done
 
-webpages:
-	cd webpages && $(MAKE) rebuild
+manpages:
+	$(MAKE) -C manpages
 
-upload: webpages
-	rsync -avz -O --delete --no-perms webpages/public_html/* scm.gforge.inria.fr:/home/groups/dose/htdocs/
+pages:
+	$(MAKE) -C rtd
