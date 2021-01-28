@@ -1,4 +1,4 @@
 doc/apt-cudf/*
 doc/apt-external-solvers.primer/apt-external-solvers.html
 doc/debcheck.primer/debcheck-primer.html
-_build/dose3.docdir
+_build/default/_doc/_html/*
