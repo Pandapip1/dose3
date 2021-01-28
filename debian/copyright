@@ -7,23 +7,23 @@ Files: *
 Copyright: © 2009-2012 Pietro Abate
 License: LGPL-3+
 
-Files: common/format822.ml
+Files: src/common/format822.ml
 Copyright: © 2005-2009 Jérôme Vouillion, Stefano Zacchiroli, Pietro Abate
 License: LGPL-3+
 
-Files: algo/statistics.ml
+Files: src/algo/statistics.ml
 Copyright: © 2008 Jaap Boender, Stefano Zacchiroli, Pietro Abate
 License: LGPL-3+
 
-Files: common/edosSolver.ml common/edosSolver.mli 
+Files: src/common/edosSolver.ml src/common/edosSolver.mli 
 Copyright: © 2005-2009 Jérôme Vouillion
 License: LGPL-3+
 
-Files: common/util.ml
+Files: src/common/util.ml
 Copyright: © 2009 Alain Frisch, Pietro Abate
 License: LGPL-3+
 
-Files: common/url.ml common/url.mli versioning/debian.ml
+Files: src/common/url.ml src/common/url.mli src/versioning/debian.ml
 Copyright: © 2011 Ralf Treinen
 License: LGPL-3+
 
@@ -35,7 +35,7 @@ Files: debian/update-cudf-solvers
 Copyright: © 2011 Stefano Zacchiroli
 License: LGPL-3+
 
-Files: common/shell_lexer.mll
+Files: src/common/shell_lexer.mll
 Copyright: © 2015 Johannes Schauer <j.schauer@email.de>
 License: LGPL-3+
 
