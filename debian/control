@@ -23,7 +23,8 @@ Build-Depends: debhelper-compat (= 13),
                ocaml-odoc,
                pandoc,
                perl,
-               python3-yaml
+               python3-yaml,
+               xz-utils
 Build-Depends-Indep: graphviz, hevea, texlive-latex-base, texlive-latex-extra
 Standards-Version: 4.3.0
 Homepage: http://www.mancoosi.org/software/
