@@ -15,7 +15,7 @@ Files: src/algo/statistics.ml
 Copyright: © 2008 Jaap Boender, Stefano Zacchiroli, Pietro Abate
 License: LGPL-3+
 
-Files: src/common/edosSolver.ml src/common/edosSolver.mli 
+Files: src/common/edosSolver.ml src/common/edosSolver.mli
 Copyright: © 2005-2009 Jérôme Vouillion
 License: LGPL-3+
 

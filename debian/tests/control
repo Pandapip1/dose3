@@ -6,4 +6,3 @@ Depends: dose-builddebcheck
 
 Tests: dose-outdated
 Depends: dose-extra
-

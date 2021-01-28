@@ -3,30 +3,28 @@ Section: ocaml
 Priority: optional
 Maintainer: Debian OCaml Maintainers <debian-ocaml-maint@lists.debian.org>
 Uploaders: Stefano Zacchiroli <zack@debian.org>,
- Ralf Treinen <treinen@debian.org>,
- Johannes 'josch' Schauer <josch@debian.org>
-Build-Depends: debhelper-compat (= 13), dh-ocaml (>= 0.9~),
-# use the following line only when autoconf stuff has been patched:
-# automake, autoconf,
- ocaml-nox (>= 3.11.2),
- libre-ocaml-dev (>= 1.7.2~),
- libextlib-ocaml-dev (>= 1.7.0),
- libocamlgraph-ocaml-dev (>= 1.8.6),
- libcudf-ocaml-dev (>= 0.7),
- libzip-ocaml-dev,
- libbz2-ocaml-dev (>= 0.6.0-10~),
- grep-dctrl,
- libounit-ocaml-dev,
- libparmap-ocaml-dev,
- lmodern,
- ocaml-dune,
- ocaml-odoc,
- pandoc,
- python3-yaml,
- libbase64-ocaml-dev,
- perl
-Build-Depends-Indep: graphviz,
- hevea, texlive-latex-base, texlive-latex-extra
+           Ralf Treinen <treinen@debian.org>,
+           Johannes 'josch' Schauer <josch@debian.org>
+Build-Depends: debhelper-compat (= 13),
+               dh-ocaml (>= 0.9~),
+               grep-dctrl,
+               libbase64-ocaml-dev,
+               libbz2-ocaml-dev (>= 0.6.0-10~),
+               libcudf-ocaml-dev (>= 0.7),
+               libextlib-ocaml-dev (>= 1.7.0),
+               libocamlgraph-ocaml-dev (>= 1.8.6),
+               libounit-ocaml-dev,
+               libparmap-ocaml-dev,
+               libre-ocaml-dev (>= 1.7.2~),
+               libzip-ocaml-dev,
+               lmodern,
+               ocaml-dune,
+               ocaml-nox (>= 3.11.2),
+               ocaml-odoc,
+               pandoc,
+               perl,
+               python3-yaml
+Build-Depends-Indep: graphviz, hevea, texlive-latex-base, texlive-latex-extra
 Standards-Version: 4.3.0
 Homepage: http://www.mancoosi.org/software/
 Vcs-Browser: https://salsa.debian.org/ocaml-team/dose3
@@ -57,7 +55,7 @@ Description: OCaml libraries for package dependencies (development files)
 Package: dose-distcheck
 Section: devel
 Architecture: any
-Depends: ${ocaml:Depends}, ${misc:Depends}, ${shlibs:Depends}, xz-utils
+Depends: xz-utils, ${misc:Depends}, ${ocaml:Depends}, ${shlibs:Depends}
 Breaks: dose3-distcheck (<< 2.9.13)
 Replaces: dose3-distcheck (<< 2.9.13)
 Description: Checks whether dependencies of packages can be satisfied
@@ -71,7 +69,7 @@ Description: Checks whether dependencies of packages can be satisfied
 Package: dose-builddebcheck
 Section: devel
 Architecture: any
-Depends: ${ocaml:Depends}, ${misc:Depends}, ${shlibs:Depends}, xz-utils
+Depends: xz-utils, ${misc:Depends}, ${ocaml:Depends}, ${shlibs:Depends}
 Breaks: dose3-builddebcheck (<< 2.9.13)
 Replaces: dose3-builddebcheck (<< 2.9.13)
 Description: Checks whether build-dependencies can be satisfied
@@ -86,7 +84,7 @@ Architecture: any
 Provides: ceve
 Breaks: ceve (<< 2.9.10)
 Replaces: ceve (<< 2.9.10)
-Depends: ${ocaml:Depends}, ${misc:Depends}, ${shlibs:Depends}, xz-utils
+Depends: xz-utils, ${misc:Depends}, ${ocaml:Depends}, ${shlibs:Depends}
 Description: Extra QA tools from the Dose3-library
  This package contains extra tools for analyzing meta-data of software
  packages:
@@ -107,7 +105,10 @@ Package: apt-cudf
 Section: admin
 Architecture: any
 Depends: aspcud | cudf-solver,
- ${ocaml:Depends}, ${perl:Depends}, ${misc:Depends}, ${shlibs:Depends}
+         ${misc:Depends},
+         ${ocaml:Depends},
+         ${perl:Depends},
+         ${shlibs:Depends}
 Description: CUDF solver integration for APT
  apt-cudf provides integration among the APT package manager and CUDF solvers,
  allowing APT to rely on external (CUDF-based) dependency solvers to plan
@@ -129,12 +130,12 @@ Package: dose-doc
 Section: doc
 Architecture: all
 Depends: ${misc:Depends}
-Replaces: libdose3-ocaml-dev (<< 4.3-2),
-	  apt-cudf (<< 4.3-2),
-	  dose-distcheck (<< 4.3-2)
-Breaks: libdose3-ocaml-dev (<< 4.3-2),
-	  apt-cudf (<< 4.3-2),
-	  dose-distcheck (<< 4.3-2)
+Replaces: apt-cudf (<< 4.3-2),
+          dose-distcheck (<< 4.3-2),
+          libdose3-ocaml-dev (<< 4.3-2)
+Breaks: apt-cudf (<< 4.3-2),
+        dose-distcheck (<< 4.3-2),
+        libdose3-ocaml-dev (<< 4.3-2)
 Multi-Arch: foreign
 Description: Documentation for dose tools and libraries.
  The dose suite provides libraries for handling package meta-data, and various
