@@ -5,5 +5,5 @@ Abstract: API reference manual for libdose3-ocaml-dev (generated via OCamldoc)
 Section: Programming/OCaml
 
 Format: HTML
-Index: /usr/share/doc/dose-doc/dose3.docdir/index.html
-Files: /usr/share/doc/dose-doc/dose3.docdir/*
+Index: /usr/share/doc/dose-doc/dose3/index.html
+Files: /usr/share/doc/dose-doc/dose3/*
