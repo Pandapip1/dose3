@@ -32,6 +32,3 @@ override_dh_auto_test:
 ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
 	dune runtest -p dose3
 endif
-
-# deactivating because "dwz: Error mmapping multi-file temporary files"
-override_dh_dwz:
