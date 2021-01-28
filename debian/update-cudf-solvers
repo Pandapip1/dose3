@@ -175,7 +175,7 @@ on (present or past) APT solvers corresponding to CUDF solvers.
 
 The directory F</usr/share/cudf/solvers> is monitored by a dpkg trigger that
 invokes update-cudf-solvers as needed. In all but exceptional circumstances,
-you should not be required to opearte update-cudf-solvers manually.
+you should not be required to operate update-cudf-solvers manually.
 
 =head1 OPTIONS
 
