@@ -1,8 +1,31 @@
-dose3 (6.0.1-1) UNRELEASED; urgency=medium
+dose3 (6.0.1-1) unstable; urgency=medium
 
-  * 
+  * New upstream version
+  * debian/watch: upstream moved to gitlab.com/irill/dose3
+  * debian/rules:
+     - buildsystem switched to dune
+     - call dune build -p dose3 to avoid 'Error: Too many opam files
+       for package'
+     - add DEB_BUILD_MAINT_OPTIONS = hardening=+all
+     - check DEB_BUILD_OPTIONS for nocheck before running tests
+     - do not override_dh_dwz anymore
+  * debian/control:
+     - adjust build dependencies
+     - add Rules-Requires-Root: no
+     - bump Standards-Version to 4.5.1
+     - bump dh compat to 13 and use debhelper-compat as B-D
+     - drop libdose3-ocaml package as there are no shared runtime stubs anymore
+  * debian/patches:
+     - drop patches: everything is now upstream
+     - add patch for ocamlgraph 1.8.6
+     - pick two patches from upstream to fix FTBFS
+     - add patch making dose3 tests succeed on 32 bit arches
+  * fix paths in *.install and *.manpages and *.docs
+  * debian/copyright: fix paths that were moved into src
+  * debian/update-cudf-solvers: fix typo opearte -> operate
+  * run wrap-and-sort
 
- -- Johannes 'josch' Schauer <josch@debian.org>  Wed, 27 Jan 2021 16:12:41 +0100
+ -- Johannes 'josch' Schauer <josch@debian.org>  Mon, 01 Feb 2021 23:08:16 +0100
 
 dose3 (5.0.1-16) unstable; urgency=medium
 
