@@ -17,18 +17,18 @@ Build-Depends: debhelper-compat (= 13),
                ocaml-dune,
                ocaml-nox (>= 3.11.2),
                pandoc
-Build-Depends-Arch: grep-dctrl,
-                    libounit-ocaml-dev,
+Build-Depends-Arch: grep-dctrl <!nocheck>,
+                    libounit-ocaml-dev <!nocheck>,
                     libparmap-ocaml-dev,
                     perl,
-                    python3-yaml,
-                    xz-utils
-Build-Depends-Indep: graphviz,
-                     hevea,
-                     lmodern,
-                     ocaml-odoc,
-                     texlive-latex-base,
-                     texlive-latex-extra
+                    python3-yaml <!nocheck>,
+                    xz-utils <!nocheck>
+Build-Depends-Indep: graphviz <!nodoc>,
+                     hevea <!nodoc>,
+                     lmodern <!nodoc>,
+                     ocaml-odoc <!nodoc>,
+                     texlive-latex-base <!nodoc>,
+                     texlive-latex-extra <!nodoc>
 Standards-Version: 4.5.1
 Homepage: http://www.mancoosi.org/software/
 Vcs-Browser: https://salsa.debian.org/ocaml-team/dose3
@@ -141,6 +141,7 @@ Breaks: apt-cudf (<< 4.3-2),
         dose-distcheck (<< 4.3-2),
         libdose3-ocaml-dev (<< 4.3-2)
 Multi-Arch: foreign
+Build-Profiles: <!nodoc>
 Description: Documentation for dose tools and libraries.
  The dose suite provides libraries for handling package meta-data, and various
  tools for analyzing package relationships in a large package repository.
