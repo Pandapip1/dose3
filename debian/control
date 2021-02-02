@@ -7,25 +7,28 @@ Uploaders: Stefano Zacchiroli <zack@debian.org>,
            Johannes 'josch' Schauer <josch@debian.org>
 Build-Depends: debhelper-compat (= 13),
                dh-ocaml (>= 0.9~),
-               grep-dctrl,
                libbase64-ocaml-dev,
                libbz2-ocaml-dev (>= 0.6.0-10~),
                libcudf-ocaml-dev (>= 0.7),
                libextlib-ocaml-dev (>= 1.7.0),
                libocamlgraph-ocaml-dev (>= 1.8.6),
-               libounit-ocaml-dev,
-               libparmap-ocaml-dev,
                libre-ocaml-dev (>= 1.7.2~),
                libzip-ocaml-dev,
-               lmodern,
                ocaml-dune,
                ocaml-nox (>= 3.11.2),
-               ocaml-odoc,
-               pandoc,
-               perl,
-               python3-yaml,
-               xz-utils
-Build-Depends-Indep: graphviz, hevea, texlive-latex-base, texlive-latex-extra
+               pandoc
+Build-Depends-Arch: grep-dctrl,
+                    libounit-ocaml-dev,
+                    libparmap-ocaml-dev,
+                    perl,
+                    python3-yaml,
+                    xz-utils
+Build-Depends-Indep: graphviz,
+                     hevea,
+                     lmodern,
+                     ocaml-odoc,
+                     texlive-latex-base,
+                     texlive-latex-extra
 Standards-Version: 4.5.1
 Homepage: http://www.mancoosi.org/software/
 Vcs-Browser: https://salsa.debian.org/ocaml-team/dose3
