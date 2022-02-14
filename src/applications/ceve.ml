@@ -282,7 +282,7 @@ let main () =
        if List.mem t ["dot"; "gml"; "grml"] then
          let g = OptParse.Opt.get Options.grp_type in
          if not (List.mem g ["pkg"; "strdeps"; "conj"; "dom"; "syn"]) then
-           info "Option -G %s is not compatible with format %s. Ingored" g t) ;
+           info "Option -G %s is not compatible with format %s. Ignored" g t) ;
       (match OptParse.Opt.get Options.out_type with
       | "cnf" ->
           Printf.fprintf oc "%s" (Depsolver.output_clauses ~enc:Depsolver.Cnf u)

@@ -10,6 +10,7 @@
 
 (rule
  (alias runtest)
+ (deps ../../tests/pef/unittests.pef)
  (action
   (chdir
    ../../

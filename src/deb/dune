@@ -6,6 +6,8 @@
 
 (rule
  (alias runtest)
+ (deps ../../tests/DebianPackages/Packages_20201226T144309Z_amd64.xz
+   ../../tests/deb/discriminants ../../tests/deb/essential)
  (action
   (chdir
    ../../

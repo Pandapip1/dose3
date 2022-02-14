@@ -1,7 +1,7 @@
 (library
  (name dose_common)
  (public_name dose3.common)
- (libraries extlib cudf zip bz2 re.pcre)
+ (libraries extlib cudf zip bz2 re.pcre stdlib-shims unix)
  (flags (:standard)))
 
 (ocamllex shell_lexer)
@@ -25,7 +25,7 @@
  (targets gitVersionInfo.ml)
  ; Ensures the hash update whenever a source file is modified ;
  (deps
-  (source_tree %{workspace_root})
+  (source_tree %{workspace_root}/.git)
   (:script get-git-info.mlt))
  (action
   (with-stdout-to
@@ -34,6 +34,7 @@
 
 (rule
  (alias runtest)
+ (deps ../../tests/cudf/legacy.cudf)
  (action
   (chdir
    ../../
