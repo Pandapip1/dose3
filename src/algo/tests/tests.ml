@@ -964,7 +964,6 @@ let all =
          test_dominators
          (* test_clause_dump ; *) ]
 
-let main () = OUnit.run_test_tt_main all
+let main () = OUnit.run_test_tt_main all;;
 
-;;
 main ()

@@ -11,6 +11,7 @@
 
 open ExtLib
 open Dose_common
+open Dose_extra
 open Dose_doseparse
 
 include Util.Logging (struct
@@ -142,6 +143,6 @@ let main () =
           errmsg
     in
     if matches > 0 then 0 else 1
-
 ;;
+
 StdUtils.if_application ~alternatives:["dose-debgrep"] "debGrep" main

@@ -13,6 +13,7 @@
 
 open ExtLib
 open Dose_common
+open Dose_extra
 open Dose_algo
 open Dose_doseparse
 
@@ -63,68 +64,63 @@ module Options = struct
 
   let request = StdOptions.incr_str_list ()
 
-  include StdOptions.InputOptions
+  include StdOptions.InputOptions;;
 
-  ;;
   StdOptions.InputOptions.add_options
     ~default:["latest"; "trim"; "inputtype"; "compare"]
     options
-
   ;;
+
   StdOptions.InputOptions.add_option
     options
     ~short_name:'c'
     ~long_name:"cone"
     ~help:"dependency cone"
     cone
-
   ;;
+
   StdOptions.InputOptions.add_option
     options
     ~short_name:'r'
     ~long_name:"rcone"
     ~help:"reverse dependency cone"
     reverse_cone
-
   ;;
+
   StdOptions.InputOptions.add_option
     options
     ~long_name:"depth"
     ~help:"max depth - in conjunction with cone"
     cone_maxdepth
-
   ;;
+
   StdOptions.InputOptions.add_option
     options
     ~long_name:"request"
     ~help:"Installation Request (can be repeated)"
     request
 
-  include StdOptions.OutputOptions
+  include StdOptions.OutputOptions;;
 
-  ;;
-  StdOptions.OutputOptions.add_options options
+  StdOptions.OutputOptions.add_options options;;
 
-  ;;
   StdOptions.OutputOptions.add_option
     options
     ~short_name:'G'
     ~help:"Graph output type format. Default syn"
     grp_type
-
   ;;
+
   StdOptions.OutputOptions.add_option
     options
     ~short_name:'T'
     ~help:"Output type format. Default cnf"
     out_type
 
-  include StdOptions.DistribOptions
+  include StdOptions.DistribOptions;;
 
-  ;;
-  StdOptions.DistribOptions.add_debian_options options
+  StdOptions.DistribOptions.add_debian_options options;;
 
-  ;;
   StdOptions.DistribOptions.add_opam_options options
 end
 
@@ -401,8 +397,8 @@ let main () =
       | t -> fatal "-T %s format unknown." t) ;
       close_out oc)
     [plist]
-
 ;;
+
 StdUtils.if_application ~alternatives:["dose-ceve"; "ceve"] "ceve" (fun () ->
     main () ;
     0)

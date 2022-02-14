@@ -1,6 +1,6 @@
 (lang dune 2.7)
 (name dose3)
-(version 6.1)
+(version 7.0.0)
 (generate_opam_files true)
 (license "LGPL-3.0-or-later with OCaml-LGPL-linking-exception")
 (authors "Pietro Abate" "Ralf Treinen" "Jaap Boender" "Johannes Schauer Marin Rodrigues" "Roberto Di Cosmo" "Felipe Garay" "Stefano Zacchiroli" "Jakub Zwolakowski" "Olivier Rosello")
@@ -37,17 +37,26 @@
   (ocaml (>= 4.03))
   (extlib (>= 1.7.8))
   (base64 (>= 3.1.0))
-  (camlbz2 (>= 0.7.0))
-  (camlzip (>= 1.08))
   (cudf (>= 0.7))
   (ocamlgraph (>= 2.0.0))
   (re (>= 1.2.2))
-  parmap
   stdlib-shims
   (ounit :with-test)
   (conf-python-3 :with-test)
   (conf-python3-yaml :with-test)
   (conf-dpkg :with-test)
   (odoc :with-doc)
+ )
+)
+
+(package
+ (name dose3-extra)
+ (synopsis "Some extra functions for dose3")
+ (depends
+  (ocaml (>= 4.03))
+  (extlib (>= 1.7.8))
+  (camlbz2 (>= 0.7.0))
+  (camlzip (>= 1.08))
+  parmap
  )
 )

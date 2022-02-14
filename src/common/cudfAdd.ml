@@ -99,9 +99,9 @@ module DecodingHashtable = OCAMLHashtbl.Make (struct
   let hash s = (Char.code s.[1] * 1000) + Char.code s.[2]
 end)
 
-(*  "hex_char char" returns the ASCII code of the given character
-    in the hexadecimal form, prefixed with the '%' sign.
-    e.g. hex_char '+' = "%2b" *)
+(* "hex_char char" returns the ASCII code of the given character
+   in the hexadecimal form, prefixed with the '%' sign.
+   e.g. hex_char '+' = "%2b" *)
 (* let hex_char char = Printf.sprintf "%%%02x" (Char.code char);; *)
 
 (* "init_hashtables" initializes the two given hashtables to contain:
@@ -127,9 +127,8 @@ let init_hashtables enc_ht dec_ht =
    one for encoding and one for decoding. *)
 let enc_ht = EncodingHashtable.create 256
 
-let dec_ht = DecodingHashtable.create 256
+let dec_ht = DecodingHashtable.create 256;;
 
-;;
 init_hashtables enc_ht dec_ht
 
 (* encode *)

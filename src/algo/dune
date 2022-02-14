@@ -6,6 +6,7 @@
 
 (rule
  (alias runtest)
+ (package dose3)
  (deps ../../tests/DebianPackages/debian_20201226T144309Z.cudf
    ../../tests/algo/coinst.cudf ../../tests/algo/cone.cudf
    ../../tests/algo/engine-conflicts.cudf

@@ -20,7 +20,7 @@
 
 (executable
  (name debGrep)
- (libraries extlib dose3.common dose3.doseparse dose3.debian)
+ (libraries extlib dose3.common dose3-extra.doseparse dose3-extra.debian)
  (modules debGrep grep_argv_parser grep_argv_types))
 
 (ocamlyacc grep_argv_parser)
@@ -59,6 +59,7 @@
 
 (rule
  (alias runtest)
+ (package dose3-extra)
  (deps
   (:p1 Packages_20201226T144309Z_amd64.xz)
   (:p2 Packages_20201226T144309Z_amd64_debgrep))
