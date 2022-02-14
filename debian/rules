@@ -19,8 +19,7 @@ override_dh_auto_build-arch:
 		debian/update-cudf-solvers > debian/update-cudf-solvers.8
 
 override_dh_auto_build-indep:
-# odoc 1.5.2 does not work with ocaml 4.13.1
-#	dune build -p dose3 @doc
+	dune build -p dose3 @doc
 	# running targets manually because we don't want to build the "pages"
 	make -C doc/debcheck.primer
 	make -C doc/apt-external-solvers.primer
