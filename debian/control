@@ -30,7 +30,7 @@ Build-Depends-Indep: graphviz <!nodoc>,
                      texlive-latex-base <!nodoc>,
                      texlive-latex-extra <!nodoc>
 Standards-Version: 4.6.0
-Homepage: http://www.mancoosi.org/software/
+Homepage: https://www.mancoosi.org/software/
 Vcs-Browser: https://salsa.debian.org/ocaml-team/dose3
 Vcs-Git: https://salsa.debian.org/ocaml-team/dose3.git
 Rules-Requires-Root: no
