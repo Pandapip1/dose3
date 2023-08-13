@@ -1,3 +1,13 @@
+dose3 (7.0.0-3) UNRELEASED; urgency=medium
+
+  [ Debian Janitor ]
+  * Remove constraints unnecessary since buster (oldstable)
+  * Use secure URI in Homepage field
+  * Set upstream metadata fields
+  * Update standards version to 4.6.1
+
+ -- Stéphane Glondu <glondu@debian.org>  Sun, 13 Aug 2023 11:39:26 +0200
+
 dose3 (7.0.0-2) unstable; urgency=medium
 
   * Team upload
