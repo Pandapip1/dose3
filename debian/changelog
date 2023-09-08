@@ -1,3 +1,10 @@
+dose3 (7.0.0-4) unstable; urgency=medium
+
+  * Team upload
+  * Fix tests with ocamlgraph 2.1.0 (Closes: #1051484)
+
+ -- Stéphane Glondu <glondu@debian.org>  Fri, 08 Sep 2023 17:55:57 +0200
+
 dose3 (7.0.0-3) unstable; urgency=medium
 
   [ Stéphane Glondu ]
