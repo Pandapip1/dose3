@@ -19,6 +19,7 @@ Build-Depends: debhelper-compat (= 13),
                pandoc
 Build-Depends-Arch: grep-dctrl <!nocheck>,
                     libounit-ocaml-dev <!nocheck>,
+                    libcamlp-streams-ocaml-dev <!nocheck>,
                     libparmap-ocaml-dev,
                     perl,
                     python3-yaml <!nocheck>,
