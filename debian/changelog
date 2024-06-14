@@ -1,8 +1,12 @@
 dose3 (7.0.0-5) UNRELEASED; urgency=medium
 
+  [ Ralf Treinen ]
   * * Update debian/watch, to follow recent gitlab change.
 
- -- Ralf Treinen <treinen@debian.org>  Wed, 10 Apr 2024 08:21:35 +0200
+  [ Stéphane Glondu ]
+  * Add camlp-streams to debGrep dependencies
+
+ -- Stéphane Glondu <glondu@debian.org>  Fri, 14 Jun 2024 13:48:34 +0200
 
 dose3 (7.0.0-4) unstable; urgency=medium
 
