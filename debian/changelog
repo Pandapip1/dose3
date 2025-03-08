@@ -1,3 +1,13 @@
+dose3 (7.0.0-6) unstable; urgency=medium
+
+  [ Stéphane Glondu ]
+  * Team upload
+
+  [ Samuel Thibault ]
+  * Add a noextra build profile (Closes: #1099685)
+
+ -- Stéphane Glondu <glondu@debian.org>  Sat, 08 Mar 2025 07:40:21 +0100
+
 dose3 (7.0.0-5) unstable; urgency=medium
 
   [ Stéphane Glondu ]
