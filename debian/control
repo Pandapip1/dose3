@@ -8,19 +8,19 @@ Uploaders: Stefano Zacchiroli <zack@debian.org>,
 Build-Depends: debhelper-compat (= 13),
                dh-ocaml,
                libbase64-ocaml-dev (>= 3.1.0),
-               libbz2-ocaml-dev (>= 0.6.0-10~),
+               libbz2-ocaml-dev (>= 0.6.0-10~) <!pkg.dose3.noextra>,
                libcudf-ocaml-dev,
                libextlib-ocaml-dev (>= 1.7.7),
                libocamlgraph-ocaml-dev (>= 2.1.0),
                libre-ocaml-dev,
-               libzip-ocaml-dev (>= 1.08),
+               libzip-ocaml-dev (>= 1.08) <!pkg.dose3.noextra>,
                ocaml-dune (>= 2.7.1),
                ocaml,
                pandoc
 Build-Depends-Arch: grep-dctrl <!nocheck>,
                     libounit-ocaml-dev <!nocheck>,
                     libcamlp-streams-ocaml-dev <!nocheck>,
-                    libparmap-ocaml-dev,
+                    libparmap-ocaml-dev <!pkg.dose3.noextra>,
                     perl,
                     python3-yaml <!nocheck>,
                     xz-utils <!nocheck>
@@ -60,6 +60,7 @@ Description: OCaml libraries for package dependencies (development files)
 Package: dose-distcheck
 Section: devel
 Architecture: any
+Build-Profiles: <!pkg.dose3.noextra>
 Depends: xz-utils, ${misc:Depends}, ${ocaml:Depends}, ${shlibs:Depends}
 Breaks: dose3-distcheck (<< 2.9.13)
 Replaces: dose3-distcheck (<< 2.9.13)
@@ -74,6 +75,7 @@ Description: Checks whether dependencies of packages can be satisfied
 Package: dose-builddebcheck
 Section: devel
 Architecture: any
+Build-Profiles: <!pkg.dose3.noextra>
 Depends: xz-utils, ${misc:Depends}, ${ocaml:Depends}, ${shlibs:Depends}
 Breaks: dose3-builddebcheck (<< 2.9.13)
 Replaces: dose3-builddebcheck (<< 2.9.13)
@@ -86,6 +88,7 @@ Description: Checks whether build-dependencies can be satisfied
 Package: dose-extra
 Section: devel
 Architecture: any
+Build-Profiles: <!pkg.dose3.noextra>
 Provides: ceve
 Breaks: ceve (<< 2.9.10)
 Replaces: ceve (<< 2.9.10)
@@ -109,6 +112,7 @@ Description: Extra QA tools from the Dose3-library
 Package: apt-cudf
 Section: admin
 Architecture: any
+Build-Profiles: <!pkg.dose3.noextra>
 Depends: aspcud | cudf-solver,
          ${misc:Depends},
          ${ocaml:Depends},

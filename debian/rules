@@ -4,6 +4,10 @@ export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 DESTDIR=$(CURDIR)/debian/tmp
 include /usr/share/ocaml/ocamlvars.mk
 
+ifeq (,$(filter pkg.dose3.noextra, $(DEB_BUILD_PROFILES)))
+DUNE_EXTRAPROFILE=,dose3-extra
+endif
+
 %:
 	dh $@ --with ocaml
 
@@ -13,20 +17,20 @@ include /usr/share/ocaml/ocamlvars.mk
 # - debian/output/source_dir/dose3.opam
 # - dose3.opam
 override_dh_auto_build-arch:
-	dune build -p dose3,dose3-extra @install --verbose
+	dune build -p dose3$(DUNE_EXTRAPROFILE) @install --verbose
 	make -C doc/manpages man
 	pod2man --section 8 -release "apt-cudf $(RELEASE)" \
 		debian/update-cudf-solvers > debian/update-cudf-solvers.8
 
 override_dh_auto_build-indep:
-	dune build -p dose3,dose3-extra @doc
+	dune build -p dose3$(DUNE_EXTRAPROFILE) @doc
 	# running targets manually because we don't want to build the "pages"
 	make -C doc/debcheck.primer
 	make -C doc/apt-external-solvers.primer
 	make -C doc/manpages html
 
 override_dh_auto_install-arch:
-	dune install -p dose3,dose3-extra --destdir=$(DESTDIR) --prefix=/usr --libdir=$(OCAML_STDLIB_DIR)
+	dune install -p dose3$(DUNE_EXTRAPROFILE) --destdir=$(DESTDIR) --prefix=/usr --libdir=$(OCAML_STDLIB_DIR)
 	rm -f $(DESTDIR)/usr/doc/dose3/README.git
 	rm -f $(DESTDIR)/usr/doc/dose3/README.architecture
 	rm -f $(DESTDIR)/usr/doc/dose3/CHANGES
@@ -37,5 +41,5 @@ override_dh_auto_install-indep:
 
 override_dh_auto_test-arch:
 ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
-	dune runtest -p dose3,dose3-extra
+	dune runtest -p dose3$(DUNE_EXTRAPROFILE)
 endif
