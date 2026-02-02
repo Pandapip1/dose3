@@ -15,8 +15,7 @@ Build-Depends: debhelper-compat (= 13),
                libre-ocaml-dev,
                libzip-ocaml-dev (>= 1.08) <!pkg.dose3.noextra>,
                ocaml-dune (>= 2.7.1),
-               ocaml,
-               pandoc
+               ocaml
 Build-Depends-Arch: grep-dctrl <!nocheck>,
                     libounit-ocaml-dev <!nocheck>,
                     libcamlp-streams-ocaml-dev <!nocheck>,
@@ -29,7 +28,8 @@ Build-Depends-Indep: graphviz <!nodoc>,
                      lmodern <!nodoc>,
                      ocaml-odoc <!nodoc>,
                      texlive-latex-base <!nodoc>,
-                     texlive-latex-extra <!nodoc>
+                     texlive-latex-extra <!nodoc>,
+                     pandoc <!nodoc>
 Standards-Version: 4.6.2
 Homepage: https://www.mancoosi.org/software/
 Vcs-Browser: https://salsa.debian.org/ocaml-team/dose3
