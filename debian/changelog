@@ -1,3 +1,10 @@
+dose3 (7.0.0-7) unstable; urgency=medium
+
+  * Team upload
+  * Move pandoc to Build-Depends-Indep
+
+ -- Stéphane Glondu <glondu@debian.org>  Mon, 02 Feb 2026 12:33:49 +0100
+
 dose3 (7.0.0-6) unstable; urgency=medium
 
   [ Stéphane Glondu ]
