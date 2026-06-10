@@ -1,5 +1,6 @@
-version=4
+Version: 5
 
-opts="searchmode=plain" \
- https://gitlab.com/irill/@PACKAGE@/tags?sort=updated_desc \
- -/archive/\d[\d.]+/@PACKAGE@-@ANY_VERSION@@ARCHIVE_EXT@ debian uupdate
+Source: https://gitlab.com/irill/@PACKAGE@/tags?sort=updated_desc
+Matching-Pattern: -/archive/\d[\d.]+/@PACKAGE@-@ANY_VERSION@@ARCHIVE_EXT@
+Searchmode: plain
+Update-Script: uupdate
