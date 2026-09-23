@@ -1,0 +1,18 @@
+Request: EDSP 0.5
+Architecture: amd64
+Strict-Pinning: false
+Install: a1:amd64
+
+Package: a1
+Architecture: amd64
+Version: 1
+APT-ID: 1
+APT-Pin: 500
+APT-Candidate: yes
+
+Package: b1
+Architecture: i386
+Version: 1
+APT-ID: 2
+APT-Pin: 500
+APT-Candidate: yes

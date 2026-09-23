@@ -213,7 +213,7 @@ let rec packages_parser ?(request = false) (req, acc) p =
       | Some st -> packages_parser (req, st :: acc) p)
   | Some stanza when req.strict_pin = false -> (
       match Packages.parse_package_stanza None archs extras stanza with
-      | None -> assert false (* this is not possible in this branch *)
+      | None -> packages_parser (req, acc) p
       | Some st -> packages_parser (req, st :: acc) p)
   | _ -> assert false
 

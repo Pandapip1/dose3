@@ -712,6 +712,18 @@ let test_mapping =
   "test deb -> cudf mapping"
   >::: [(*    test_numbering ; *) test_virtual; test_multiarch]
 
+let test_edsp_parsing =
+  "test edsp parsing"
+  >::: [ ( "strict-pinning false skips packages excluded by Architecture"
+         >:: fun _ ->
+           let f =
+             Filename.concat
+               testdir
+               "deb/edsp/strict-pinning-false-excluded-arch.edsp"
+           in
+           let (_request, pkglist) = Edsp.input_raw f in
+           assert_equal ["a1"] (List.map (fun pkg -> pkg#name) pkglist) ) ]
+
 (* Parsing tests *)
 
 (* parse_inst *)
@@ -1610,6 +1622,7 @@ let all =
   >::: [ test_parsing;
          "test versioned provides" >::: make_test_cases test_versioned_provides;
          test_mapping;
+         test_edsp_parsing;
          test_conflicts;
          test_conflicts_multi_arch_same;
          "test real name" >::: make_test_cases test_realname;

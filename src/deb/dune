@@ -8,7 +8,8 @@
  (alias runtest)
  (package dose3-extra)
  (deps ../../tests/DebianPackages/Packages_20201226T144309Z_amd64.xz
-   ../../tests/deb/discriminants ../../tests/deb/essential)
+   ../../tests/deb/discriminants ../../tests/deb/essential
+   ../../tests/deb/edsp/strict-pinning-false-excluded-arch.edsp)
  (action
   (chdir
    ../../
